@@ -39,3 +39,7 @@ Booking state gates, deposit enforcement, refunds/corrections, stale revisions a
 ## Review focus
 
 Protected private customer details, retained source commit history, excluded local secrets/databases/test artifacts, exact integer money arithmetic, distinct quote acceptance and booking confirmation, consented publication, catalog snapshots for historical terms, conservative unavailability checks, and complete audit records for edits/cancellations/corrections.
+
+## Preview links and checkout extras increment
+
+Editable per-show preview URLs (HTTPS only), optional checkout extras, catalog-derived performer category choices and prefilled WhatsApp enquiry links were added. Browser verification: enable the bubbles show as an extra in admin; preview link renders with the saved URL; register a customer with magic in the basket; opt into bubbles at checkout; the private event timetable includes magic, the changeover and bubbles. No extras are preselected. API coverage checks unsafe preview URL rejection and persisted extra duration/category snapshots. Build/type/lint and all 31 tests pass; no customer-browser JavaScript errors recorded. No external video was opened or WhatsApp message sent.

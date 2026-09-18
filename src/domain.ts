@@ -83,6 +83,8 @@ export const packageSchema = z
   .object({
     name: short.min(2),
     fastOrder: z.boolean().optional(),
+    checkoutExtra: z.boolean().optional(),
+    previewVideo: url.optional(),
     category: short.min(1).max(40),
     description: z.string().max(3000),
     duration: z.number().int().min(5).max(480),
@@ -104,7 +106,7 @@ export const packageSchema = z
 export const performerSchema = z.object({
   name: short.min(2),
   bio: z.string().max(3000),
-  categories: z.array(z.enum(["magic", "science", "bubbles", "other"])).min(1),
+  categories: z.array(short.min(1).max(40)).min(1).max(30),
   photo: url,
   video: url,
   areas: short,

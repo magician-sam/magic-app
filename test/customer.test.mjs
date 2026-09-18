@@ -56,6 +56,33 @@ test("customer accounts isolate staff, businesses and other families; profile an
         .status,
       401,
     );
+    const basePackage = (await request("/public/families")).data.packages[2];
+    const extra = await request(
+      "/manage/packages/new",
+      "PUT",
+      {
+        ...basePackage,
+        name: "Bubble extra",
+        duration: 15,
+        category: "character",
+        checkoutExtra: true,
+        fastOrder: false,
+        previewVideo: "https://example.test/approved-preview",
+      },
+      staff.cookie,
+    );
+    assert.equal(extra.status, 200);
+    assert.equal(
+      (
+        await request(
+          "/manage/packages/new",
+          "PUT",
+          { ...basePackage, previewVideo: "javascript:alert(1)" },
+          staff.cookie,
+        )
+      ).status,
+      400,
+    );
     const event = {
       name: "My private party",
       date: "2027-10-01",
@@ -67,7 +94,7 @@ test("customer accounts isolate staff, businesses and other families; profile an
       indoor: true,
       power: true,
       space: 30,
-      packageIds: ["magic"],
+      packageIds: ["magic", extra.data.id],
     };
     assert.equal(
       (await request("/public/families/requests", "POST", { event })).status,
@@ -107,6 +134,12 @@ test("customer accounts isolate staff, businesses and other families; profile an
       a.cookie,
     );
     assert.equal(booking.status, 201);
+    const snapshotExtra = store
+      .get(business.id, "bookings", booking.data.id)
+      .packageSnapshot.find((p) => p.id === extra.data.id);
+    assert.equal(snapshotExtra.duration, 15);
+    assert.equal(snapshotExtra.checkoutExtra, true);
+    assert.equal(snapshotExtra.category, "character");
     assert.equal(
       (
         await request(

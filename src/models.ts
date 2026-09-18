@@ -22,6 +22,8 @@ export interface Package {
   id: string;
   name: string;
   fastOrder?: boolean;
+  checkoutExtra?: boolean;
+  previewVideo?: string;
   category: string;
   description: string;
   duration: number;

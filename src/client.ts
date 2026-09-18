@@ -186,7 +186,7 @@ function price(p: Package) {
     : `${p.priceMode === "from" ? "From " : ""}${money(p.price)}`;
 }
 function showCard(p: Package) {
-  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p><div class="show-meta">Ages ${p.minAge}+ &nbsp;·&nbsp; ${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p>${p.previewVideo ? `<p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch a quick preview ↗</a></p>` : ""}<div class="show-meta">Ages ${p.minAge}+ &nbsp;·&nbsp; ${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -212,7 +212,7 @@ function renderPublic() {
     .map(showCard)
     .join(
       "",
-    )}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, ""))}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer></div>`;
+    )}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer></div>`;
   renderBox();
   on(app, "#customer-account", "click", () => customerAccount());
   on(app, "#more-shows", "click", () => {
@@ -364,6 +364,9 @@ async function requestForm() {
     return;
   }
   const questions = (catalog.customFields ?? []).filter((f) => f.active);
+  const extras = catalog.packages.filter(
+    (p) => p.checkoutExtra && !basket.includes(p.id),
+  );
   const fields = eventFields();
   openDialog(
     "Let’s make a happy day.",
@@ -379,7 +382,7 @@ async function requestForm() {
           wide: f.type === "textarea",
         })),
       ],
-      `<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
+      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${p.duration} min · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
       "Send my event request →",
     ),
   );
@@ -399,7 +402,9 @@ async function requestForm() {
         ),
         event: {
           ...formValues(data, fields),
-          packageIds: basket,
+          packageIds: [
+            ...new Set([...basket, ...selected(data, "checkout-extra")]),
+          ],
           performerIds: selectedPerformers,
         },
       },
@@ -1456,6 +1461,10 @@ function editRecord(kind: string, key: string, duplicate = false) {
         value: item.category ?? "magic",
       }),
       f("description", "Description", "textarea", { wide: true }),
+      f("previewVideo", "Short show preview link", "url", {
+        help: "Use an approved HTTPS video page. A 15–20 second clip is ideal. Leave blank to remove.",
+      }),
+      f("checkoutExtra", "Offer as an optional checkout extra", "checkbox"),
       f("duration", "Show duration (minutes)", "number", {
         value: item.duration ?? 45,
         min: 5,
@@ -1597,7 +1606,16 @@ function editRecord(kind: string, key: string, duplicate = false) {
       kind === "performers"
         ? choices(
             "categories",
-            ["magic", "science", "bubbles", "other"].map((id) => ({
+            [
+              ...new Set([
+                "magic",
+                "science",
+                "bubbles",
+                "other",
+                ...state!.packages.map((p) => p.category),
+                ...((item.categories as string[]) ?? []),
+              ]),
+            ].map((id) => ({
               id,
               name: pretty(id),
             })),

@@ -47,11 +47,11 @@ Catalog edits are versioned into event/proposal snapshots so existing agreements
 
 ## Handwritten additions still to complete
 
-- Dedicated 15–20 second package previews and checkout add-on suggestions (existing performer video links and multi-show basket remain available).
+- Per-package HTTPS preview links and optional checkout extras are implemented; supply approved 15–20 second clips. Clip uploads, embedded playback and duration verification remain future media work.
 - Card/Whish deposits require a selected, verified provider and credentials; no payment processing is simulated.
 - Availability scarcity labels must derive from real capacity, with no fabricated countdowns or demand claims.
 - Money-back guarantee requires owner-defined scope/conditions before publication; never invent a financial promise.
-- Prefilled WhatsApp draft links; a real chatbot is a separate integration and is not implied by opening WhatsApp.
+- Prefilled WhatsApp enquiry/recovery draft links are implemented; a real chatbot is a separate integration and is not implied by opening WhatsApp.
 - Extend configurable questions to additional record types, richer field ordering and public content editing, while preserving historical records.
 
 ## Customer recovery addition
