@@ -21,6 +21,11 @@ Setup refuses to overwrite an existing account. The production database starts w
 
 ## What works
 
+- Customer-only accounts with name/phone required, generated editable usernames, password login/change and optional email/children's ages. Browsing stays public; new event requests require a customer session. Staff accounts cannot substitute for customer accounts. Supplied phone numbers are not verified and never auto-link historical contacts.
+- Forgot-password requests, owner review after independent identity verification, private single-use 30-minute reset links/codes, and session revocation. There is no automatic SMS/email delivery; staff share recovery details privately after verification. Password changes also revoke outstanding reset codes.
+- Fast Order plus More Shows, editable show categories and featured flags. Owner-configured booking questions (text, long text, number, choices), required/optional and visible/hidden settings, snapshotted answers, audited staff answer corrections on open events.
+- Customer referral codes/links, configurable reward percentages/thresholds/conditions and profile-completion points. Reward offers start disabled; free-show eligibility must be configured. Progress counts completed, fully paid events and reflects refunds. Redemption is manual through a reviewed quote, not an automated entitlement or payment credit.
+
 - Theatrical responsive public website, show cards, event box, guided chooser, optional performer selection, profiles/media links, authorized membership badges, consented verified-event reviews, configurable Instagram/WhatsApp links.
 - Persisted reservation requests and unguessable private event links. Request, performer availability, proposal acceptance and confirmed booking are distinct states.
 - One to three quote alternatives, integer-cent prices/deposits, stale-revision protection, owner approval, conservative travel/setup conflicts, venue compatibility, timetable, editable checklist, backup performers, cancellation and rescheduling history.
@@ -51,7 +56,7 @@ node node_modules/typescript/bin/tsc
 node scripts/build.mjs
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/eslint/bin/eslint.js src test
-node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs
+node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/customer.test.mjs test/recovery.test.mjs
 ```
 
 Browser runner limitations and the separately verified interactive browser journey are recorded in [VERIFICATION.md](docs/VERIFICATION.md).

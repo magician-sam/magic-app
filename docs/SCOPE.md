@@ -2,6 +2,12 @@
 
 ## Implemented in this increment
 
+September 18 customer-account increment: public browsing/reviews remain open; new requests require separate customer credentials. Name/phone required, email/ages optional, suggested editable username, password login/change, private own-event list. New customer registration never claims existing staff contacts based on a supplied phone. Phone/OTP verification and forgotten-password recovery remain operational prerequisites. Customer profile points are a configurable current completion score (flat ages bonus), not spendable currency.
+
+Fast Order retains the three starter shows, with editable featured flags and a More Shows catalog; categories accept owner-defined labels. Custom booking questions support add/edit/hide, answer types and required/optional settings. Past question labels/answers are snapshotted; open-event answer corrections are revision-protected and audited. Core identity/security/financial-history fields cannot be arbitrarily removed.
+
+Referral codes and invitation links are implemented. Reward settings include editable referral percentage (15 initial), loyalty percentage (15 initial), loyalty event count (3 initial), free-show count (5 initial), optional-profile point values and conditions. Program starts disabled. Owner chooses referred versus personal completed/fully-paid events before enabling. Refunds affect qualifying counts. Automated redemption, consumed reward ledger, fraud controls and rule-version snapshots remain to implement before automated awards; currently staff must review and apply any agreed reward in the quote. No free show is automatically reserved.
+
 The README enumerates the working paths. The customer journey has persisted requests, versioned proposals, customer acceptance, performer availability, guarded confirmation and customer event pages. Management includes typed, validated editors, account isolation, contacts, show-day preparation, manual money records, consent-aware review publication, CSV duplicate detection, exports and backup primitives.
 
 Catalog edits are versioned into event/proposal snapshots so existing agreements do not silently change. Business records are scoped by the authenticated user, never by a client-supplied business ID. Support access is available through a reason-required API and logged in the target business.
@@ -37,7 +43,20 @@ Catalog edits are versioned into event/proposal snapshots so existing agreements
 
 - Friendly, fun entertainment design on the public site; a fast, clear dashboard with the same warm personality.
 - Add/edit/remove controls throughout, while preserving payment and booking history.
-- If unfinished after a pause or usage limit, resume from the saved checkpoint at 9:00 AM Beirut time (a task follow-up was created on September 18, 2026).
+- Latest instruction supersedes earlier 9 AM / 4 PM plans: resume unfinished work at 10:15 PM Beirut time; an active task follow-up was created on September 18, 2026.
+
+## Handwritten additions still to complete
+
+- Dedicated 15–20 second package previews and checkout add-on suggestions (existing performer video links and multi-show basket remain available).
+- Card/Whish deposits require a selected, verified provider and credentials; no payment processing is simulated.
+- Availability scarcity labels must derive from real capacity, with no fabricated countdowns or demand claims.
+- Money-back guarantee requires owner-defined scope/conditions before publication; never invent a financial promise.
+- Prefilled WhatsApp draft links; a real chatbot is a separate integration and is not implied by opening WhatsApp.
+- Extend configurable questions to additional record types, richer field ordering and public content editing, while preserving historical records.
+
+## Customer recovery addition
+
+Forgot-password requests are now implemented. A customer supplies username and phone; the response does not reveal whether an account exists. The owner reviews pending requests and must independently verify identity before issuing a private 30-minute code/link. Codes are stored hashed, single-use, replaced on reissue and revoked on password change. Redemption revokes all customer sessions. No SMS, email or WhatsApp message is sent automatically. Automated provider-backed verification/recovery, forgotten-username recovery, and stronger production abuse controls still require completion. Opening an event from My account currently rotates its bearer link and logs that rotation; older copies of that private link stop working.
 
 ## Resume procedure
 

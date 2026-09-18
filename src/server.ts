@@ -9,6 +9,14 @@ import { pathToFileURL } from "node:url";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { Store, id } from "./store.js";
+import { customerAccounts } from "./customer-accounts.js";
+import { customerRecovery } from "./customer-recovery.js";
+import { rewardSettings, rewardSchema } from "./rewards.js";
+import {
+  customFieldSchema,
+  customAnswers,
+  type CustomField,
+} from "./custom-fields.js";
 import {
   createUser,
   hash,
@@ -309,6 +317,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         .all<Performer>(business.id, "performers")
         .filter((p) => p.active),
       reviews,
+      customFields: store
+        .all<CustomField>(business.id, "customFields")
+        .filter((f) => f.active),
     });
   });
   app.post("/api/public/:slug/visit", (req, res) => {
@@ -335,11 +346,19 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .run(business.id, source, new Date().toISOString().slice(0, 10));
     res.json({ ok: true });
   });
+  const customerSession = customerAccounts(
+    app,
+    store,
+    origin,
+    limited,
+    issueLink,
+  );
   app.post("/api/public/:slug/requests", (req, res) => {
     limited(req, "request", 20);
     const business = businessBySlug(String(req.params.slug));
+    const account = customerSession(req, business.id);
     const input = z
-      .object({ customer: customerSchema, event: eventSchema })
+      .object({ event: eventSchema, customAnswers: z.unknown().optional() })
       .parse(req.body);
     validateSelection(
       business.id,
@@ -347,12 +366,19 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       input.event.performerIds,
     );
     validEventDate(business, input.event);
-    // Never merge unverified public contact information into an existing customer's private record.
+    const answers = customAnswers(
+      store.all<CustomField>(business.id, "customFields"),
+      input.customAnswers,
+    );
     const result = store.transaction(() => {
-      const customer = { ...input.customer, id: id() };
-      store.put(business.id, "customers", customer);
+      const customer = owned<Customer>(
+        business.id,
+        "customers",
+        account.customerId,
+      );
       const now = new Date().toISOString();
       const booking: Booking = {
+        customAnswers: answers,
         ...input.event,
         packageSnapshot: input.event.packageIds.map((p) =>
           owned<Package>(business.id, "packages", p),
@@ -447,6 +473,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         packageIds,
         performerIds,
         revision,
+        customAnswers: booking.customAnswers ?? [],
       },
       packages,
       performers: store
@@ -654,6 +681,82 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     } catch (error) {
       next(error);
     }
+  });
+  app.get("/api/manage/reward-settings", (req, res) => {
+    canManage(req);
+    res.json(rewardSettings(store, req.business.id));
+  });
+  customerRecovery(app, store, limited, canManage);
+  app.put("/api/manage/bookings/:id/custom-answers", (req, res) => {
+    canManage(req);
+    const booking = owned<Booking>(
+      req.business.id,
+      "bookings",
+      String(req.params.id),
+    );
+    const input = z
+      .object({
+        revision: z.number().int(),
+        values: z.record(
+          z.string(),
+          z.union([z.string().max(3000), z.number().finite()]),
+        ),
+      })
+      .parse(req.body);
+    requireThat(
+      input.revision === booking.revision,
+      "This event changed. Refresh before editing.",
+      409,
+    );
+    requireThat(
+      !["cancelled", "completed"].includes(booking.status),
+      "Closed events retain their history.",
+      409,
+    );
+    const old = booking.customAnswers ?? [];
+    requireThat(
+      Object.keys(input.values).every((key) => old.some((a) => a.id === key)),
+      "Unknown booking question.",
+    );
+    res.json(
+      writeRecord(
+        req,
+        "bookings",
+        {
+          ...booking,
+          customAnswers: old.map((a) => ({
+            ...a,
+            value: input.values[a.id] ?? a.value,
+          })),
+          revision: booking.revision + 1,
+          updatedAt: new Date().toISOString(),
+        },
+        "custom-answers-edited",
+      ),
+    );
+  });
+  app.get("/api/manage/custom-fields", (req, res) => {
+    canManage(req);
+    res.json(store.all(req.business.id, "customFields"));
+  });
+  app.post("/api/manage/custom-fields", (req, res) => {
+    canManage(req);
+    const input = customFieldSchema.parse(req.body);
+    requireThat(
+      store.get(req.business.id, "customFields", input.id) ||
+        store.all(req.business.id, "customFields").length < 50,
+      "Maximum 50 questions. Edit an existing question.",
+    );
+    res.json(writeRecord(req, "customFields", input));
+  });
+  app.put("/api/manage/reward-settings", (req, res) => {
+    canManage(req);
+    res.json(
+      writeRecord(req, "rewardSettings", {
+        ...rewardSchema.parse(req.body),
+        id: "program",
+      }),
+    );
   });
   app.get("/api/manage/state", (request, res) => {
     const req = request as Authed;
@@ -1074,7 +1177,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const bookings = store.all<Booking>(req.business.id, "bookings");
     if (kind === "customers")
       requireThat(
-        !bookings.some((b) => b.customerId === key) &&
+        !store.db
+          .prepare(
+            "SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?",
+          )
+          .get(req.business.id, key) &&
+          !bookings.some((b) => b.customerId === key) &&
           !store
             .all<Reminder>(req.business.id, "reminders")
             .some((r) => r.customerId === key),
@@ -1639,7 +1747,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       exportedAt: new Date().toISOString(),
       business: req.business,
     };
-    [...kinds, "audit"].forEach((kind) => {
+    [
+      ...kinds,
+      "audit",
+      "rewardSettings",
+      "customerExtras",
+      "customFields",
+    ].forEach((kind) => {
       data[kind] = store.all(req.business.id, kind);
     });
     store.audit(

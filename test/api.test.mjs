@@ -16,7 +16,8 @@ let store,
   cookie,
   assistant,
   performerCookie,
-  otherCookie;
+  otherCookie,
+  customerCookie;
 const dir = mkdtempSync(join(tmpdir(), "magic-test-"));
 const password = "Test-only-long-password-42";
 const performer = {
@@ -73,7 +74,7 @@ async function newRequest(overrides = {}) {
       customer: { name: "Test family", phone: "+96170000000" },
       event: { ...event, ...overrides },
     },
-    null,
+    customerCookie,
   );
   assert.equal(r.status, 201, JSON.stringify(r.data));
   return { ...r.data, token: r.data.path.split("#")[1] };
@@ -167,6 +168,14 @@ before(async () => {
   assistant = await login("assistant@example.test");
   performerCookie = await login("performer@example.test");
   otherCookie = await login("other@example.test");
+  const customer = await request(
+    "/customer/test/register",
+    "POST",
+    { name: "Test family", phone: "+96170000000", password },
+    null,
+  );
+  assert.equal(customer.status, 201);
+  customerCookie = customer.headers.get("set-cookie").split(";")[0];
 });
 after(async () => {
   await new Promise((resolve) => server.close(resolve));
@@ -219,16 +228,16 @@ test("invalid, past, duplicate and cross-business selections are rejected", asyn
         customer: { name: "Test", phone: "+96170000001" },
         event: { ...event, ...patch },
       },
-      null,
+      customerCookie,
     );
     assert.ok([400, 404].includes(r.status));
   }
 });
-test("public contact matching never overwrites an existing customer", async () => {
+test("repeat customer bookings reuse the authenticated profile", async () => {
   const before = store.all(business.id, "customers").length;
   await newRequest();
   await newRequest();
-  assert.equal(store.all(business.id, "customers").length, before + 2);
+  assert.equal(store.all(business.id, "customers").length, before);
 });
 test("full request → quote → acceptance → deposit → availability → confirmation flow", async () => {
   const info = await newRequest();

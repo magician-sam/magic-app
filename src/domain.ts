@@ -82,7 +82,8 @@ export const eventSchema = z.object({
 export const packageSchema = z
   .object({
     name: short.min(2),
-    category: z.enum(["magic", "science", "bubbles", "other"]),
+    fastOrder: z.boolean().optional(),
+    category: short.min(1).max(40),
     description: z.string().max(3000),
     duration: z.number().int().min(5).max(480),
     setup: z.number().int().min(0).max(240),

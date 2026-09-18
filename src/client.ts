@@ -1,3 +1,5 @@
+import type { CustomField } from "./custom-fields.js";
+import type { RewardSettings } from "./rewards.js";
 import type {
   Catalog,
   Dashboard,
@@ -118,6 +120,7 @@ function submit(
   });
 }
 type Field = {
+  autocomplete?: string;
   key: string;
   label: string;
   type?: string;
@@ -140,7 +143,7 @@ function field(f: Field) {
       ? `<textarea ${attrs}>${e(value)}</textarea>`
       : f.type === "select"
         ? `<select ${attrs}>${f.options?.map((o) => `<option value="${e(o.value)}" ${String(value) === o.value ? "selected" : ""}>${e(o.label)}</option>`).join("")}</select>`
-        : `<input type="${e(f.type ?? "text")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
+        : `<input type="${e(f.type ?? "text")}" autocomplete="${e(f.autocomplete ?? "off")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
   return `<label class="field ${f.wide ? "wide" : ""}" for="f-${e(f.key)}">${e(f.label)}${input}${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</label>`;
 }
 const options = (values: string[]) =>
@@ -183,7 +186,7 @@ function price(p: Package) {
     : `${p.priceMode === "from" ? "From " : ""}${money(p.price)}`;
 }
 function showCard(p: Package) {
-  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category]}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p><div class="show-meta">Ages ${p.minAge}+ &nbsp;·&nbsp; ${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p><div class="show-meta">Ages ${p.minAge}+ &nbsp;·&nbsp; ${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -197,10 +200,26 @@ function renderBox() {
   });
   on(node, "#request", "click", () => requestForm());
 }
+let showMore = false;
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>What’s in your event box?</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages.map(showCard).join("") || empty("The stage is being set", "New shows will appear here soon.")}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, ""))}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer></div>`;
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+    .filter(
+      (p) =>
+        showMore ||
+        (p.fastOrder ?? ["magic", "science", "bubbles"].includes(p.id)),
+    )
+    .map(showCard)
+    .join(
+      "",
+    )}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, ""))}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer></div>`;
   renderBox();
+  on(app, "#customer-account", "click", () => customerAccount());
+  on(app, "#more-shows", "click", () => {
+    showMore = !showMore;
+    renderPublic();
+    document.querySelector("#shows")?.scrollIntoView();
+  });
   on(app, "[data-add]", "click", (ev) => {
     const key = (ev.currentTarget as HTMLElement).dataset.add!;
     basket = basket.includes(key)
@@ -336,29 +355,31 @@ function eventFields(b?: Partial<Booking>): Field[] {
     },
   ];
 }
-function requestForm() {
+async function requestForm() {
+  let account: { profile: { name: string; phone: string; email: string } };
+  try {
+    account = await api(`/customer/${catalog.business.slug}/me`);
+  } catch {
+    customerAuth(true);
+    return;
+  }
+  const questions = (catalog.customFields ?? []).filter((f) => f.active);
   const fields = eventFields();
   openDialog(
     "Let’s make a happy day.",
     formBody(
       [
-        { key: "customerName", label: "Your name", required: true },
-        {
-          key: "phone",
-          label: "Phone / WhatsApp with country code",
-          type: "tel",
-          required: true,
-        },
-        { key: "email", label: "Email (optional)", type: "email" },
         ...fields,
-        {
-          key: "offersConsent",
-          label: "You may contact me about future offers (optional)",
-          type: "checkbox",
-          wide: true,
-        },
+        ...questions.map((f) => ({
+          key: "custom-" + f.id,
+          label: f.label,
+          type: f.type,
+          required: f.required,
+          options: f.options.map((value) => ({ value, label: value })),
+          wide: f.type === "textarea",
+        })),
       ],
-      `<p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
+      `<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
       "Send my event request →",
     ),
   );
@@ -367,13 +388,15 @@ function requestForm() {
       `/public/${catalog.business.slug}/requests`,
       "POST",
       {
-        customer: {
-          name: data.get("customerName"),
-          phone: data.get("phone"),
-          email: data.get("email"),
-          offersConsent: data.has("offersConsent"),
-          source: data.get("source"),
-        },
+        customAnswers: Object.fromEntries(
+          questions.map((f) => {
+            const value = String(data.get("custom-" + f.id) ?? "");
+            return [
+              f.id,
+              f.type === "number" && value !== "" ? Number(value) : value,
+            ];
+          }),
+        ),
         event: {
           ...formValues(data, fields),
           packageIds: basket,
@@ -467,6 +490,436 @@ function helpChoose() {
     });
   });
 }
+
+function customerAuth(orderAfter = false, register = true) {
+  const fields: Field[] = register
+    ? [
+        { key: "name", label: "Your name", required: true },
+        {
+          key: "phone",
+          label: "Phone / WhatsApp with country code",
+          autocomplete: "tel",
+          type: "tel",
+          required: true,
+        },
+        {
+          key: "referralCode",
+          label: "Referral code (optional)",
+          value: new URLSearchParams(location.search).get("ref") ?? "",
+        },
+        {
+          key: "username",
+          label: "Your username",
+          value: `guest-${crypto.randomUUID().slice(0, 8)}`,
+          autocomplete: "username",
+          required: true,
+          help: "We picked one for you. Keep it or choose your own.",
+        },
+        {
+          key: "password",
+          label: "Choose a password (12 characters minimum)",
+          autocomplete: "new-password",
+          type: "password",
+          required: true,
+        },
+      ]
+    : [
+        {
+          key: "username",
+          label: "Username",
+          autocomplete: "username",
+          required: true,
+        },
+        {
+          key: "password",
+          label: "Password",
+          type: "password",
+          required: true,
+        },
+      ];
+  openDialog(
+    register ? "Your next happy memory starts here" : "Welcome back to the fun",
+    formBody(
+      fields,
+      '<p class="privacy">Your account shows only your own events. Email and children’s details are optional. Phone verification is not connected yet; keep your username and password safe.</p>',
+      register ? "Create my customer account" : "Sign in",
+    ) +
+      '<button class="link" id="switch-customer-auth">' +
+      (register
+        ? "Already have an account? Sign in"
+        : "New here? Create an account") +
+      "</button>",
+  );
+  if (!register) {
+    const forgot = document.createElement("button");
+    forgot.className = "link";
+    forgot.textContent = "Forgot password?";
+    forgot.addEventListener("click", () => customerResetRequest());
+    modal.append(forgot);
+  }
+  on(modal, "#switch-customer-auth", "click", () =>
+    customerAuth(orderAfter, !register),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    const result = await api<{ username?: string }>(
+      `/customer/${catalog.business.slug}/${register ? "register" : "login"}`,
+      "POST",
+      formValues(data, fields),
+    );
+    if (result.username)
+      notify(
+        `Your username is ${result.username}. Save it or change it in My account.`,
+      );
+    if (orderAfter) await requestForm();
+    else await customerAccount();
+  });
+}
+function customerResetRequest() {
+  openDialog(
+    "Let’s get you back in",
+    formBody(
+      [
+        {
+          key: "username",
+          label: "Username",
+          autocomplete: "username",
+          required: true,
+        },
+        {
+          key: "phone",
+          label: "Phone number on your account",
+          type: "tel",
+          autocomplete: "tel",
+          required: true,
+        },
+      ],
+      "<p>The team will verify your identity before giving you a reset code. Automatic SMS delivery is not connected yet. If you also forgot your username, contact the business.</p>",
+      "Request password help",
+    ) +
+      '<button class="link" id="have-reset-code">I already have a reset code</button>',
+  );
+  on(modal, "#have-reset-code", "click", () => customerResetComplete());
+  submit(modal.querySelector("form")!, async (data) => {
+    const response = await api<{ message: string }>(
+      `/customer/${catalog.business.slug}/reset/request`,
+      "POST",
+      Object.fromEntries(data),
+    );
+    openDialog(
+      "Password help requested",
+      "<p>" +
+        e(response.message) +
+        "</p>" +
+        (catalog.business.whatsapp
+          ? '<a class="button outline" target="_blank" rel="noopener noreferrer" href="https://wa.me/' +
+            e(catalog.business.whatsapp.replace(/\D/g, "")) +
+            "?text=" +
+            encodeURIComponent(
+              "Hello, I need help recovering my customer account. Please help me verify my identity.",
+            ) +
+            '">Contact us on WhatsApp</a>'
+          : "") +
+        '<button id="have-reset-code">Enter my reset code</button>',
+    );
+    on(modal, "#have-reset-code", "click", () =>
+      customerResetComplete(String(data.get("username"))),
+    );
+  });
+}
+function customerResetComplete(username = "", code = "") {
+  openDialog(
+    "A fresh start",
+    formBody(
+      [
+        {
+          key: "username",
+          label: "Username",
+          value: username,
+          autocomplete: "username",
+          required: true,
+        },
+        {
+          key: "code",
+          label: "Private reset code",
+          value: code,
+          required: true,
+        },
+        {
+          key: "password",
+          label: "New password (12 characters minimum)",
+          type: "password",
+          autocomplete: "new-password",
+          required: true,
+        },
+      ],
+      "<p>Your code works once and expires 30 minutes after it is issued. Resetting signs out all existing customer sessions.</p>",
+      "Reset my password",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(
+      `/customer/${catalog.business.slug}/reset/complete`,
+      "POST",
+      Object.fromEntries(data),
+    );
+    notify("Password reset. Please sign in with your new password.");
+    customerAuth(false, false);
+  });
+}
+async function customerResetQueue() {
+  const requests = await api<
+    {
+      id: string;
+      username: string;
+      name: string;
+      phone: string;
+      issued: boolean;
+    }[]
+  >("/manage/customer-resets");
+  openDialog(
+    "Customer password help",
+    "<p>Verify the customer’s identity through an established contact channel before issuing a code. A supplied name and phone alone are not proof. Codes are never sent automatically.</p>" +
+      (requests
+        .map(
+          (r) =>
+            '<div class="row"><div><h3>' +
+            e(r.name) +
+            "</h3><p>" +
+            e(r.username) +
+            " · " +
+            e(r.phone) +
+            '</p></div><button class="outline small" data-reset-request="' +
+            e(r.id) +
+            '">' +
+            (r.issued ? "Replace reset code" : "Review request") +
+            "</button></div>",
+        )
+        .join("") || "<p>No open reset requests.</p>"),
+  );
+  on(modal, "[data-reset-request]", "click", (ev) => {
+    const r = requests.find(
+      (x) => x.id === (ev.currentTarget as HTMLElement).dataset.resetRequest,
+    )!;
+    openDialog(
+      "Verify before resetting",
+      formBody(
+        [
+          {
+            key: "identityVerified",
+            label:
+              "I independently verified this customer’s identity through an established contact channel",
+            type: "checkbox",
+            required: true,
+          },
+        ],
+        "<p>" +
+          e(r.name) +
+          " · " +
+          e(r.username) +
+          "</p><p>A new code invalidates any previous code. Share it only with the verified customer.</p>",
+        "Issue private reset code",
+      ),
+    );
+    submit(modal.querySelector("form")!, async (data) => {
+      const result = await api<{ code: string }>(
+        `/manage/customer-resets/${r.id}/issue`,
+        "POST",
+        { identityVerified: data.has("identityVerified") },
+      );
+      const link =
+        location.origin +
+        "/b/" +
+        encodeURIComponent(state!.business.slug) +
+        "?reset=1&username=" +
+        encodeURIComponent(r.username) +
+        "#" +
+        result.code;
+      openDialog(
+        "Private reset details",
+        "<p>Valid for 30 minutes and one use. Copy now; the code is not stored in readable form.</p>" +
+          field({
+            key: "reset-link",
+            label: "Private reset link",
+            value: link,
+          }) +
+          field({
+            key: "reset-code",
+            label: "Private reset code",
+            value: result.code,
+          }) +
+          "<p>No message has been sent. Share privately with the verified customer.</p>",
+      );
+    });
+  });
+}
+async function customerAccount() {
+  type Account = {
+    username: string;
+    referralCode: string;
+    rewards: {
+      settings: RewardSettings;
+      profilePoints: number;
+      qualifyingEvents: number;
+    };
+    profile: {
+      name: string;
+      phone: string;
+      email: string;
+      childrenAges: number[];
+    };
+    bookings: { id: string; name: string; date: string; status: string }[];
+  };
+  let account: Account;
+  try {
+    account = await api<Account>(`/customer/${catalog.business.slug}/me`);
+  } catch {
+    customerAuth();
+    return;
+  }
+  const fields: Field[] = [
+    {
+      key: "username",
+      label: "Username",
+      value: account.username,
+      required: true,
+      help: "3–40 letters, numbers, underscores or hyphens.",
+    },
+    {
+      key: "name",
+      label: "Your name",
+      value: account.profile.name,
+      required: true,
+    },
+    {
+      key: "phone",
+      label: "Phone / WhatsApp with country code",
+      type: "tel",
+      value: account.profile.phone,
+      required: true,
+    },
+    {
+      key: "email",
+      label: "Email (optional)",
+      type: "email",
+      value: account.profile.email,
+    },
+    {
+      key: "childrenAges",
+      label: "Children’s ages (optional)",
+      value: account.profile.childrenAges.join(", "),
+      help: "One age per child, separated by commas. No names or exact birthdays needed. Leave blank to skip or remove.",
+    },
+  ];
+  openDialog(
+    "My little world of wonder",
+    "<p>Your username: <strong>" +
+      e(account.username) +
+      '</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>' +
+      formBody(fields) +
+      "<h3>A little extra sparkle</h3><p>" +
+      account.rewards.profilePoints +
+      " profile points · a profile-completion score, not payment credit.</p><p>Optional email: " +
+      account.rewards.settings.emailPoints +
+      " points. Optional children’s ages: " +
+      account.rewards.settings.childrenPoints +
+      " points total, regardless of how many children.</p>" +
+      (account.rewards.settings.enabled
+        ? "<p>" +
+          account.rewards.qualifyingEvents +
+          " / " +
+          account.rewards.settings.eventsForFree +
+          " qualifying events toward a free magic show.</p><p>Referral discount: " +
+          account.rewards.settings.discountPercent +
+          "%. Loyalty: " +
+          account.rewards.settings.loyaltyPercent +
+          "% after every " +
+          account.rewards.settings.loyaltyEvery +
+          " qualifying personal events.</p><p>" +
+          e(account.rewards.settings.terms) +
+          "</p><p>Rewards are reviewed and applied by the business in your quote; this page does not redeem or reserve a free show.</p>"
+        : "<p>Referral rewards are being prepared. No discount or free-show offer is active yet.</p>") +
+      "<p>Your referral code: <strong>" +
+      e(account.referralCode) +
+      '</strong></p><p><a href="/b/' +
+      e(catalog.business.slug) +
+      "?ref=" +
+      e(account.referralCode) +
+      '">Your shareable invitation link ↗</a></p><h3>My celebrations</h3>' +
+      (account.bookings
+        .map(
+          (b) =>
+            '<div class="row"><div><h3>' +
+            e(b.name) +
+            "</h3><p>" +
+            day(b.date) +
+            " · " +
+            e(pretty(b.status)) +
+            '</p></div><button class="outline small" data-customer-event="' +
+            e(b.id) +
+            '">Open my event</button></div>',
+        )
+        .join("") ||
+        "<p>Your first happy day is waiting. Add a show to your event box.</p>") +
+      '<button class="link" id="customer-password">Change password</button><button class="link" id="customer-logout">Sign out</button>',
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(`/customer/${catalog.business.slug}/profile`, "PUT", {
+      ...formValues(data, fields),
+      childrenAges: String(data.get("childrenAges") ?? "").trim()
+        ? String(data.get("childrenAges"))
+            .split(",")
+            .map((x) => Number(x.trim()))
+        : [],
+    });
+    notify("Your profile is saved.");
+    await customerAccount();
+  });
+  on(modal, "#customer-password", "click", () => {
+    openDialog(
+      "Change my password",
+      formBody(
+        [
+          {
+            key: "currentPassword",
+            label: "Current password",
+            type: "password",
+            required: true,
+          },
+          {
+            key: "password",
+            label: "New password (12 characters minimum)",
+            type: "password",
+            required: true,
+          },
+        ],
+        "<p>All customer sessions will be signed out.</p>",
+      ),
+    );
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(
+        `/customer/${catalog.business.slug}/password`,
+        "POST",
+        Object.fromEntries(data),
+      );
+      customerAuth(false, false);
+    });
+  });
+  on(modal, "#customer-logout", "click", async () => {
+    await api(`/customer/${catalog.business.slug}/logout`, "POST", {});
+    modal.close();
+    notify("You are signed out.");
+  });
+  on(modal, "[data-customer-event]", "click", async (ev) => {
+    const key = (ev.currentTarget as HTMLElement).dataset.customerEvent;
+    const result = await api<{ path: string }>(
+      `/customer/${catalog.business.slug}/bookings/${key}/open`,
+      "POST",
+      {},
+    );
+    location.href = result.path;
+  });
+}
+
 async function login() {
   app.innerHTML = `<main id="main" class="login"><section class="panel">${brand()}<h1>Hello, backstage.</h1><p class="muted">A little less admin. A lot more showtime.</p>${formBody(
     [
@@ -730,8 +1183,207 @@ function renderReviews(root: Element) {
     moderateReview((ev.currentTarget as HTMLElement).dataset.moderate!),
   );
 }
+async function editQuestions() {
+  const questions = await api<CustomField[]>("/manage/custom-fields");
+  openDialog(
+    "Your booking questions",
+    "<p>Add questions for your customers. Hide a question to remove it from new orders; answers on past events stay in their history.</p>" +
+      questions
+        .map(
+          (q) =>
+            '<div class="row"><div><h3>' +
+            e(q.label) +
+            "</h3><p>" +
+            (q.active ? "Visible" : "Hidden") +
+            " · " +
+            e(q.type) +
+            '</p></div><button class="outline small" data-question="' +
+            e(q.id) +
+            '">Edit</button></div>',
+        )
+        .join("") +
+      '<button id="new-question">Add a question</button>',
+  );
+  const edit = (q?: CustomField) => {
+    const fields: Field[] = [
+      {
+        key: "label",
+        label: "Question label",
+        value: q?.label,
+        required: true,
+      },
+      {
+        key: "type",
+        label: "Answer type",
+        type: "select",
+        options: options(["text", "textarea", "number", "select"]),
+        value: q?.type ?? "text",
+      },
+      {
+        key: "options",
+        label: "Choices (one per line, for select questions)",
+        type: "textarea",
+        value: q?.options.join("\n") ?? "",
+        wide: true,
+      },
+      {
+        key: "required",
+        label: "An answer is required",
+        type: "checkbox",
+        value: q?.required ?? false,
+      },
+      {
+        key: "active",
+        label: "Show on new booking requests",
+        type: "checkbox",
+        value: q?.active ?? true,
+      },
+    ];
+    openDialog(
+      q ? "Edit booking question" : "Add a little detail",
+      formBody(fields),
+    );
+    submit(modal.querySelector("form")!, async (data) => {
+      await api("/manage/custom-fields", "POST", {
+        ...formValues(data, fields),
+        id: q?.id ?? crypto.randomUUID(),
+        options: String(data.get("options"))
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean),
+      });
+      await editQuestions();
+    });
+  };
+  on(modal, "#new-question", "click", () => edit());
+  on(modal, "[data-question]", "click", (ev) =>
+    edit(
+      questions.find(
+        (q) => q.id === (ev.currentTarget as HTMLElement).dataset.question,
+      ),
+    ),
+  );
+}
+function customSummary(b: Booking) {
+  return b.customAnswers?.length
+    ? '<section class="panel"><h3>A few extra details</h3>' +
+        b.customAnswers
+          .map(
+            (a) =>
+              "<p><strong>" +
+              e(a.label) +
+              "</strong><br>" +
+              e(a.value) +
+              "</p>",
+          )
+          .join("") +
+        "</section>"
+    : "";
+}
+async function editRewards() {
+  const values = await api<RewardSettings>("/manage/reward-settings");
+  const fields: Field[] = [
+    {
+      key: "enabled",
+      label: "Publish reward program",
+      type: "checkbox",
+      value: values.enabled,
+    },
+    {
+      key: "discountPercent",
+      label: "Referral discount (%)",
+      type: "number",
+      min: 0,
+      max: 100,
+      step: "0.01",
+      value: values.discountPercent,
+    },
+    {
+      key: "eventsForFree",
+      label: "Qualifying events for a free magic show",
+      type: "number",
+      min: 1,
+      max: 100,
+      value: values.eventsForFree,
+    },
+    {
+      key: "qualification",
+      label: "What counts toward the free show?",
+      type: "select",
+      options: [
+        { value: "unconfigured", label: "Choose before enabling" },
+        {
+          value: "referrals",
+          label: "Completed and fully paid referred events",
+        },
+        {
+          value: "personal",
+          label: "Completed and fully paid personal events",
+        },
+      ],
+      value: values.qualification,
+    },
+    {
+      key: "loyaltyEvery",
+      label: "Personal events for loyalty discount",
+      type: "number",
+      min: 1,
+      max: 100,
+      value: values.loyaltyEvery,
+    },
+    {
+      key: "loyaltyPercent",
+      label: "Loyalty discount (%)",
+      type: "number",
+      min: 0,
+      max: 100,
+      step: "0.01",
+      value: values.loyaltyPercent,
+    },
+    {
+      key: "emailPoints",
+      label: "Optional email profile points",
+      type: "number",
+      min: 0,
+      max: 10000,
+      value: values.emailPoints,
+    },
+    {
+      key: "childrenPoints",
+      label: "Optional children’s ages profile points (flat bonus)",
+      type: "number",
+      min: 0,
+      max: 10000,
+      value: values.childrenPoints,
+    },
+    {
+      key: "terms",
+      label:
+        "Reward conditions: eligible show, duration, area, exclusions and validity",
+      type: "textarea",
+      value: values.terms,
+      wide: true,
+    },
+  ];
+  openDialog(
+    "Your rewards, your rules",
+    formBody(
+      fields,
+      '<p class="hint">15% is an editable starting value. Choose the free-show rule and conditions before publishing. Rewards currently require staff review and application in a quote; automated redemption and abuse checks remain pending. Profile points are a completion score, not money.</p>',
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    await api("/manage/reward-settings", "PUT", formValues(data, fields));
+    modal.close();
+    await loadDashboard();
+    notify("Reward settings saved.");
+  });
+}
 function renderSettings(root: Element) {
-  root.innerHTML = `<div class="two-col"><section class="panel"><h3>Your business, your personality</h3><p>${e(state!.business.name)}</p><p class="muted">${e(state!.business.intro)}</p><button class="outline small" id="edit-business">Edit business details</button><p class="privacy">Booking timezone: ${e(state!.business.timezone)} · Currency: ${e(state!.business.currency)}. Changing these for historical records requires a migration.</p><h3>Keep a copy</h3><p class="muted">Export this business’s records, including booking history. Keep customer exports private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a></section><section class="panel"><h3>People backstage</h3><button class="small outline" id="change-password">Change my password</button><p class="privacy">Other businesses cannot see your customer records. Authorized platform support access requires a reason and is logged.</p>${state!.users.map((u) => `<div class="row"><div><h3>${e(u.name)}</h3><p>${e(u.email)} · ${e(u.role)}</p></div><button class="small outline" data-edit-user="${u.id}">Edit</button>${u.id !== state!.user.id ? `<button class="small danger" data-remove-user="${u.id}">Remove access</button>` : ""}</div>`).join("")}<button class="outline small" id="add-user">＋ Add login</button>${state!.user.role === "admin" ? '<button class="outline small" id="add-business">＋ Separate business</button>' : ""}</section></div><section class="panel"><h3>Change history</h3><p class="muted">Who changed what, and when. The latest 200 entries are shown; exports include the full history.</p>${state!.audit.map((a) => `<details><summary>${e(a.at.replace("T", " ").slice(0, 19))} · ${e(a.actor)} · ${e(a.action)}</summary><div class="audit-detail">Before: ${e(JSON.stringify(a.before, null, 2))}<br>After: ${e(JSON.stringify(a.after, null, 2))}</div></details>`).join("") || '<p class="muted">Saved changes will appear here.</p>'}</section>`;
+  root.innerHTML = `<div class="two-col"><section class="panel"><h3>Your business, your personality</h3><p>${e(state!.business.name)}</p><p class="muted">${e(state!.business.intro)}</p><button class="outline small" id="edit-business">Edit business details</button><button class="outline small" id="edit-rewards">Edit rewards and points</button><button class="outline small" id="edit-questions">Edit booking questions</button><button class="outline small" id="customer-resets">Customer password help</button><p class="privacy">Booking timezone: ${e(state!.business.timezone)} · Currency: ${e(state!.business.currency)}. Changing these for historical records requires a migration.</p><h3>Keep a copy</h3><p class="muted">Export this business’s records, including booking history. Keep customer exports private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a></section><section class="panel"><h3>People backstage</h3><button class="small outline" id="change-password">Change my password</button><p class="privacy">Other businesses cannot see your customer records. Authorized platform support access requires a reason and is logged.</p>${state!.users.map((u) => `<div class="row"><div><h3>${e(u.name)}</h3><p>${e(u.email)} · ${e(u.role)}</p></div><button class="small outline" data-edit-user="${u.id}">Edit</button>${u.id !== state!.user.id ? `<button class="small danger" data-remove-user="${u.id}">Remove access</button>` : ""}</div>`).join("")}<button class="outline small" id="add-user">＋ Add login</button>${state!.user.role === "admin" ? '<button class="outline small" id="add-business">＋ Separate business</button>' : ""}</section></div><section class="panel"><h3>Change history</h3><p class="muted">Who changed what, and when. The latest 200 entries are shown; exports include the full history.</p>${state!.audit.map((a) => `<details><summary>${e(a.at.replace("T", " ").slice(0, 19))} · ${e(a.actor)} · ${e(a.action)}</summary><div class="audit-detail">Before: ${e(JSON.stringify(a.before, null, 2))}<br>After: ${e(JSON.stringify(a.after, null, 2))}</div></details>`).join("") || '<p class="muted">Saved changes will appear here.</p>'}</section>`;
+  on(root, "#customer-resets", "click", () => customerResetQueue());
+  on(root, "#edit-questions", "click", () => editQuestions());
+  on(root, "#edit-rewards", "click", () => editRewards());
   on(root, "#edit-business", "click", () => editBusiness());
   on(root, "#add-user", "click", () => addUser());
   on(root, "#change-password", "click", () => changePassword());
@@ -799,8 +1451,8 @@ function editRecord(kind: string, key: string, duplicate = false) {
   if (kind === "packages")
     fields = [
       f("name", "Package name", "text", { required: true }),
-      f("category", "Show category", "select", {
-        options: options(["magic", "science", "bubbles", "other"]),
+      f("category", "Show category", "text", {
+        help: "For example: magic, science, bubbles, clown or character.",
         value: item.category ?? "magic",
       }),
       f("description", "Description", "textarea", { wide: true }),
@@ -843,6 +1495,11 @@ function editRecord(kind: string, key: string, duplicate = false) {
       f("needsPower", "Electricity required", "checkbox"),
       f("active", "Visible on public website", "checkbox", {
         value: item.active ?? true,
+      }),
+      f("fastOrder", "Feature in Fast Order", "checkbox", {
+        value:
+          item.fastOrder ??
+          ["magic", "science", "bubbles"].includes(String(item.id)),
       }),
       f("checklist", "Preparation checklist", "textarea", {
         wide: true,
@@ -1210,7 +1867,7 @@ async function openBooking(key: string) {
               .join("") || '<p class="muted">No referrals recorded.</p>'
           }</section>`
         : ""
-    }${checks.totals ? `<section class="panel"><h3>The proposal & payments</h3><p>Agreed ${money(checks.totals.agreed)} · Collected ${money(checks.totals.paid)} · Balance ${money(checks.totals.balance)}</p>${b.quotes.map((q) => `<div class="row"><div><h3>${e(q.name)} ${q.id === b.acceptedQuoteId ? "✓ Accepted" : ""}</h3><p>${q.packageIds.map((p) => e(state!.packages.find((v) => v.id === p)?.name)).join(" + ")}</p><p>${e(q.notes)}</p></div><strong>${money(q.amount)}</strong></div>`).join("") || '<p class="muted">No proposal prepared yet.</p>'}</section>` : ""}<section class="panel"><h3>Ready, set, showtime</h3><form id="checklist-form">${b.checklist.map((ch, i) => `<label class="check"><input type="checkbox" name="check" value="${i}" ${ch.done ? "checked" : ""}>${e(ch.text)}</label>`).join("") || '<p class="muted">Add a checklist in event details, or confirm the event to use package preparation lists.</p>'}<div class="form-error" role="alert"></div><div class="form-actions"><button class="small outline" type="submit">Save checklist</button></div></form></section>${!["cancelled", "completed"].includes(b.status) && ["admin", "owner"].includes(state!.user.role) ? `<div class="actions"><button id="confirm-event">Confirm booking</button><button id="complete-event" class="outline">Mark completed</button><button id="cancel-event" class="danger">Cancel event</button></div>` : ""}<p class="privacy">Schedule and venue edits require a fresh confirmation. Date, venue or performer changes reset performer availability. Cancellation preserves the record; refunds are recorded separately.</p>`,
+    }${checks.totals ? `<section class="panel"><h3>The proposal & payments</h3><p>Agreed ${money(checks.totals.agreed)} · Collected ${money(checks.totals.paid)} · Balance ${money(checks.totals.balance)}</p>${b.quotes.map((q) => `<div class="row"><div><h3>${e(q.name)} ${q.id === b.acceptedQuoteId ? "✓ Accepted" : ""}</h3><p>${q.packageIds.map((p) => e(state!.packages.find((v) => v.id === p)?.name)).join(" + ")}</p><p>${e(q.notes)}</p></div><strong>${money(q.amount)}</strong></div>`).join("") || '<p class="muted">No proposal prepared yet.</p>'}</section>` : ""}${customSummary(b)}<section class="panel"><h3>Ready, set, showtime</h3><form id="checklist-form">${b.checklist.map((ch, i) => `<label class="check"><input type="checkbox" name="check" value="${i}" ${ch.done ? "checked" : ""}>${e(ch.text)}</label>`).join("") || '<p class="muted">Add a checklist in event details, or confirm the event to use package preparation lists.</p>'}<div class="form-error" role="alert"></div><div class="form-actions"><button class="small outline" type="submit">Save checklist</button></div></form></section>${!["cancelled", "completed"].includes(b.status) && ["admin", "owner"].includes(state!.user.role) ? `<div class="actions"><button id="confirm-event">Confirm booking</button><button id="complete-event" class="outline">Mark completed</button><button id="cancel-event" class="danger">Cancel event</button></div>` : ""}<p class="privacy">Schedule and venue edits require a fresh confirmation. Date, venue or performer changes reset performer availability. Cancellation preserves the record; refunds are recorded separately.</p>`,
   );
   on(modal, "[data-edit-referral]", "click", (ev) =>
     editRecord(
@@ -1225,6 +1882,36 @@ async function openBooking(key: string) {
     ),
   );
   on(modal, "#edit-event", "click", () => editEvent(b));
+  if (
+    b.customAnswers?.length &&
+    ["owner", "admin"].includes(state!.user.role) &&
+    !["completed", "cancelled"].includes(b.status)
+  ) {
+    const button = document.createElement("button");
+    button.textContent = "Edit extra answers";
+    button.className = "outline small";
+    modal.querySelector(".tabs")!.append(button);
+    button.addEventListener("click", () => {
+      const fields: Field[] = b.customAnswers!.map((a) => ({
+        key: a.id,
+        label: a.label,
+        type: typeof a.value === "number" ? "number" : "text",
+        value: a.value,
+      }));
+      openDialog(
+        "Edit extra event details",
+        formBody(fields, "<p>Changes are recorded in the event history.</p>"),
+      );
+      submit(modal.querySelector("form")!, async (data) => {
+        await api(`/manage/bookings/${b.id}/custom-answers`, "PUT", {
+          revision: b.revision,
+          values: formValues(data, fields),
+        });
+        await loadDashboard();
+        await openBooking(b.id);
+      });
+    });
+  }
   on(modal, "#quote-event", "click", () => quoteForm(b));
   on(modal, "#event-money", "click", () => moneyForm(b.id));
   on(modal, "#print-event", "click", () => window.print());
@@ -1704,7 +2391,7 @@ async function renderEvent() {
     cancelled:
       "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
-  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p><div class="progress">${[
+  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}<div class="progress">${[
     ["Request received", true],
     ["Proposal accepted", !!b.acceptedQuoteId],
     ["Booking confirmed", ["confirmed", "completed"].includes(b.status)],
@@ -1836,6 +2523,13 @@ async function start() {
     : (await api<{ slug: string }>("/default-business")).slug;
   catalog = await api<Catalog>(`/public/${encodeURIComponent(slug)}`);
   renderPublic();
+  if (new URLSearchParams(location.search).get("reset") === "1") {
+    customerResetComplete(
+      new URLSearchParams(location.search).get("username") ?? "",
+      location.hash.slice(1),
+    );
+    history.replaceState(null, "", location.pathname);
+  }
   if (!sessionStorage.getItem(`visit:${slug}`)) {
     const source =
       new URLSearchParams(location.search).get("source") ?? "direct";

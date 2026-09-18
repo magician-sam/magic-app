@@ -14,6 +14,10 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
     .getByLabel("Your name", { exact: true })
     .fill("Browser test family");
   await page.getByLabel("Phone / WhatsApp").fill("+96170011223");
+  await page.getByLabel("Choose a password").fill("Customer-browser-test-42!");
+  await page
+    .getByRole("button", { name: "Create my customer account" })
+    .click();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Browser test celebration");

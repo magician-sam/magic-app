@@ -1,3 +1,4 @@
+import type { CustomField, CustomAnswer } from "./custom-fields.js";
 export type Role = "owner" | "assistant" | "performer" | "admin";
 export interface User {
   id: string;
@@ -20,7 +21,8 @@ export interface Business {
 export interface Package {
   id: string;
   name: string;
-  category: "magic" | "science" | "bubbles" | "other";
+  fastOrder?: boolean;
+  category: string;
   description: string;
   duration: number;
   setup: number;
@@ -78,6 +80,7 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  customAnswers?: CustomAnswer[];
   id: string;
   customerId: string;
   name: string;
@@ -183,6 +186,7 @@ export interface Dashboard {
   visits: { source: string; count: number }[];
 }
 export interface Catalog {
+  customFields?: CustomField[];
   business: Business;
   packages: Package[];
   performers: Performer[];
