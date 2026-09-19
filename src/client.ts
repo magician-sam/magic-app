@@ -213,14 +213,15 @@ function renderPublic() {
     .map(showCard)
     .join(
       "",
-    )}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
+    )}${showMore ? (catalog.business.otherShowNames ?? []).map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
     catalog.packages
       .filter((p) => p.adultShow ?? p.category.toLowerCase() === "magic")
       .map(showCard)
       .join("") ||
     '<p class="muted">New adult magic options are being prepared. Explore our shows or contact us to plan your event.</p>'
-  }</div></section>${catalog.business.characterNames?.length ? `<section id="characters" class="section"><div class="section-heading"><div><span class="eyebrow">A very special guest</span><h2>Characters</h2></div><p>Big smiles start with a surprise visitor. Ask us about your favourite character, timing and availability.</p></div><div class="cards">${catalog.business.characterNames.map((name) => `<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">${/polar|bear/i.test(name) ? "🐻‍❄️" : /panda/i.test(name) ? "🐼" : /bunny|rabbit/i.test(name) ? "🐰" : "🎭"}</span></div><div class="show-body"><span class="eyebrow">Meet, greet & happy memories</span><h3>${e(name)}</h3><p>Tell us about your celebration. We’ll confirm the details and prepare a quote.</p>${catalog.business.whatsapp ? `<a class="button outline" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like to ask about " + name + " for my event.")}" target="_blank" rel="noopener noreferrer">Ask about ${e(name)} ↗</a>` : catalog.business.contactEmail ? `<a class="button outline" href="mailto:${e(catalog.business.contactEmail)}?subject=${encodeURIComponent(name + " event enquiry")}">Ask about ${e(name)} ↗</a>` : '<p class="muted">Enquiry details coming soon.</p>'}</div></article>`).join("")}</div><p class="privacy">Enquiries do not reserve a character. Your booking is confirmed only after the team checks availability and agrees the event details.</p></section>` : ""}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  }</div></section>${catalog.business.characterNames?.length ? `<section id="characters" class="section"><div class="section-heading"><div><span class="eyebrow">A very special guest</span><h2>Characters</h2></div><p>A whole cast of happy surprises, changing with the seasons.</p></div><div class="cards"><article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Meet your surprise guest</span><h3>Choose your character</h3><p>Explore the current cast and find a favourite for your celebration.</p><button id="choose-character" class="outline">Meet the characters →</button></div></article></div></section>` : ""}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   renderBox();
+  on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
   on(app, "#more-shows", "click", () => {
     showMore = !showMore;
@@ -253,6 +254,59 @@ function renderPublic() {
       `<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Event photos and reviews are published only with your permission.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
     ),
   );
+}
+function enquiryLinks(name: string) {
+  const business = catalog.business;
+  return business.whatsapp
+    ? `<a class="button outline" href="https://wa.me/${e(business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like to ask about " + name + " for my event.")}" target="_blank" rel="noopener noreferrer">Ask about ${e(name)} ↗</a>`
+    : business.contactEmail
+      ? `<a class="button outline" href="mailto:${e(business.contactEmail)}?subject=${encodeURIComponent(name + " event enquiry")}">Ask about ${e(name)} ↗</a>`
+      : '<p class="muted">Enquiry details coming soon.</p>';
+}
+function enquiryCard(name: string) {
+  const icon = /animation/i.test(name)
+    ? "🎉"
+    : /dog/i.test(name)
+      ? "🐶"
+      : /bmx/i.test(name)
+        ? "🚲"
+        : /clown/i.test(name)
+          ? "🤡"
+          : /juggl/i.test(name)
+            ? "🤹"
+            : /dance/i.test(name)
+              ? "♫"
+              : "✦";
+  return `<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">${icon}</span></div><div class="show-body"><span class="eyebrow">More ways to celebrate</span><h3>${e(name)}</h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${enquiryLinks(name)}</div></article>`;
+}
+function chooseCharacter() {
+  const names = catalog.business.characterNames ?? [];
+  openDialog(
+    "Who’s joining the party?",
+    formBody(
+      [
+        {
+          key: "character",
+          label: "Choose a character",
+          type: "select",
+          options: options(names),
+          required: true,
+        },
+      ],
+      "<p>Our cast changes with the seasons. Pick your favourite to ask about details and availability.</p>",
+      "Choose this character",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    const name = String(data.get("character"));
+    if (!names.includes(name))
+      throw new Error("Please choose a current character.");
+    openDialog(
+      name + " for your celebration",
+      `<p>A special guest, a happy memory. Ask us about your date and the visit you have in mind.</p>${enquiryLinks(name)}<p class="privacy">An enquiry does not reserve a character. The team confirms availability and the final details before a booking is confirmed.</p><button class="link" id="back-to-characters">Choose another character</button>`,
+    );
+    on(modal, "#back-to-characters", "click", () => chooseCharacter());
+  });
 }
 function eventFields(b?: Partial<Booking>): Field[] {
   return [
@@ -1730,6 +1784,14 @@ function editBusiness() {
       wide: true,
     },
     {
+      key: "otherShowNames",
+      label: "More Shows enquiries (one per line)",
+      type: "textarea",
+      value: (b.otherShowNames ?? []).join("\n"),
+      help: "Add, remove or reorder enquiries. Put Animation first to feature it. Configure full bookable packages under Shows & packages when timings and venue needs are known.",
+      wide: true,
+    },
+    {
       key: "characterNames",
       label: "Characters (one per line)",
       type: "textarea",
@@ -1760,6 +1822,10 @@ function editBusiness() {
   submit(modal.querySelector("form")!, async (data) => {
     await api("/manage/business", "PUT", {
       ...formValues(data, fields),
+      otherShowNames: String(data.get("otherShowNames") ?? "")
+        .split("\n")
+        .map((name) => name.trim())
+        .filter(Boolean),
       characterNames: String(data.get("characterNames") ?? "")
         .split("\n")
         .map((name) => name.trim())

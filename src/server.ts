@@ -837,7 +837,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         ]),
         whatsapp: z.string().regex(/^\+?[0-9]{7,16}$|^$/),
         contactEmail: z.union([z.email(), z.literal("")]).optional(),
-        characterNames: z.array(short.min(1).max(80)).max(30).optional(),
+        characterNames: z.array(short.min(1).max(80)).max(100).optional(),
+        otherShowNames: z.array(short.min(1).max(80)).max(100).optional(),
       })
       .parse(req.body);
     const next = { ...req.business, ...value };

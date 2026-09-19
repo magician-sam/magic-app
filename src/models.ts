@@ -19,6 +19,7 @@ export interface Business {
   whatsapp: string;
   contactEmail?: string;
   characterNames?: string[];
+  otherShowNames?: string[];
   intro: string;
 }
 export interface Package {

@@ -24,9 +24,18 @@ store.transaction(() => {
       .parse(process.env.BUSINESS_SLUG ?? "magic-by-sam"),
     timezone,
   );
+  business.otherShowNames = z
+    .array(z.string().trim().min(1).max(80))
+    .max(100)
+    .parse(
+      (process.env.BUSINESS_OTHER_SHOWS ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean),
+    );
   business.characterNames = z
     .array(z.string().trim().min(1).max(80))
-    .max(30)
+    .max(100)
     .parse(
       (process.env.BUSINESS_CHARACTERS ?? "")
         .split(",")

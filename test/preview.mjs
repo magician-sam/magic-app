@@ -4,6 +4,15 @@ import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 const store = new Store(":memory:");
 const business = store.createBusiness("Magic by Sam", "magic-by-sam");
+business.otherShowNames = [
+  "Animation",
+  "Dog Show",
+  "Acrobat",
+  "BMX",
+  "Clown",
+  "Juggler",
+  "Breakdance",
+];
 business.characterNames = ["Polar Bear", "Panda", "Bunny"];
 business.whatsapp = "+96171299716";
 business.contactEmail = "sam.wehbi@gmail.com";

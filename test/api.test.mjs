@@ -754,17 +754,25 @@ test("editable public contact and character settings stay scoped and audited", a
     contactEmail: "contact@example.test",
     whatsapp: "0096171299716",
     characterNames: ["Polar Bear", "Panda", "Bunny"],
+    otherShowNames: [
+      "Animation",
+      "Dog Show",
+      "Acrobat",
+      "BMX",
+      "Clown",
+      "Juggler",
+      "Breakdance",
+    ],
   };
   assert.equal(
     (await request("/manage/business", "PUT", edited, assistant)).status,
     403,
   );
   assert.equal((await request("/manage/business", "PUT", edited)).status, 200);
-  const catalog = (
-    await request("/public/test", "GET", undefined, null)
-  ).data;
+  const catalog = (await request("/public/test", "GET", undefined, null)).data;
   assert.equal(catalog.business.contactEmail, edited.contactEmail);
   assert.deepEqual(catalog.business.characterNames, edited.characterNames);
+  assert.deepEqual(catalog.business.otherShowNames, edited.otherShowNames);
   assert.equal(store.business(other.id).contactEmail, undefined);
   assert.equal(
     (
@@ -785,6 +793,20 @@ test("editable public contact and character settings stay scoped and audited", a
     200,
   );
   assert.deepEqual(store.business(business.id).characterNames, []);
+  assert.equal(
+    (
+      await request("/manage/business", "PUT", {
+        ...edited,
+        characterNames: ["Winter Guest"],
+        otherShowNames: ["Animation"],
+      })
+    ).status,
+    200,
+  );
+  assert.deepEqual(store.business(business.id).characterNames, [
+    "Winter Guest",
+  ]);
+  assert.deepEqual(store.business(business.id).otherShowNames, ["Animation"]);
   assert.ok(
     store
       .all(business.id, "audit")
@@ -794,5 +816,6 @@ test("editable public contact and character settings stay scoped and audited", a
     ...original,
     contactEmail: "",
     characterNames: [],
+    otherShowNames: [],
   });
 });
