@@ -24,6 +24,13 @@ store.transaction(() => {
       .parse(process.env.BUSINESS_SLUG ?? "magic-by-sam"),
     timezone,
   );
+  business.logo = z
+    .union([
+      z.literal(""),
+      z.literal("/sam-logo.png"),
+      z.url().refine((value) => value.startsWith("https://")),
+    ])
+    .parse(process.env.BUSINESS_LOGO ?? "");
   business.otherShowNames = z
     .array(z.string().trim().min(1).max(80))
     .max(100)

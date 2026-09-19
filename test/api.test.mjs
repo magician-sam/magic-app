@@ -752,6 +752,7 @@ test("editable public contact and character settings stay scoped and audited", a
   const edited = {
     ...original,
     contactEmail: "contact@example.test",
+    logo: "/sam-logo.png",
     whatsapp: "0096171299716",
     characterNames: ["Polar Bear", "Panda", "Bunny"],
     otherShowNames: [
@@ -771,6 +772,16 @@ test("editable public contact and character settings stay scoped and audited", a
   assert.equal((await request("/manage/business", "PUT", edited)).status, 200);
   const catalog = (await request("/public/test", "GET", undefined, null)).data;
   assert.equal(catalog.business.contactEmail, edited.contactEmail);
+  assert.equal(catalog.business.logo, "/sam-logo.png");
+  assert.equal(
+    (
+      await request("/manage/business", "PUT", {
+        ...edited,
+        logo: "javascript:alert(1)",
+      })
+    ).status,
+    400,
+  );
   assert.deepEqual(catalog.business.characterNames, edited.characterNames);
   assert.deepEqual(catalog.business.otherShowNames, edited.otherShowNames);
   assert.equal(store.business(other.id).contactEmail, undefined);

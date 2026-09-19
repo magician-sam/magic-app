@@ -18,6 +18,7 @@ export interface Business {
   instagram: string;
   whatsapp: string;
   contactEmail?: string;
+  logo?: string;
   characterNames?: string[];
   otherShowNames?: string[];
   intro: string;

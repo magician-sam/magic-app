@@ -837,6 +837,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         ]),
         whatsapp: z.string().regex(/^\+?[0-9]{7,16}$|^$/),
         contactEmail: z.union([z.email(), z.literal("")]).optional(),
+        logo: z
+          .union([
+            z.literal(""),
+            z.literal("/sam-logo.png"),
+            z
+              .url()
+              .refine(
+                (value) => value.startsWith("https://"),
+                "Use an HTTPS image link",
+              ),
+          ])
+          .optional(),
         characterNames: z.array(short.min(1).max(80)).max(100).optional(),
         otherShowNames: z.array(short.min(1).max(80)).max(100).optional(),
       })

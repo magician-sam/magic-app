@@ -45,8 +45,8 @@ const localToday = () =>
   }).format(new Date());
 const badge = (value: string) =>
   `<span class="badge ${e(value)}">${e(pretty(value))}</span>`;
-const brand = (name = "Magic App") =>
-  `<a href="/" class="brand"><span class="brand-mark" aria-hidden="true">✦</span>${e(name)}</a>`;
+const brand = (name = "Magic App", logo = "") =>
+  `<a href="/" class="brand">${logo ? `<img class="brand-logo" src="${e(logo)}" alt="${e(name)} logo" width="76" height="76" referrerpolicy="no-referrer">` : '<span class="brand-mark" aria-hidden="true">✦</span>'}<span>${e(name)}</span></a>`;
 const empty = (title: string, description: string) =>
   `<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${e(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
@@ -204,7 +204,7 @@ function renderBox() {
 let showMore = false;
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.business.characterNames?.length ? '<a href="#characters">Characters</a>' : ""}<button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.business.characterNames?.length ? '<a href="#characters">Characters</a>' : ""}<button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
     .filter(
       (p) =>
         showMore ||
@@ -1784,6 +1784,13 @@ function editBusiness() {
       wide: true,
     },
     {
+      key: "logo",
+      label: "Logo image",
+      value: b.logo ?? "",
+      help: "Use /sam-logo.png for your supplied original, or an HTTPS image link. Leave blank to remove.",
+      wide: true,
+    },
+    {
       key: "otherShowNames",
       label: "More Shows enquiries (one per line)",
       type: "textarea",
@@ -2653,7 +2660,7 @@ async function renderEvent() {
     cancelled:
       "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
-  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}<div class="progress">${[
+  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}<div class="progress">${[
     ["Request received", true],
     ["Proposal accepted", !!b.acceptedQuoteId],
     ["Booking confirmed", ["confirmed", "completed"].includes(b.status)],
