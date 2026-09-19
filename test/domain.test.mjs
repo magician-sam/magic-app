@@ -47,13 +47,15 @@ const base = {
   space: 20,
   status: "accepted",
 };
-test("venue checks distinguish age, space, indoor and power requirements", () => {
+test("shows welcome every age while venue requirements still apply", () => {
   assert.deepEqual(compatibility(base, packages), []);
   const issues = compatibility(
     { ...base, indoor: false, age: 1, space: 4 },
     packages,
   );
-  assert.equal(issues.length, 5);
+  assert.equal(issues.length, 3);
+  for (const age of [0, 1, 18, 99])
+    assert.deepEqual(compatibility({ ...base, age }, packages), []);
 });
 test("conflicts include travel and setup, but not unrelated performers or unconfirmed requests", () => {
   const existing = { ...base, id: "b", time: "15:00", status: "confirmed" };

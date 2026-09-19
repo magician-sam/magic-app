@@ -43,3 +43,12 @@ Protected private customer details, retained source commit history, excluded loc
 ## Preview links and checkout extras increment
 
 Editable per-show preview URLs (HTTPS only), optional checkout extras, catalog-derived performer category choices and prefilled WhatsApp enquiry links were added. Browser verification: enable the bubbles show as an extra in admin; preview link renders with the saved URL; register a customer with magic in the basket; opt into bubbles at checkout; the private event timetable includes magic, the changeover and bubbles. No extras are preselected. API coverage checks unsafe preview URL rejection and persisted extra duration/category snapshots. Build/type/lint and all 31 tests pass; no customer-browser JavaScript errors recorded. No external video was opened or WhatsApp message sent.
+
+## September 19 reward and public-content increment
+
+- Build, strict typecheck, lint and all 33 domain/API tests passed. Reward coverage includes scoped permissions, duplicate issuance/use, rule snapshots, cents rounding, deposits, refunds, quote replacement, alternative selection, both cancellation policies, referred customers, free-show package restriction, overpayment rejection and retained audit/history.
+- API checks cover editable/scoped public email and characters, validation and audit entries. All-age compatibility tests preserve venue/power/space checks.
+- Connected browser: staff applied 30% to a test $100.01 quote, customer saw only their own rewards/events and accepted the $70.01 quote, status remained accepted awaiting confirmation. No recorded JavaScript errors in this flow.
+- Public browser: Fast Order and Adult Magic cards have no age labels; Polar Bear/Panda/Bunny enquiries target the supplied WhatsApp number; email uses mailto. Admin saved the 00-prefixed phone and links resolved to wa.me/96171299716. No message was sent or live WhatsApp account ownership verified.
+- Desktop and narrow-screen character screenshots reviewed; narrow browser readback was 375 CSS pixels with matching scrollWidth (no horizontal overflow). Physical-device testing and standalone Playwright worker limitations remain.
+- Temporary test run failures were corrected: an incorrect catalog URL in the new test and a port collision with the disposable reward browser fixture. Final full suite is green.

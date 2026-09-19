@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Store, id } from "./store.js";
 import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
+import { rewardLedger, validateQuoteReward } from "./reward-ledger.js";
 import { rewardSettings, rewardSchema } from "./rewards.js";
 import {
   customFieldSchema,
@@ -520,6 +521,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       updatedAt: new Date().toISOString(),
     };
     store.transaction(() => {
+      validateQuoteReward(
+        store,
+        business.id,
+        booking,
+        booking.quotes.find((q) => q.id === input.quoteId)!,
+      );
       store.put(business.id, "bookings", next);
       store.audit(
         business.id,
@@ -687,6 +694,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     res.json(rewardSettings(store, req.business.id));
   });
   customerRecovery(app, store, limited, canManage);
+  rewardLedger(app, store, canManage);
   app.put("/api/manage/bookings/:id/custom-answers", (req, res) => {
     canManage(req);
     const booking = owned<Booking>(
@@ -828,6 +836,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             ),
         ]),
         whatsapp: z.string().regex(/^\+?[0-9]{7,16}$|^$/),
+        contactEmail: z.union([z.email(), z.literal("")]).optional(),
+        characterNames: z.array(short.min(1).max(80)).max(30).optional(),
       })
       .parse(req.body);
     const next = { ...req.business, ...value };
@@ -1184,6 +1194,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           .get(req.business.id, key) &&
           !bookings.some((b) => b.customerId === key) &&
           !store
+            .all<{ customerId: string }>(req.business.id, "rewardAwards")
+            .some((a) => a.customerId === key) &&
+          !store
             .all<Reminder>(req.business.id, "reminders")
             .some((r) => r.customerId === key),
         "This customer has history. Edit their details or mark Do not contact instead.",
@@ -1452,6 +1465,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             "This event is already closed.",
           );
           if (input.status === "confirmed") {
+            const selected = b.quotes.find((q) => q.id === b.acceptedQuoteId);
+            if (selected)
+              validateQuoteReward(store, req.business.id, b, selected);
             requireThat(
               b.status === "accepted",
               "The customer must accept a current quote first.",
@@ -1751,6 +1767,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ...kinds,
       "audit",
       "rewardSettings",
+      "rewardAwards",
       "customerExtras",
       "customFields",
     ].forEach((kind) => {

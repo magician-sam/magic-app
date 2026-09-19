@@ -83,14 +83,15 @@ export const packageSchema = z
   .object({
     name: short.min(2),
     fastOrder: z.boolean().optional(),
+    adultShow: z.boolean().optional(),
     checkoutExtra: z.boolean().optional(),
     previewVideo: url.optional(),
     category: short.min(1).max(40),
     description: z.string().max(3000),
     duration: z.number().int().min(5).max(480),
     setup: z.number().int().min(0).max(240),
-    minAge: z.number().int().min(0).max(99),
-    maxAge: z.number().int().min(0).max(99),
+    minAge: z.number().int().min(0).max(99).default(0),
+    maxAge: z.number().int().min(0).max(99).default(99),
     indoorOnly: z.boolean(),
     needsPower: z.boolean(),
     minSpace: z.number().min(0).max(10000),
@@ -126,9 +127,6 @@ export function compatibility(
   packages: Package[],
 ) {
   return packages.flatMap((p) => [
-    ...(booking.age < p.minAge || booking.age > p.maxAge
-      ? [`${p.name}: audience age is outside the recommended range.`]
-      : []),
     ...(p.indoorOnly && !booking.indoor
       ? [`${p.name}: an indoor venue is required.`]
       : []),

@@ -24,7 +24,7 @@ Setup refuses to overwrite an existing account. The production database starts w
 - Customer-only accounts with name/phone required, generated editable usernames, password login/change and optional email/children's ages. Browsing stays public; new event requests require a customer session. Staff accounts cannot substitute for customer accounts. Supplied phone numbers are not verified and never auto-link historical contacts.
 - Forgot-password requests, owner review after independent identity verification, private single-use 30-minute reset links/codes, and session revocation. There is no automatic SMS/email delivery; staff share recovery details privately after verification. Password changes also revoke outstanding reset codes.
 - Fast Order plus More Shows, editable show categories and featured flags, optional per-show preview links and checkout extras. Owner-configured booking questions (text, long text, number, choices), required/optional and visible/hidden settings, snapshotted answers, audited staff answer corrections on open events.
-- Customer referral codes/links, configurable reward percentages/thresholds/conditions and profile-completion points. Reward offers start disabled; free-show eligibility must be configured. Progress counts completed, fully paid events and reflects refunds. Redemption is manual through a reviewed quote, not an automated entitlement or payment credit.
+- Customer referral codes/links, configurable reward percentages/thresholds/conditions and profile-completion points. Reward offers start disabled; free-show eligibility must be configured. Progress counts completed, fully paid events and reflects refunds. Staff-reviewed reward issuance now records qualifying paid events and freezes the percentage, conditions, selected free-show package and cancellation policy. Applying a reward calculates the quote discount, caps its deposit, reserves it once, and consumes it when the customer selects that option. Replacement quotes and configured cancellations release it; refunds suspend eligibility without silently changing an agreed price. Different reward types have independent qualifying-event counters. Phone verification and stronger fraud controls remain pending; no free show is automatically booked.
 
 - Theatrical responsive public website, show cards, event box, guided chooser, optional performer selection, profiles/media links, authorized membership badges, consented verified-event reviews, configurable Instagram/WhatsApp links.
 - Persisted reservation requests and unguessable private event links. Request, performer availability, proposal acceptance and confirmed booking are distinct states.
@@ -56,7 +56,7 @@ node node_modules/typescript/bin/tsc
 node scripts/build.mjs
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/eslint/bin/eslint.js src test
-node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/customer.test.mjs test/recovery.test.mjs
+node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/customer.test.mjs test/recovery.test.mjs test/rewards.test.mjs
 ```
 
 Browser runner limitations and the separately verified interactive browser journey are recorded in [VERIFICATION.md](docs/VERIFICATION.md).
@@ -70,3 +70,7 @@ Keep the database on an encrypted persistent volume. Configure database/file per
 `npm run backup` creates a consistent database snapshot under ignored `backups/`. Copy backups to encrypted off-machine storage with an operator-managed schedule. To restore, stop the application, preserve the current database and any WAL/SHM files together in a separate recovery directory, restore a tested snapshot to `DATABASE_PATH`, and restart. Never overwrite a running database. JSON business exports intentionally omit passwords, sessions and access tokens and are not a full-system restore format.
 
 The initial audit log is application-append-only, not cryptographically tamper-proof against a database administrator. It contains personal data; protect it like the customer database.
+
+## September 19 update
+
+Show cards no longer display or enforce age limits. Adult Magic Shows uses an editable package checkbox; the same show can appear in Fast Order and Adult Magic without being duplicated in the basket. Business settings now edit a character enquiry list, public email and WhatsApp number. Sam’s supplied contacts and Polar Bear/Panda/Bunny names are configured in the example bootstrap environment and isolated preview; other businesses do not inherit them. Character cards are enquiries, not bookable packages with invented prices/durations. Approved photos are still to be supplied.

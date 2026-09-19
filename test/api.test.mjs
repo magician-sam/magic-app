@@ -746,3 +746,53 @@ test("user access changes revoke sessions; passwords can be changed without leak
       .every((a) => a.after === null),
   );
 });
+
+test("editable public contact and character settings stay scoped and audited", async () => {
+  const original = store.business(business.id);
+  const edited = {
+    ...original,
+    contactEmail: "contact@example.test",
+    whatsapp: "0096171299716",
+    characterNames: ["Polar Bear", "Panda", "Bunny"],
+  };
+  assert.equal(
+    (await request("/manage/business", "PUT", edited, assistant)).status,
+    403,
+  );
+  assert.equal((await request("/manage/business", "PUT", edited)).status, 200);
+  const catalog = (
+    await request("/public/test", "GET", undefined, null)
+  ).data;
+  assert.equal(catalog.business.contactEmail, edited.contactEmail);
+  assert.deepEqual(catalog.business.characterNames, edited.characterNames);
+  assert.equal(store.business(other.id).contactEmail, undefined);
+  assert.equal(
+    (
+      await request("/manage/business", "PUT", {
+        ...edited,
+        contactEmail: "invalid",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/manage/business", "PUT", {
+        ...edited,
+        characterNames: [],
+      })
+    ).status,
+    200,
+  );
+  assert.deepEqual(store.business(business.id).characterNames, []);
+  assert.ok(
+    store
+      .all(business.id, "audit")
+      .some((a) => a.action === "business.updated"),
+  );
+  await request("/manage/business", "PUT", {
+    ...original,
+    contactEmail: "",
+    characterNames: [],
+  });
+});

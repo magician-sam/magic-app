@@ -24,6 +24,25 @@ store.transaction(() => {
       .parse(process.env.BUSINESS_SLUG ?? "magic-by-sam"),
     timezone,
   );
+  business.characterNames = z
+    .array(z.string().trim().min(1).max(80))
+    .max(30)
+    .parse(
+      (process.env.BUSINESS_CHARACTERS ?? "")
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean),
+    );
+  business.whatsapp = z
+    .string()
+    .regex(/^\+?[0-9]{7,16}$|^$/)
+    .parse(process.env.BUSINESS_WHATSAPP ?? "");
+  business.contactEmail = z
+    .union([z.email(), z.literal("")])
+    .parse(process.env.BUSINESS_CONTACT_EMAIL ?? "");
+  store.db
+    .prepare("UPDATE businesses SET data=? WHERE id=?")
+    .run(JSON.stringify(business), business.id);
   insertUser(store, business.id, email, passwordValue, business.name, "admin");
 });
 store.db.close();

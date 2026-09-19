@@ -6,6 +6,8 @@ import { totals } from "./domain.js";
 export const rewardSchema = z
   .object({
     enabled: z.boolean().default(false),
+    freeShowPackageId: z.string().max(240).default(""),
+    returnOnCancel: z.boolean().default(true),
     discountPercent: z.number().min(0).max(100).default(15),
     eventsForFree: z.number().int().min(1).max(100).default(5),
     qualification: z

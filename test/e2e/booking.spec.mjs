@@ -8,7 +8,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Make room/ })).toBeVisible();
-  await page.locator('[data-add="magic"]').click();
+  await page.locator('#shows [data-add="magic"]').click();
   await page.getByRole("button", { name: "Request my event" }).click();
   await page
     .getByLabel("Your name", { exact: true })
@@ -87,12 +87,20 @@ test("mobile event builder fits viewport and help chooser adds a suitable show",
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Help me choose" }).click();
-  await page.getByLabel("Main audience age", { exact: true }).fill("3");
+  await expect(
+    page.getByLabel("Main audience age", { exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Find my shows" }).click();
   await expect(
-    page.getByRole("heading", { name: "Bubbles & daydreams" }),
+    page
+      .locator("#modal")
+      .getByRole("heading", { name: "Bubbles & daydreams" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Add to event box" }).click();
+  await page
+    .locator("#modal .row")
+    .filter({ hasText: "Bubbles & daydreams" })
+    .getByRole("button", { name: "Add to event box" })
+    .click();
   await expect(page.locator("#event-box")).toContainText("Bubbles & daydreams");
   expect(
     await page.evaluate(

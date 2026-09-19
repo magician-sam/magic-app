@@ -1,4 +1,5 @@
 import type { CustomField, CustomAnswer } from "./custom-fields.js";
+import type { QuoteReward } from "./reward-ledger.js";
 export type Role = "owner" | "assistant" | "performer" | "admin";
 export interface User {
   id: string;
@@ -16,12 +17,15 @@ export interface Business {
   currency: string;
   instagram: string;
   whatsapp: string;
+  contactEmail?: string;
+  characterNames?: string[];
   intro: string;
 }
 export interface Package {
   id: string;
   name: string;
   fastOrder?: boolean;
+  adultShow?: boolean;
   checkoutExtra?: boolean;
   previewVideo?: string;
   category: string;
@@ -73,6 +77,7 @@ export type Status =
   | "completed"
   | "cancelled";
 export interface Quote {
+  reward?: QuoteReward;
   id: string;
   name: string;
   packageIds: string[];

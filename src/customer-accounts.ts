@@ -5,6 +5,7 @@ import { hash, token, passwordHash, passwordMatches } from "./auth.js";
 import { customerSchema, requireThat, short } from "./domain.js";
 import type { Booking, Customer } from "./models.js";
 import { customerRewards, type CustomerExtras } from "./rewards.js";
+import { rewardView, type RewardAward } from "./reward-ledger.js";
 
 export function customerAccounts(
   app: Express,
@@ -161,7 +162,19 @@ export function customerAccounts(
     res.json({
       username: account.username,
       referralCode: account.id,
-      rewards: customerRewards(store, b.id, c),
+      rewards: {
+        ...customerRewards(store, b.id, c),
+        awards: store
+          .all<RewardAward>(b.id, "rewardAwards")
+          .filter((a) => a.customerId === c.id)
+          .map((a) => ({
+            id: a.id,
+            kind: a.kind,
+            percent: a.percent,
+            terms: a.settings.terms,
+            status: rewardView(store, b.id, a).status,
+          })),
+      },
       profile: {
         name: c.name,
         phone: c.phone,

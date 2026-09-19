@@ -4,6 +4,12 @@ import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 const store = new Store(":memory:");
 const business = store.createBusiness("Magic by Sam", "magic-by-sam");
+business.characterNames = ["Polar Bear", "Panda", "Bunny"];
+business.whatsapp = "+96171299716";
+business.contactEmail = "sam.wehbi@gmail.com";
+store.db
+  .prepare("UPDATE businesses SET data=? WHERE id=?")
+  .run(JSON.stringify(business), business.id);
 await createUser(
   store,
   business.id,
@@ -23,8 +29,9 @@ store.put(business.id, "performers", {
   active: true,
   membershipVerified: false,
 });
-createApp(store, "http://localhost:3000").listen(3000, "127.0.0.1", () =>
+const port = Number(process.env.PREVIEW_PORT ?? 3000);
+createApp(store, `http://localhost:${port}`).listen(port, "127.0.0.1", () =>
   console.log(
-    "Isolated preview ready at http://localhost:3000. All records are test-only and disappear when this process stops.",
+    `Isolated preview ready at http://localhost:${port}. All records are test-only and disappear when this process stops.`,
   ),
 );
