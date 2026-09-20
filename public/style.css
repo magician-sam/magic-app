@@ -1745,3 +1745,7 @@ details summary {
 .calendar-panel .toolbar {
   align-items: center;
 }
+.contact-summary {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

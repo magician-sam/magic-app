@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Store, id } from "./store.js";
 import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
+import { contactHistory } from "./contact-history.js";
 import { rewardLedger, validateQuoteReward } from "./reward-ledger.js";
 import { rewardSettings, rewardSchema } from "./rewards.js";
 import {
@@ -695,6 +696,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   });
   customerRecovery(app, store, limited, canManage);
   rewardLedger(app, store, canManage);
+  contactHistory(app, store);
   app.put("/api/manage/bookings/:id/custom-answers", (req, res) => {
     canManage(req);
     const booking = owned<Booking>(
@@ -1206,6 +1208,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           )
           .get(req.business.id, key) &&
           !bookings.some((b) => b.customerId === key) &&
+          !store
+            .all<{ customerId: string }>(req.business.id, "contactHistory")
+            .some((n) => n.customerId === key) &&
           !store
             .all<{ customerId: string }>(req.business.id, "rewardAwards")
             .some((a) => a.customerId === key) &&
@@ -1782,6 +1787,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "rewardSettings",
       "rewardAwards",
       "customerExtras",
+      "contactHistory",
       "customFields",
     ].forEach((kind) => {
       data[kind] = store.all(req.business.id, kind);

@@ -69,3 +69,5 @@ All shows welcome every age: show-card age labels, admin age-limit controls, and
 After the remaining implementation, review the whole project and discuss suggested additions with the owner before expanding scope.
 
 Seasonal catalog follow-up: More Shows includes editable enquiry entries for Animation (first), Dog Show, Acrobat, BMX, Clown, Juggler and Breakdance. Characters now has one landing card opening an editable seasonal chooser (up to 100 names), with selected-character WhatsApp/email enquiry. These entries have no invented prices, duration, capacity or booking promise; full basket packages remain configurable separately. Connected browser verified all seven names, one character card, Panda selection and the correct prefilled link. API coverage checks list editing/replacement; build, typecheck, lint and all 33 tests pass.
+
+Implemented contact history: staff-only manual conversation notes, optional related event, corrections with revisions, archive/restore and audit/export preservation. Existing customer follow-ups and optional supplied children ages are shown privately. Automatic delivery and WhatsApp history import are not included.

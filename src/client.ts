@@ -1,3 +1,4 @@
+import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
@@ -102,6 +103,7 @@ function openDialog(title: string, content: string) {
   modal.innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${e(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
   modal.querySelector(".close")!.addEventListener("click", () => modal.close());
   if (!modal.open) modal.showModal();
+  modal.scrollTop = 0;
 }
 function submit(
   form: HTMLFormElement,
@@ -1273,12 +1275,17 @@ function renderCustomers(root: Element) {
       `${c.name} ${c.phone} ${c.email} ${c.kind}`.toLowerCase().includes(query),
     );
     root.querySelector("#customer-list")!.innerHTML = customers.length
-      ? `<section class="panel table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>History</th><th>Actions</th></tr></thead><tbody>${customers.map((c) => `<tr><td><b>${e(c.name)}</b><span class="sub">${e(c.children.map((ch) => ch.name).join(", "))}</span>${state!.customers.some((other) => other.id !== c.id && other.phone.replace(/\D/g, "") === c.phone.replace(/\D/g, "")) ? '<span class="badge">Possible duplicate</span>' : ""}</td><td>${e(c.phone)}<span class="sub">${e(c.email)}</span></td><td>${badge(c.kind)}${c.doNotContact ? '<span class="sub">Do not contact</span>' : ""}</td><td>${state!.bookings.filter((b) => b.customerId === c.id).length} events</td><td><div class="actions"><button class="small outline" data-edit="customers:${c.id}">Edit</button><button class="small danger" data-delete="customers:${c.id}">Remove</button></div></td></tr>`).join("")}</tbody></table></section>`
+      ? `<section class="panel table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>History</th><th>Actions</th></tr></thead><tbody>${customers.map((c) => `<tr><td><b>${e(c.name)}</b><span class="sub">${e(c.children.map((ch) => ch.name).join(", "))}</span>${state!.customers.some((other) => other.id !== c.id && other.phone.replace(/\D/g, "") === c.phone.replace(/\D/g, "")) ? '<span class="badge">Possible duplicate</span>' : ""}</td><td>${e(c.phone)}<span class="sub">${e(c.email)}</span></td><td>${badge(c.kind)}${c.doNotContact ? '<span class="sub">Do not contact</span>' : ""}</td><td>${state!.bookings.filter((b) => b.customerId === c.id).length} events</td><td><div class="actions"><button class="small outline" data-customer-history="${c.id}">Contact history</button><button class="small outline" data-edit="customers:${c.id}">Edit</button><button class="small danger" data-delete="customers:${c.id}">Remove</button></div></td></tr>`).join("")}</tbody></table></section>`
       : empty(
           "Good relationships start here",
           "Add families, schools, organizations, event planners and venues.",
         );
     wireDashboard(root.querySelector("#customer-list")!);
+    on(root, "[data-customer-history]", "click", (ev) =>
+      showContactHistory(
+        (ev.currentTarget as HTMLElement).dataset.customerHistory!,
+      ),
+    );
   };
   list();
   on(root, "#customer-search", "input", (ev) =>
@@ -1286,6 +1293,115 @@ function renderCustomers(root: Element) {
   );
   on(root, "#import", "click", () => importCustomers());
 }
+async function showContactHistory(customerId: string, includeArchived = false) {
+  const customer = state!.customers.find((c) => c.id === customerId)!;
+  const history = await api<{
+    entries: ContactEntry[];
+    childrenAges: number[];
+  }>(`/manage/customers/${customerId}/history`);
+  const entries = history.entries.filter((n) => includeArchived || !n.archived);
+  const followups = state!.reminders.filter(
+    (r) => r.customerId === customerId && !r.done,
+  );
+  openDialog(
+    `${customer.name} · Contact history`,
+    `<p>${e(customer.phone)} · ${e(customer.email)}</p>${customer.doNotContact ? '<p class="hint">Do not contact is set for this customer.</p>' : ""}<p class="privacy">Internal staff notes. Record conversations you have handled yourself; nothing is sent automatically.</p><p>Optional ages supplied in the customer profile: ${history.childrenAges.length ? history.childrenAges.map(e).join(", ") : "Not supplied"}.</p><div class="actions"><button id="add-contact-entry">＋ Record contact</button><button class="outline small" id="toggle-archived-contacts">${includeArchived ? "Hide archived" : "Show archived"}</button></div><h3>Conversation notes</h3>${entries.map((n) => `<article class="panel"><div class="section-heading"><h3>${day(n.date)} · ${e(pretty(n.channel))}</h3>${badge(n.archived ? "archived" : n.direction)}</div><p class="contact-summary">${e(n.summary)}</p>${n.bookingId ? `<p>Event: ${e(state!.bookings.find((b) => b.id === n.bookingId)?.name ?? "Linked event")}</p>` : ""}<div class="actions"><button class="small outline" data-edit-contact="${n.id}">Edit note</button><button class="small outline" data-archive-contact="${n.id}">${n.archived ? "Restore" : "Archive"}</button></div><small class="muted">Revision ${n.revision} · Changes are recorded in business history.</small></article>`).join("") || '<p class="muted">No contact notes to show.</p>'}<h3>Open follow-ups</h3>${followups.map((r) => `<div class="row"><div><b>${e(r.title)}</b><p>${day(r.date)}</p></div><button class="small outline" data-edit-followup="${r.id}">Edit follow-up</button></div>`).join("") || '<p class="muted">No open follow-ups for this customer.</p>'}`,
+  );
+  on(modal, "#add-contact-entry", "click", () => editContactEntry(customerId));
+  on(modal, "#toggle-archived-contacts", "click", () =>
+    showContactHistory(customerId, !includeArchived),
+  );
+  on(modal, "[data-edit-contact]", "click", (ev) =>
+    editContactEntry(
+      customerId,
+      history.entries.find(
+        (n) => n.id === (ev.currentTarget as HTMLElement).dataset.editContact,
+      )!,
+    ),
+  );
+  on(modal, "[data-archive-contact]", "click", async (ev) => {
+    const entry = history.entries.find(
+      (n) => n.id === (ev.currentTarget as HTMLElement).dataset.archiveContact,
+    )!;
+    await api(`/manage/customers/${customerId}/history/${entry.id}`, "PUT", {
+      ...entry,
+      archived: !entry.archived,
+    });
+    await showContactHistory(customerId, includeArchived);
+  });
+  on(modal, "[data-edit-followup]", "click", (ev) =>
+    editRecord(
+      "reminders",
+      (ev.currentTarget as HTMLElement).dataset.editFollowup!,
+    ),
+  );
+}
+function editContactEntry(customerId: string, entry?: ContactEntry) {
+  const fields: Field[] = [
+    {
+      key: "date",
+      label: "Contact date",
+      type: "date",
+      value: entry?.date ?? localToday(),
+      required: true,
+    },
+    {
+      key: "channel",
+      label: "Channel",
+      type: "select",
+      value: entry?.channel ?? "note",
+      options: options(["phone", "whatsapp", "email", "in_person", "note"]),
+    },
+    {
+      key: "direction",
+      label: "Direction",
+      type: "select",
+      value: entry?.direction ?? "internal",
+      options: options(["inbound", "outbound", "internal"]),
+    },
+    {
+      key: "bookingId",
+      label: "Related event (optional)",
+      type: "select",
+      value: entry?.bookingId ?? "",
+      options: [
+        { value: "", label: "General customer contact" },
+        ...state!.bookings
+          .filter((b) => b.customerId === customerId)
+          .map((b) => ({ value: b.id, label: `${b.name} · ${day(b.date)}` })),
+      ],
+    },
+    {
+      key: "summary",
+      label: "What was discussed / next step",
+      type: "textarea",
+      value: entry?.summary ?? "",
+      required: true,
+      wide: true,
+    },
+  ];
+  openDialog(
+    entry ? "Edit contact note" : "Record customer contact",
+    formBody(
+      fields,
+      '<p class="privacy">Save a factual internal note. This does not send a message. Corrections retain the previous version in the audit history.</p>',
+      "Save contact note",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(
+      `/manage/customers/${customerId}/history/${entry?.id ?? "new"}`,
+      "PUT",
+      {
+        ...formValues(data, fields),
+        revision: entry?.revision ?? 0,
+        archived: entry?.archived ?? false,
+      },
+    );
+    await showContactHistory(customerId, entry?.archived ?? false);
+  });
+}
+
 function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
   root.innerHTML = `<div class="toolbar"><p class="muted">Your ${kind === "packages" ? "show details, prices and venue requirements" : "cast, profiles, media and verified memberships"}.</p><button class="small" data-edit="${kind}:new">＋ Add ${kind === "packages" ? "package" : "performer"}</button></div><div class="profile-grid">${(state![kind] as (Package | Performer)[]).map((v) => `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">${v.duration} min · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit all details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button><button class="small danger" data-delete="${kind}:${v.id}">Archive</button></div></article>`).join("") || empty("Ready for a new act?", "Add a performer profile to introduce the people behind the happy memories.")}</div>`;
   on(root, "[data-duplicate]", "click", (ev) => {

@@ -830,3 +830,122 @@ test("editable public contact and character settings stay scoped and audited", a
     otherShowNames: [],
   });
 });
+
+test("contact history is private, scoped, revision checked and preserved", async () => {
+  const a = {
+    id: "history-family",
+    name: "History family",
+    phone: "+96171111111",
+  };
+  const b = { ...a, id: "different-family" };
+  store.put(business.id, "customers", a);
+  store.put(business.id, "customers", b);
+  store.put(business.id, "customerExtras", { id: a.id, childrenAges: [5, 9] });
+  store.put(business.id, "bookings", { id: "history-event", customerId: a.id });
+  store.put(business.id, "bookings", {
+    id: "different-event",
+    customerId: b.id,
+  });
+  const path = `/manage/customers/${a.id}/history`;
+  const note = {
+    date: "2026-09-20",
+    channel: "phone",
+    direction: "inbound",
+    summary: "Asked about bubble show",
+    bookingId: "history-event",
+    revision: 0,
+  };
+  for (const auth of [null, customerCookie]) {
+    assert.equal((await request(path, "GET", undefined, auth)).status, 401);
+    assert.equal((await request(path + "/new", "PUT", note, auth)).status, 401);
+  }
+  for (const method of ["GET", "PUT"]) {
+    assert.equal(
+      (
+        await request(
+          path + (method === "PUT" ? "/new" : ""),
+          method,
+          method === "PUT" ? note : undefined,
+          performerCookie,
+        )
+      ).status,
+      403,
+    );
+  }
+  assert.equal(
+    (await request(path, "GET", undefined, otherCookie)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(path + "/new", "PUT", {
+        ...note,
+        bookingId: "different-event",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request(path + "/new", "PUT", { ...note, summary: " " })).status,
+    400,
+  );
+  const created = await request(path + "/new", "PUT", note, assistant);
+  assert.equal(created.status, 200);
+  assert.equal(created.data.revision, 1);
+  const key = path + "/" + created.data.id;
+  assert.equal((await request(key, "PUT", note)).status, 409);
+  assert.equal(
+    (
+      await request(
+        `/manage/customers/${b.id}/history/${created.data.id}`,
+        "PUT",
+        created.data,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (await request(key, "PUT", created.data, otherCookie)).status,
+    404,
+  );
+  let edited = (
+    await request(key, "PUT", {
+      ...created.data,
+      summary: "Corrected contact details",
+    })
+  ).data;
+  assert.equal(edited.revision, 2);
+  edited = (await request(key, "PUT", { ...edited, archived: true })).data;
+  assert.equal(edited.archived, true);
+  edited = (await request(key, "PUT", { ...edited, archived: false })).data;
+  assert.equal(edited.archived, false);
+  const history = (await request(path, "GET", undefined, assistant)).data;
+  assert.deepEqual(history.childrenAges, [5, 9]);
+  assert.equal(history.entries.length, 1);
+  assert.deepEqual(
+    (await request(`/manage/customers/${b.id}/history`)).data.entries,
+    [],
+  );
+  assert.equal(
+    (await request("/manage/export")).data.contactHistory[0].id,
+    edited.id,
+  );
+  const audit = store
+    .all(business.id, "audit")
+    .filter((item) => item.action.startsWith("contact."));
+  assert.deepEqual(audit.map((item) => item.action).sort(), [
+    "contact.archived",
+    "contact.corrected",
+    "contact.recorded",
+    "contact.restored",
+  ]);
+  store.db
+    .prepare(
+      "DELETE FROM records WHERE business_id=? AND kind='bookings' AND id IN ('history-event','different-event')",
+    )
+    .run(business.id);
+  assert.equal(
+    (await request(`/manage/customers/${a.id}`, "DELETE")).status,
+    409,
+  );
+});
