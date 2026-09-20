@@ -56,7 +56,7 @@ node node_modules/typescript/bin/tsc
 node scripts/build.mjs
 node node_modules/typescript/bin/tsc --noEmit
 node node_modules/eslint/bin/eslint.js src test
-node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/customer.test.mjs test/recovery.test.mjs test/rewards.test.mjs
+node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/customer.test.mjs test/recovery.test.mjs test/rewards.test.mjs test/calendar.test.mjs
 ```
 
 Browser runner limitations and the separately verified interactive browser journey are recorded in [VERIFICATION.md](docs/VERIFICATION.md).

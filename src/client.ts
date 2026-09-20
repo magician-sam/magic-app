@@ -1,3 +1,4 @@
+import { monthDays, shiftMonth } from "./calendar.js";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
 import type { RewardAward } from "./reward-ledger.js";
@@ -52,6 +53,10 @@ const empty = (title: string, description: string) =>
 let catalog: Catalog;
 let state: Dashboard | undefined;
 let currentView = "today";
+let calendarMonth = "",
+  calendarDay = "",
+  calendarStatus = "all",
+  calendarPerformer = "";
 let basket: string[] = [];
 let selectedPerformers: string[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
@@ -1110,8 +1115,10 @@ function renderDashboard() {
         .join("") ||
       '<p class="muted">No follow-ups waiting. Enjoy the breathing room.</p>'
     }<button class="outline small" data-go="reminders">Plan a follow-up</button><hr><h3>Before the curtain goes up</h3><p class="muted">${state.bookings.filter((b) => (!b.performerIds.length || b.performerIds.some((p) => b.availability[p] !== "available")) && !["cancelled", "completed"].includes(b.status)).length} events still need performer availability.</p></section></div>`;
-  } else if (currentView === "bookings" || currentView === "calendar")
-    renderBookings(content);
+  } else if (currentView === "calendar") {
+    renderCalendar(content);
+    return;
+  } else if (currentView === "bookings") renderBookings(content);
   else if (currentView === "customers") renderCustomers(content);
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
@@ -1181,6 +1188,84 @@ function renderBookings(root: Element) {
     list();
   });
 }
+function renderCalendar(root: Element) {
+  const today = localToday();
+  calendarMonth ||= today.slice(0, 7);
+  const events = state!.bookings
+    .filter(
+      (b) =>
+        b.date.startsWith(calendarMonth) &&
+        (calendarStatus === "all" || b.status === calendarStatus) &&
+        (!calendarPerformer || b.performerIds.includes(calendarPerformer)),
+    )
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const blocks = state!.blocks.filter(
+    (b) =>
+      b.date.startsWith(calendarMonth) &&
+      (!calendarPerformer || b.performerId === calendarPerformer),
+  );
+  const title = new Date(`${calendarMonth}-01T12:00:00Z`).toLocaleDateString(
+    "en-GB",
+    { month: "long", year: "numeric", timeZone: "UTC" },
+  );
+  const shown = events.filter((b) => !calendarDay || b.date === calendarDay);
+  const unavailable = blocks.filter(
+    (b) => !calendarDay || b.date === calendarDay,
+  );
+  root.innerHTML = `<section class="panel calendar-panel"><div class="toolbar"><div><h2>${e(title)}</h2><p class="muted">${e(state!.business.timezone)} · Requests are provisional. Empty days do not guarantee availability.</p></div><button class="outline small" data-edit="blocks:new">＋ Block availability</button></div><div class="calendar-controls"><button class="outline small" id="calendar-prev" aria-label="Previous month" ${calendarMonth === "1900-01" ? "disabled" : ""}>←</button><label>Month<input type="month" id="calendar-month" min="1900-01" max="2299-12" value="${calendarMonth}"></label><button class="outline small" id="calendar-next" aria-label="Next month" ${calendarMonth === "2299-12" ? "disabled" : ""}>→</button><button class="outline small" id="calendar-today">This month</button><label>Event status<select id="calendar-status" aria-label="Event status">${["all", "requested", "availability_pending", "quoted", "accepted", "confirmed", "completed", "cancelled"].map((s) => `<option value="${s}" ${s === calendarStatus ? "selected" : ""}>${pretty(s)}</option>`).join("")}</select></label><label>Performer<select id="calendar-performer" aria-label="Performer"><option value="">All performers</option>${state!.performers.map((p) => `<option value="${e(p.id)}" ${p.id === calendarPerformer ? "selected" : ""}>${e(p.name)}</option>`).join("")}</select></label></div><p class="calendar-key">${badge("requested")} ${badge("accepted")} ${badge("confirmed")} <span class="badge">Unavailable time</span></p><p class="muted mobile-only">Swipe the calendar sideways to see the full week. Your agenda is below.</p><div class="calendar-scroll" tabindex="0" role="region" aria-label="Monthly event calendar"><div class="month-grid">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<div class="weekday">${d}</div>`).join("")}${monthDays(
+    calendarMonth,
+  )
+    .map((date) => {
+      if (!date) return '<div class="calendar-blank" aria-hidden="true"></div>';
+      const dayEvents = events.filter((b) => b.date === date),
+        dayBlocks = blocks.filter((b) => b.date === date);
+      return `<section class="calendar-day ${date === today ? "is-today" : ""} ${date === calendarDay ? "is-selected" : ""}" aria-label="${e(day(date))}"><button class="day-number" data-calendar-day="${date}" aria-label="Show ${e(day(date))}: ${dayEvents.length} events, ${dayBlocks.length} unavailable times" aria-pressed="${date === calendarDay}">${Number(date.slice(8))}${date === today ? '<span class="sr-only">Today</span>' : ""}</button>${dayEvents
+        .slice(0, 3)
+        .map(
+          (b) =>
+            `<button class="calendar-event ${b.status}" data-booking="${b.id}" title="${e(b.name)} · ${pretty(b.status)}"><time>${b.time}</time><span>${e(b.name)}</span><small>${pretty(b.status)}</small></button>`,
+        )
+        .join(
+          "",
+        )}${dayEvents.length > 3 ? `<button class="link small" data-calendar-day="${date}">＋ ${dayEvents.length - 3} more</button>` : ""}${dayBlocks.length ? `<button class="calendar-block" data-calendar-day="${date}">${dayBlocks.length} unavailable time${dayBlocks.length === 1 ? "" : "s"}</button>` : ""}</section>`;
+    })
+    .join(
+      "",
+    )}</div></div></section><section class="panel" id="calendar-agenda"><div class="section-heading"><h2>${calendarDay ? e(day(calendarDay)) : "This month’s agenda"}</h2>${calendarDay ? '<button class="link" id="calendar-all-days">Show whole month</button>' : ""}</div>${shown.map(bookingRow).join("") || '<p class="muted">No events match these filters.</p>'}<h3>Unavailable times</h3>${unavailable.map((b) => `<div class="row"><div><h3>${e(state!.performers.find((p) => p.id === b.performerId)?.name ?? "Performer")}</h3><p>${day(b.date)} · ${b.start}–${b.end} · ${e(b.note)}</p></div><button class="outline small" data-edit="blocks:${b.id}">Edit</button><button class="danger small" data-delete="blocks:${b.id}">Remove</button></div>`).join("") || '<p class="muted">No unavailable times recorded for this selection.</p>'}</section>`;
+  const move = (month: string) => {
+    monthDays(month);
+    calendarMonth = month;
+    calendarDay = "";
+    renderCalendar(root);
+  };
+  on(root, "#calendar-prev", "click", () =>
+    move(shiftMonth(calendarMonth, -1)),
+  );
+  on(root, "#calendar-next", "click", () => move(shiftMonth(calendarMonth, 1)));
+  on(root, "#calendar-today", "click", () => move(today.slice(0, 7)));
+  on(root, "#calendar-month", "change", (ev) =>
+    move((ev.currentTarget as HTMLInputElement).value),
+  );
+  on(root, "#calendar-status", "change", (ev) => {
+    calendarStatus = (ev.currentTarget as HTMLSelectElement).value;
+    renderCalendar(root);
+  });
+  on(root, "#calendar-performer", "change", (ev) => {
+    calendarPerformer = (ev.currentTarget as HTMLSelectElement).value;
+    renderCalendar(root);
+  });
+  on(root, "[data-calendar-day]", "click", (ev) => {
+    calendarDay = (ev.currentTarget as HTMLElement).dataset.calendarDay!;
+    renderCalendar(root);
+    root.querySelector("#calendar-agenda")?.scrollIntoView({ block: "start" });
+  });
+  on(root, "#calendar-all-days", "click", () => {
+    calendarDay = "";
+    renderCalendar(root);
+  });
+  wireDashboard(root);
+}
+
 function renderCustomers(root: Element) {
   root.innerHTML = `<div class="toolbar"><input class="search" id="customer-search" aria-label="Search customers" placeholder="Names, numbers, schools…"><div class="actions"><button class="outline small" id="import">Import spreadsheet CSV</button><button class="small" data-edit="customers:new">＋ Add customer</button></div></div><div id="customer-list"></div>`;
   const list = (query = "") => {
