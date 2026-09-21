@@ -1366,6 +1366,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             "Closed bookings retain their event history.",
           );
           const scheduleChanged =
+            b.travel !== input.travel ||
+            b.breakMinutes !== input.breakMinutes ||
             b.date !== input.date ||
             b.time !== input.time ||
             b.location !== input.location ||
@@ -1376,6 +1378,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           return {
             ...b,
             ...input,
+            runningOrder: packageChanged ? undefined : b.runningOrder,
             packageSnapshot: packageChanged
               ? input.packageIds.map((p) =>
                   owned<Package>(req.business.id, "packages", p),
@@ -1399,6 +1402,58 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           };
         },
         "details.updated-recheck-required",
+      ),
+    );
+  });
+  app.put("/api/manage/bookings/:id/running-order", (req, res) => {
+    canManage(req);
+    const input = z
+      .object({
+        runningOrder: z
+          .array(
+            z.object({
+              packageId: short.min(1),
+              breakAfter: z.number().int().min(0).max(120),
+            }),
+          )
+          .min(1)
+          .max(30),
+        teardown: z.number().int().min(0).max(240),
+      })
+      .parse(req.body);
+    res.json(
+      editBooking(
+        req,
+        (b) => {
+          requireThat(
+            ["accepted", "confirmed"].includes(b.status),
+            "Edit the running order after the customer accepts a quote.",
+          );
+          const chosen = selectedPackages(
+            b,
+            store.all<Package>(req.business.id, "packages"),
+          );
+          const ids = input.runningOrder.map((row) => row.packageId);
+          requireThat(
+            ids.length === chosen.length &&
+              new Set(ids).size === ids.length &&
+              chosen.every((p) => ids.includes(p.id)),
+            "Include each agreed show exactly once.",
+          );
+          requireThat(
+            input.runningOrder.at(-1)!.breakAfter === 0,
+            "The final show has no changeover; use pack-down time instead.",
+          );
+          return {
+            ...b,
+            ...input,
+            status: "accepted",
+            availability: Object.fromEntries(
+              b.performerIds.map((p) => [p, "pending" as const]),
+            ),
+          };
+        },
+        "running-order.updated-recheck-required",
       ),
     );
   });
@@ -1511,6 +1566,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
               }) as Quote,
           );
           b.acceptedQuoteId = "";
+          b.runningOrder = undefined;
           b.status = "quoted";
           return b;
         },

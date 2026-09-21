@@ -2269,7 +2269,7 @@ async function openBooking(key: string) {
   }>(`/manage/bookings/${b.id}/checks`);
   openDialog(
     b.name,
-    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div><div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div><section class="panel"><h3>Who’s on stage?</h3>${b.performerIds.map((p) => `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name)}</span>${badge(b.availability[p] ?? "pending")}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${p}" ${state!.user.role === "performer" && p !== state!.user.performerId ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`).join("") || '<p class="muted">Assign performers using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p>${state!.user.role !== "performer" ? '<button id="refer-event" class="small outline">＋ Track a referral</button>' : ""}</section><section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Changeovers: ${b.breakMinutes} minutes.</p><p>${e(b.venueNotes)}</p></section>${
+    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div><div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div><section class="panel"><h3>Who’s on stage?</h3>${b.performerIds.map((p) => `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name)}</span>${badge(b.availability[p] ?? "pending")}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${p}" ${state!.user.role === "performer" && p !== state!.user.performerId ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`).join("") || '<p class="muted">Assign performers using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p>${state!.user.role !== "performer" ? '<button id="refer-event" class="small outline">＋ Track a referral</button>' : ""}</section><section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
       state!.user.role !== "performer"
         ? `<section class="panel"><h3>Referrals</h3>${
             state!.referrals
@@ -2296,6 +2296,16 @@ async function openBooking(key: string) {
     ),
   );
   on(modal, "#edit-event", "click", () => editEvent(b));
+  if (
+    ["owner", "admin"].includes(state!.user.role) &&
+    ["accepted", "confirmed"].includes(b.status)
+  ) {
+    const button = document.createElement("button");
+    button.className = "outline small";
+    button.textContent = "Edit running order";
+    button.addEventListener("click", () => editRunningOrder(b));
+    modal.querySelector(".tabs")!.append(button);
+  }
   if (["owner", "admin"].includes(state!.user.role)) {
     const rewardButton = document.createElement("button");
     rewardButton.className = "outline small";
@@ -2467,6 +2477,75 @@ function editEvent(b: Booking) {
     await loadDashboard();
     await openBooking(b.id);
     notify("Event updated.");
+  });
+}
+function editRunningOrder(b: Booking) {
+  const quote = b.quotes.find((q) => q.id === b.acceptedQuoteId)!;
+  const shows =
+    quote.packageSnapshot ??
+    quote.packageIds.map((id) => state!.packages.find((p) => p.id === id)!);
+  const sorted = shows.slice().sort((a, c) => {
+    const rank = (id: string) =>
+      b.runningOrder?.findIndex((row) => row.packageId === id) ?? -1;
+    return rank(a.id) - rank(c.id);
+  });
+  const fields: Field[] = sorted.flatMap((show, i) => [
+    {
+      key: "order-" + i,
+      label: show.name + " · position",
+      type: "select",
+      value: String(i),
+      options: sorted.map((_, n) => ({
+        value: String(n),
+        label: String(n + 1),
+      })),
+    },
+    {
+      key: "break-" + i,
+      label: show.name + " · break after (minutes)",
+      type: "number",
+      value:
+        b.runningOrder?.find((r) => r.packageId === show.id)?.breakAfter ??
+        (i === sorted.length - 1 ? 0 : b.breakMinutes),
+      min: 0,
+      max: 120,
+      required: true,
+    },
+  ]);
+  fields.push({
+    key: "teardown",
+    label: "Pack-down time after the final show (minutes)",
+    type: "number",
+    value: b.teardown ?? 0,
+    min: 0,
+    max: 240,
+    required: true,
+  });
+  openDialog(
+    "Plan the running order",
+    formBody(
+      fields,
+      "<p>Choose a different position for each show. Set the final show’s break to zero. Show durations stay as agreed. Saving requires fresh performer availability and booking confirmation.</p>",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    const rows = sorted.map((show, i) => ({
+      packageId: show.id,
+      breakAfter: Number(data.get("break-" + i)),
+      position: Number(data.get("order-" + i)),
+    }));
+    if (new Set(rows.map((r) => r.position)).size !== rows.length)
+      throw new Error("Choose a different position for each show.");
+    await api(`/manage/bookings/${b.id}/running-order`, "PUT", {
+      revision: b.revision,
+      runningOrder: rows
+        .sort((a, c) => a.position - c.position)
+        .map(({ packageId, breakAfter }) => ({ packageId, breakAfter })),
+      teardown: Number(data.get("teardown")),
+    });
+    state = await api<Dashboard>("/manage/state");
+    renderDashboard();
+    await openBooking(b.id);
   });
 }
 async function rewardDialog(b: Booking) {

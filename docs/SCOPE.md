@@ -75,3 +75,5 @@ Implemented contact history: staff-only manual conversation notes, optional rela
 Date-filtered reporting is implemented: event metrics use event dates; cash metrics use transaction dates. Each event's balance retains its full ledger. Page-view counts remain all-time. Advanced repeat-customer reports and profile counters remain pending.
 
 Custom booking questions now support up/down ordering with preserved historical answers. Custom fields for additional record types and broader public content editing remain pending.
+
+Timetable editing now supports explicit show positions, per-show breaks and separate pack-down after quote acceptance, with availability/confirmation reset and conflict checks. Historical agreed durations and prices remain unchanged. Drag-and-drop, per-act performers/pay and practical route planning remain unfinished.

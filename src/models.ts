@@ -113,6 +113,8 @@ export interface Booking {
   acceptedQuoteId: string;
   travel: number;
   breakMinutes: number;
+  runningOrder?: { packageId: string; breakAfter: number }[];
+  teardown?: number;
   checklist: { text: string; done: boolean }[];
   venueNotes: string;
   backupPerformerIds: string[];

@@ -146,7 +146,7 @@ export function timetable(
   let cursor = DateTime.fromISO(`${booking.date}T${booking.time}`, {
     zone: timezone,
   });
-  const chosen = selectedPackages(booking, packages);
+  const chosen = scheduledPackages(booking, packages);
   const setup = Math.max(0, ...chosen.map((p) => p.setup));
   const rows = [
     {
@@ -166,22 +166,51 @@ export function timetable(
       rows.push({
         label: "Changeover / break",
         at: cursor.toFormat("HH:mm"),
-        duration: booking.breakMinutes,
+        duration: breakAfter(booking, p.id),
       });
-      cursor = cursor.plus({ minutes: booking.breakMinutes });
+      cursor = cursor.plus({ minutes: breakAfter(booking, p.id) });
     }
   });
   rows.push({ label: "Finish", at: cursor.toFormat("HH:mm"), duration: 0 });
+  if (booking.teardown) {
+    rows.push({
+      label: "Pack down",
+      at: cursor.toFormat("HH:mm"),
+      duration: booking.teardown,
+    });
+    cursor = cursor.plus({ minutes: booking.teardown });
+    rows.push({
+      label: "Team departure",
+      at: cursor.toFormat("HH:mm"),
+      duration: 0,
+    });
+  }
   return rows;
 }
-function interval(booking: Booking, packages: Package[], timezone: string) {
+function breakAfter(booking: Booking, packageId: string) {
+  return (
+    booking.runningOrder?.find((row) => row.packageId === packageId)
+      ?.breakAfter ?? booking.breakMinutes
+  );
+}
+export function scheduledPackages(booking: Booking, packages: Package[]) {
   const chosen = selectedPackages(booking, packages);
+  const order = booking.runningOrder?.map((row) => row.packageId) ?? [];
+  return chosen.slice().sort((a, b) => {
+    const rank = (key: string) =>
+      order.includes(key) ? order.indexOf(key) : order.length;
+    return rank(a.id) - rank(b.id);
+  });
+}
+function interval(booking: Booking, packages: Package[], timezone: string) {
+  const chosen = scheduledPackages(booking, packages);
   const start = DateTime.fromISO(`${booking.date}T${booking.time}`, {
     zone: timezone,
   });
   const length =
     chosen.reduce((n, p) => n + p.duration, 0) +
-    Math.max(0, chosen.length - 1) * booking.breakMinutes;
+    chosen.slice(0, -1).reduce((n, p) => n + breakAfter(booking, p.id), 0) +
+    (booking.teardown ?? 0);
   return [
     start
       .minus({

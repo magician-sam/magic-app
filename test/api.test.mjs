@@ -1038,3 +1038,58 @@ test("question ordering is scoped, checked against stale lists and preserves ans
       .some((a) => a.action === "questions.reordered"),
   );
 });
+
+test("running order requires agreed shows, resets availability, preserves price and rejects stale edits", async () => {
+  const info = await newRequest({ date: "2028-05-04" });
+  await propose(info.id);
+  await accept(info);
+  let b = await current(info.id);
+  const input = {
+    revision: b.revision,
+    runningOrder: [{ packageId: "magic", breakAfter: 0 }],
+    teardown: 35,
+  };
+  const path = `/manage/bookings/${info.id}/running-order`;
+  assert.equal((await request(path, "PUT", input, assistant)).status, 403);
+  assert.equal((await request(path, "PUT", input, otherCookie)).status, 404);
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...input,
+        runningOrder: [{ packageId: "bubbles", breakAfter: 0 }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...input,
+        runningOrder: [{ packageId: "magic", breakAfter: 5 }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await request(path, "PUT", input)).status, 200);
+  assert.equal((await request(path, "PUT", input)).status, 409);
+  const changed = await current(info.id);
+  assert.equal(changed.availability.sam, "pending");
+  assert.equal(changed.status, "accepted");
+  assert.deepEqual(changed.quotes, b.quotes);
+  assert.equal(changed.acceptedQuoteId, b.acceptedQuoteId);
+  assert.equal(changed.teardown, 35);
+  assert.ok(
+    (await request(`/manage/bookings/${info.id}/checks`)).data.timetable.some(
+      (r) => r.label === "Pack down" && r.duration === 35,
+    ),
+  );
+  await action(info.id, "status", {
+    status: "cancelled",
+    reason: "Test closure",
+  });
+  b = await current(info.id);
+  assert.equal(
+    (await request(path, "PUT", { ...input, revision: b.revision })).status,
+    400,
+  );
+});

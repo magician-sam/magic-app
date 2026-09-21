@@ -166,3 +166,46 @@ test("catalog edits do not alter the duration or requirements of an accepted pro
     ["13:30", "14:00", "14:45"],
   );
 });
+
+test("custom running order, breaks and pack-down reserve the full occupied interval", () => {
+  const booking = {
+    ...base,
+    packageIds: ["magic", "bubble"],
+    travel: 0,
+    runningOrder: [
+      { packageId: "bubble", breakAfter: 20 },
+      { packageId: "magic", breakAfter: 0 },
+    ],
+    teardown: 30,
+  };
+  const rows = timetable(booking, packages, "Asia/Beirut");
+  assert.deepEqual(
+    rows.map((r) => [r.label, r.at]),
+    [
+      ["Arrival & setup", "13:30"],
+      ["Bubbles", "14:00"],
+      ["Changeover / break", "14:30"],
+      ["Magic", "14:50"],
+      ["Finish", "15:35"],
+      ["Pack down", "15:35"],
+      ["Team departure", "16:05"],
+    ],
+  );
+  const next = {
+    ...base,
+    id: "next",
+    time: "16:00",
+    travel: 0,
+    status: "confirmed",
+  };
+  assert.equal(
+    conflicts(booking, [next], packages, [], "Asia/Beirut").length,
+    1,
+  );
+  const overnight = timetable(
+    { ...booking, time: "23:30" },
+    packages,
+    "Asia/Beirut",
+  );
+  assert.equal(overnight.at(-1).at, "01:35");
+});
