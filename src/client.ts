@@ -1,3 +1,4 @@
+import type { ActPlan } from "./act-plans.js";
 import { reportPeriod } from "./reports.js";
 import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
@@ -2305,6 +2306,13 @@ async function openBooking(key: string) {
     button.textContent = "Edit running order";
     button.addEventListener("click", () => editRunningOrder(b));
     modal.querySelector(".tabs")!.append(button);
+    const staffing = document.createElement("button");
+    staffing.className = "outline small";
+    staffing.textContent = "Show staffing & agreed pay";
+    staffing.addEventListener("click", () => {
+      editActPlan(b).catch((err) => notify(err.message));
+    });
+    modal.querySelector(".tabs")!.append(staffing);
   }
   if (["owner", "admin"].includes(state!.user.role)) {
     const rewardButton = document.createElement("button");
@@ -2477,6 +2485,80 @@ function editEvent(b: Booking) {
     await loadDashboard();
     await openBooking(b.id);
     notify("Event updated.");
+  });
+}
+async function editActPlan(b: Booking) {
+  const data = await api<{ plan: ActPlan; revision: number; shows: Package[] }>(
+    `/manage/bookings/${b.id}/act-plan`,
+  );
+  const fields: Field[] = data.shows.flatMap((show, i) => {
+    const row = data.plan.rows.find((r) => r.packageId === show.id);
+    return [
+      {
+        key: "performer-" + i,
+        label: show.name + " · performer",
+        type: "select",
+        value: row?.performerId ?? "",
+        options: [
+          { value: "", label: "Unassigned" },
+          ...b.performerIds.map((id) => ({
+            value: id,
+            label: state!.performers.find((p) => p.id === id)?.name ?? id,
+          })),
+        ],
+      },
+      {
+        key: "pay-" + i,
+        label: show.name + " · agreed pay (" + state!.business.currency + ")",
+        type: "number",
+        value: (row?.agreedPay ?? 0) / 100,
+        min: 0,
+        max: 1000000,
+        step: "0.01",
+        required: true,
+      },
+    ];
+  });
+  fields.push({
+    key: "notes",
+    label: "Private staffing notes",
+    type: "textarea",
+    value: data.plan.notes,
+    wide: true,
+  });
+  openDialog(
+    "Show staffing & agreed pay",
+    formBody(
+      fields,
+      "<p>Owner/admin only. Choose from the event’s assigned performers. Leave a show unassigned to remove its plan. Saving requires fresh availability and confirmation. All assigned performers remain reserved for the full event including travel/setup/pack-down. Agreed pay is a plan, not a paid expense; record actual payments separately.</p>",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (values) => {
+    const rows = data.shows.flatMap((show, i) => {
+      const performerId = String(values.get("performer-" + i) ?? "");
+      const amount = Number(values.get("pay-" + i));
+      if (!performerId && amount !== 0)
+        throw new Error(
+          "Choose a performer for each agreed payment, or set unassigned pay to zero.",
+        );
+      return performerId
+        ? [
+            {
+              packageId: show.id,
+              performerId,
+              agreedPay: Math.round(amount * 100),
+            },
+          ]
+        : [];
+    });
+    await api(`/manage/bookings/${b.id}/act-plan`, "PUT", {
+      revision: data.revision,
+      rows,
+      notes: String(values.get("notes") ?? ""),
+    });
+    state = await api<Dashboard>("/manage/state");
+    renderDashboard();
+    await openBooking(b.id);
   });
 }
 function editRunningOrder(b: Booking) {

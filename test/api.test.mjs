@@ -1093,3 +1093,107 @@ test("running order requires agreed shows, resets availability, preserves price 
     400,
   );
 });
+
+test("private per-show staffing plans preserve money and prevent access or stale edits", async () => {
+  const info = await newRequest({ date: "2028-06-04" });
+  await propose(info.id);
+  await accept(info);
+  let b = await current(info.id);
+  const path = `/manage/bookings/${info.id}/act-plan`;
+  const body = {
+    revision: b.revision,
+    rows: [{ packageId: "magic", performerId: "sam", agreedPay: 12345 }],
+    notes: "Private agreed fee",
+  };
+  for (const auth of [assistant, performerCookie]) {
+    assert.equal((await request(path, "GET", undefined, auth)).status, 403);
+    assert.equal((await request(path, "PUT", body, auth)).status, 403);
+  }
+  assert.equal(
+    (await request(path, "GET", undefined, customerCookie)).status,
+    401,
+  );
+  assert.equal(
+    (await request(path, "GET", undefined, otherCookie)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...body,
+        rows: [{ ...body.rows[0], performerId: "unknown" }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...body,
+        rows: [{ ...body.rows[0], packageId: "bubbles" }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...body,
+        rows: [body.rows[0], body.rows[0]],
+      })
+    ).status,
+    400,
+  );
+  const beforeMoney = store.all(business.id, "money");
+  assert.equal((await request(path, "PUT", body)).status, 200);
+  assert.equal((await request(path, "PUT", body)).status, 409);
+  assert.deepEqual(store.all(business.id, "money"), beforeMoney);
+  const plan = (await request(path)).data.plan;
+  assert.equal(plan.rows[0].agreedPay, 12345);
+  b = await current(info.id);
+  assert.equal(b.availability.sam, "pending");
+  assert.equal(b.status, "accepted");
+  assert.equal(
+    JSON.stringify(
+      (await request("/manage/state", "GET", undefined, performerCookie)).data,
+    ).includes("Private agreed fee"),
+    false,
+  );
+  const page = (
+    await request("/event", "GET", undefined, null, {
+      "x-event-token": info.token,
+    })
+  ).data;
+  assert.equal(JSON.stringify(page).includes("Private agreed fee"), false);
+  assert.ok(
+    (await request("/manage/export")).data.actPlans.some(
+      (p) => p.id === info.id,
+    ),
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...body,
+        revision: b.revision,
+        rows: [],
+        notes: "",
+      })
+    ).status,
+    200,
+  );
+  assert.deepEqual((await request(path)).data.plan.rows, []);
+  await action(info.id, "status", {
+    status: "cancelled",
+    reason: "Test closure",
+  });
+  b = await current(info.id);
+  assert.equal(
+    (await request(path, "PUT", { ...body, revision: b.revision })).status,
+    400,
+  );
+  assert.ok(
+    store
+      .all(business.id, "audit")
+      .some((a) => a.action === "staffing-plan.updated"),
+  );
+});

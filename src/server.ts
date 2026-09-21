@@ -12,6 +12,7 @@ import { Store, id } from "./store.js";
 import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
 import { contactHistory } from "./contact-history.js";
+import type { ActPlan } from "./act-plans.js";
 import { rewardLedger, validateQuoteReward } from "./reward-ledger.js";
 import { rewardSettings, rewardSchema } from "./rewards.js";
 import {
@@ -1405,6 +1406,112 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
+  app.get("/api/manage/bookings/:id/act-plan", (req, res) => {
+    canManage(req);
+    const b = owned<Booking>(
+      req.business.id,
+      "bookings",
+      String(req.params.id),
+    );
+    res.json({
+      plan: store.get<ActPlan>(req.business.id, "actPlans", b.id) ?? {
+        id: b.id,
+        rows: [],
+        notes: "",
+      },
+      revision: b.revision,
+      shows: selectedPackages(
+        b,
+        store.all<Package>(req.business.id, "packages"),
+      ),
+    });
+  });
+  app.put("/api/manage/bookings/:id/act-plan", (req, res) => {
+    canManage(req);
+    const input = z
+      .object({
+        rows: z
+          .array(
+            z.object({
+              packageId: short.min(1),
+              performerId: short.min(1),
+              agreedPay: cents,
+            }),
+          )
+          .max(30),
+        notes: z.string().max(3000),
+      })
+      .parse(req.body);
+    res.json(
+      store.transaction(() => {
+        const b = owned<Booking>(
+          req.business.id,
+          "bookings",
+          String(req.params.id),
+        );
+        requireThat(
+          req.body.revision === b.revision,
+          "Another change was saved. Refresh before editing.",
+          409,
+        );
+        requireThat(
+          ["accepted", "confirmed"].includes(b.status),
+          "Staffing plans can be edited after quote acceptance and before closure.",
+        );
+        const shows = selectedPackages(
+          b,
+          store.all<Package>(req.business.id, "packages"),
+        );
+        requireThat(
+          new Set(input.rows.map((r) => r.packageId)).size ===
+            input.rows.length,
+          "Assign each show once.",
+        );
+        input.rows.forEach((row) => {
+          requireThat(
+            shows.some((p) => p.id === row.packageId),
+            "Choose an agreed show.",
+          );
+          requireThat(
+            b.performerIds.includes(row.performerId),
+            "Choose a performer already assigned to this event.",
+          );
+          owned<Performer>(req.business.id, "performers", row.performerId);
+        });
+        const before =
+          store.get<ActPlan>(req.business.id, "actPlans", b.id) ?? null;
+        const plan = { id: b.id, ...input };
+        store.put(req.business.id, "actPlans", plan);
+        store.audit(
+          req.business.id,
+          req.user.email,
+          "staffing-plan.updated",
+          b.id,
+          before,
+          plan,
+        );
+        const next: Booking = {
+          ...b,
+          revision: b.revision + 1,
+          updatedAt: new Date().toISOString(),
+          status: "accepted",
+          availability: Object.fromEntries(
+            b.performerIds.map((p) => [p, "pending" as const]),
+          ),
+        };
+        store.put(req.business.id, "bookings", next);
+        store.audit(
+          req.business.id,
+          req.user.email,
+          "bookings.staffing-plan.recheck-required",
+          b.id,
+          b,
+          next,
+        );
+        return next;
+      }),
+    );
+  });
   app.put("/api/manage/bookings/:id/running-order", (req, res) => {
     canManage(req);
     const input = z
@@ -1897,6 +2004,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "rewardAwards",
       "customerExtras",
       "contactHistory",
+      "actPlans",
       "customFields",
     ].forEach((kind) => {
       data[kind] = store.all(req.business.id, kind);

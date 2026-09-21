@@ -77,3 +77,5 @@ Date-filtered reporting is implemented: event metrics use event dates; cash metr
 Custom booking questions now support up/down ordering with preserved historical answers. Custom fields for additional record types and broader public content editing remain pending.
 
 Timetable editing now supports explicit show positions, per-show breaks and separate pack-down after quote acceptance, with availability/confirmation reset and conflict checks. Historical agreed durations and prices remain unchanged. Drag-and-drop, per-act performers/pay and practical route planning remain unfinished.
+
+Per-show staffing and agreed pay now have an owner/admin-only planning editor. One performer per show can be selected from the event cast; rows can be unassigned. No payroll automation or actual payment occurs. Full-event conflict reservation remains conservative. Per-act performer-facing schedules, multiple crew per act, pay reconciliation and narrower occupied intervals remain refinements.
