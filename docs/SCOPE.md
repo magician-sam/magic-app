@@ -15,7 +15,7 @@ Catalog edits are versioned into event/proposal snapshots so existing agreements
 ## Required before accepting real customers
 
 1. Owner verifies branding, all package copy, durations, suitability, setup requirements, geographic service area, currency, timezone, price/deposit/cancellation terms, actual performer information, authorized badges and media rights. Seed catalog values are editable starting points, not verified operational requirements.
-2. Configure hosting with persistent storage, HTTPS and exact origin; provision real credentials outside git. No production deployment was requested or performed.
+2. Vercel hosting is now requested after completion. Migrate local SQLite persistence to a suitable external database, configure HTTPS and exact origin, and provision real credentials outside git. No production deployment has been performed. See VERCEL.md.
 3. Set retention/privacy rules, operational account recovery, production abuse controls, monitoring, backup schedule and encrypted off-machine destination. Test recovery on the chosen host.
 4. Run the committed Playwright suite on a host where browser workers can start; broaden real-device checks for Android/iOS browsers and keyboard/screen-reader review.
 
@@ -25,7 +25,7 @@ Catalog edits are versioned into event/proposal snapshots so existing agreements
 - Real availability invitations, reminders/offer drafts tied to a contact history, birthday/school seasonal scheduling, post-event follow-up automation. Current reminders are stored/dashboard-visible and quotes/links are shared manually. No messages are sent automatically.
 - Individual performer assignment and agreed pay per act. Current performers are assigned to the event as a whole; conflict checks conservatively reserve the entire event for each assigned performer. Expense categories record performer/assistant/referral costs but are not a payroll system.
 - Cross-business referral consent/acceptance and minimal-data sharing. Current referral records track a listed performer’s response and fee within one business; no private records are automatically shared with another business.
-- Customer deduplication merge workflow. Imports skip duplicate phone/email records, manual/public duplicates are flagged, and event customer associations can be edited. Public submissions deliberately never overwrite an existing contact based only on an unverified phone/email.
+- Verified identity handling for merging customers linked to login accounts, referrals or rewards. Ordinary staff-created duplicate contacts now support reviewed merges; public submissions never overwrite an existing contact based only on an unverified phone/email.
 - Gallery uploads/object storage, approved multi-photo/video galleries, upload scanning and more granular photo consent management. Current media uses HTTPS links and one photo per review, with separate publication consent.
 - Popular-profile visitor counters, report date filters, advanced repeat-customer reports, visual admin support-access business switcher. Current calendar has a monthly grid, status/performer filters and a selectable daily agenda; stats are aggregate page views and request sources, not anonymous visitor identities.
 - Safe editing of closed booking factual details through an explicit amendment flow. Completed/cancelled records are presently protected from event edits. Raw destructive deletion of booking/money/audit records is intentionally absent; cancellation and logged monetary corrections are provided instead.

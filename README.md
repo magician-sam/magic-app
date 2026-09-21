@@ -33,6 +33,7 @@ Setup refuses to overwrite an existing account. The production database starts w
 - Manual deposits, balances, payments, refunds, expenses, referral-fee tracking, estimated profit, booking-source reports, popular requested packages and anonymous page-view counts.
 - Separate businesses; owners, assistants and performers; assigned-event-only performer view; user editing/removal; password changes revoke sessions. Platform support API requires a reason for cross-business access and logs it.
 - CSV spreadsheet import with preview and duplicate detection, business JSON exports, consistent SQLite backup command.
+- Owner-reviewed duplicate customer merge with a change preview, explicit identity confirmation, stale-change protection and a private archive of original records. Login-linked and reward-linked customers require separate identity/eligibility handling and cannot be merged through this workflow.
 - Editable business/profile/package/customer/event/quote/reminder/checklist/referral fields. Linked historical records are protected; catalog removals archive, money corrections preserve previous values in the audit trail, and reviews are moderated without altering genuine ratings.
 
 See [SCOPE.md](docs/SCOPE.md) for the exact remaining work and limitations. This is **not a declaration that the entire approved platform is finished or production-launched**.
@@ -62,6 +63,8 @@ node --test --test-isolation=none test/domain.test.mjs test/api.test.mjs test/cu
 Browser runner limitations and the separately verified interactive browser journey are recorded in [VERIFICATION.md](docs/VERIFICATION.md).
 
 ## Deployment and operations
+
+Vercel is the owner's selected future hosting target. The current SQLite implementation is **not yet Vercel-ready**. See [VERCEL.md](docs/VERCEL.md) for the remaining persistence migration and launch checks. No production deployment has been made.
 
 Use HTTPS with `NODE_ENV=production`, set `APP_ORIGIN` to the exact public HTTPS origin, and set `HOST=0.0.0.0` only on a secured application host. Terminate TLS at a trusted reverse proxy. The server validates write origins, uses HttpOnly/SameSite session cookies and a restrictive content policy, and never places event tokens in a URL path or query (the private token is in the fragment and sent in a request header). Private links are bearer access: anyone holding one can view and act on that event. They expire after 180 days and can be rotated by staff.
 

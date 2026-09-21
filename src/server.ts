@@ -12,6 +12,7 @@ import { Store, id } from "./store.js";
 import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
 import { contactHistory } from "./contact-history.js";
+import { customerMerge } from "./customer-merge.js";
 import type { ActPlan } from "./act-plans.js";
 import { rewardLedger, validateQuoteReward } from "./reward-ledger.js";
 import { rewardSettings, rewardSchema } from "./rewards.js";
@@ -699,6 +700,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   customerRecovery(app, store, limited, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);
+  customerMerge(app, store);
   app.put("/api/manage/bookings/:id/custom-answers", (req, res) => {
     canManage(req);
     const booking = owned<Booking>(
@@ -2005,6 +2007,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "customerExtras",
       "contactHistory",
       "actPlans",
+      "customerMerges",
       "customFields",
     ].forEach((kind) => {
       data[kind] = store.all(req.business.id, kind);

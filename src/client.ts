@@ -1294,6 +1294,92 @@ function renderCustomers(root: Element) {
     list((ev.currentTarget as HTMLInputElement).value.toLowerCase()),
   );
   on(root, "#import", "click", () => importCustomers());
+  if (["owner", "admin"].includes(state!.user.role)) {
+    const button = document.createElement("button");
+    button.className = "outline small";
+    button.textContent = "Merge duplicate customers";
+    button.addEventListener("click", chooseCustomerMerge);
+    root.querySelector(".toolbar .actions")!.prepend(button);
+  }
+}
+function chooseCustomerMerge() {
+  const options = state!.customers.map((c) => ({
+    value: c.id,
+    label: `${c.name} · ${c.phone}`,
+  }));
+  openDialog(
+    "Review duplicate customers",
+    formBody(
+      [
+        {
+          key: "targetId",
+          label: "Customer record to keep",
+          type: "select",
+          required: true,
+          options,
+        },
+        {
+          key: "sourceId",
+          label: "Duplicate record to combine",
+          type: "select",
+          required: true,
+          options,
+        },
+      ],
+      "<p>Only combine records you have verified belong to the same customer. Login-linked and reward-linked records are protected. Nothing changes until you confirm the preview.</p>",
+      "Preview merge",
+    ),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    const ids = {
+      targetId: String(data.get("targetId")),
+      sourceId: String(data.get("sourceId")),
+    };
+    const p = await api<{
+      target: Customer;
+      source: Customer;
+      merged: Customer;
+      revision: string;
+      reasons: string[];
+      counts: { bookings: number; reminders: number; history: number };
+    }>("/manage/customer-merge/preview", "POST", ids);
+    const details = `<p>Keep <b>${e(p.target.name)}</b> and combine <b>${e(p.source.name)}</b>.</p><p>Move ${p.counts.bookings} bookings, ${p.counts.reminders} follow-ups and ${p.counts.history} contact notes. Financial entries and agreed prices stay unchanged.</p><p>The kept record retains its name, phone, email, type, language and source. Children, additional contacts and notes are combined. The earliest follow-up is kept. Do-not-contact takes priority, and offers remain allowed only if both records allow them.</p><p><b>Kept contact:</b> ${e(p.merged.phone)} · ${e(p.merged.email || "No email")}</p><p>${p.merged.children.length} children · ${p.merged.contacts.length} additional contacts</p><p class="privacy">The duplicate disappears from the active list. Original records are retained in the private merge archive and business export; there is no automatic undo.</p>`;
+    if (p.reasons.length) {
+      openDialog(
+        "Merge needs a separate review",
+        details + p.reasons.map((r) => `<p class="hint">${e(r)}</p>`).join(""),
+      );
+      return;
+    }
+    openDialog(
+      "Confirm customer merge",
+      formBody(
+        [
+          {
+            key: "identityConfirmed",
+            label: "I verified these records belong to the same customer",
+            type: "checkbox",
+            required: true,
+          },
+        ],
+        details,
+        "Combine customer records",
+      ),
+    );
+    submit(modal.querySelector("form")!, async (confirmation) => {
+      await api("/manage/customer-merge/confirm", "POST", {
+        ...ids,
+        revision: p.revision,
+        identityConfirmed: confirmation.get("identityConfirmed") === "on",
+      });
+      modal.close();
+      state = await api<Dashboard>("/manage/state");
+      renderDashboard();
+      notify(
+        "Customer records combined. Original details are preserved in the private history.",
+      );
+    });
+  });
 }
 async function showContactHistory(customerId: string, includeArchived = false) {
   const customer = state!.customers.find((c) => c.id === customerId)!;
