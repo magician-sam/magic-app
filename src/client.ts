@@ -1,3 +1,4 @@
+import { reportPeriod } from "./reports.js";
 import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
 import type { CustomField } from "./custom-fields.js";
@@ -1411,16 +1412,36 @@ function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
     editRecord(kind, key, true);
   });
 }
+let reportFrom = "",
+  reportTo = "";
 function renderMoney(root: Element) {
-  root.innerHTML = `${stats()}<div class="toolbar"><p class="muted">Amounts are recorded manually in ${e(state!.business.currency)}. No money is charged online.</p><button id="record-money" class="small">＋ Record payment / cost</button></div><section class="panel table-wrap"><h3>Event performance</h3><table><thead><tr><th>Event</th><th>Agreed</th><th>Collected</th><th>Balance</th><th>Expenses</th><th>Estimated profit</th></tr></thead><tbody>${state!.bookings
+  const report = reportPeriod(
+    state!.bookings,
+    state!.money,
+    reportFrom,
+    reportTo,
+  );
+  root.innerHTML = `<section class="panel"><h2>Your reporting period</h2><form id="report-period"><div class="calendar-controls"><label>From date<input type="date" name="from" value="${e(reportFrom)}"></label><label>To date<input type="date" name="to" value="${e(reportTo)}"></label><button type="submit" class="small">Apply dates</button><button type="button" class="outline small" id="report-all">All dates</button></div><p class="form-error" role="alert"></p></form><p class="muted">Inclusive dates in ${e(state!.business.timezone)}. Blank dates leave that end open. Current recorded values, not a historical snapshot.</p></section><h2>Cash recorded in this period</h2><p class="muted">Selected by payment, refund or expense date, even when the event falls outside this period. Cash after expenses is not accounting profit.</p><div class="stats">${[
+    ["Payments", report.payments],
+    ["Refunds", report.refunds],
+    ["Expenses", report.expenses],
+    ["Cash after expenses", report.cashAfterExpenses],
+  ]
+    .map(
+      ([label, value]) =>
+        `<div class="stat"><span>${label}</span><b>${money(Number(value))}</b></div>`,
+    )
+    .join(
+      "",
+    )}</div><div class="toolbar"><p class="muted">Amounts are recorded manually in ${e(state!.business.currency)}. No money is charged online.</p><button id="record-money" class="small">＋ Record payment / cost</button></div><section class="panel table-wrap"><h3>Event performance · by event date</h3><p class="muted">All payments and expenses for each selected event are included, even outside this period. Estimates use the accepted quote and recorded costs; status is shown separately.</p><table><thead><tr><th>Event</th><th>Agreed</th><th>Collected</th><th>Balance</th><th>Expenses</th><th>Estimated profit</th></tr></thead><tbody>${report.events
     .map((b) => {
       const m = bookingMoney(b);
       return `<tr><td><button class="link" data-booking="${b.id}">${e(b.name)}</button>${badge(b.status)}</td><td>${money(m.agreed)}</td><td>${money(m.paid)}</td><td>${money(m.balance)}</td><td>${money(m.expense)}</td><td>${money(m.profit)}</td></tr>`;
     })
     .join(
       "",
-    )}</tbody></table></section><div class="two-col"><section class="panel"><h3>Payments & expenses</h3>${
-    state!.money
+    )}</tbody></table>${report.events.length ? "" : '<p class="muted">No events in this period.</p>'}</section><div class="two-col"><section class="panel"><h3>Payments & expenses · by transaction date</h3>${
+    report.transactions
       .slice()
       .reverse()
       .map(
@@ -1428,7 +1449,23 @@ function renderMoney(root: Element) {
           `<div class="row"><div><h3>${e(pretty(m.kind))} · ${money(m.amount)}</h3><p>${day(m.date)} · ${e(m.category)} · ${e(m.note)}</p></div><button class="small outline" data-correct="${m.id}">Correct</button></div>`,
       )
       .join("") || '<p class="muted">No transactions recorded.</p>'
-  }</section><section class="panel"><h3>Where the happy begins</h3><p class="muted">Page views, not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Popular requested shows</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${state!.bookings.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources</h3>${[...new Set(state!.bookings.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${state!.bookings.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => state!.bookings.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events.</p></section></div>`;
+  }</section><section class="panel"><h3>Where the happy begins</h3><p class="muted">All-time page views (not filtered by these dates), not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Requested shows · by event date</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${report.events.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources · by event date</h3>${[...new Set(report.events.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${report.events.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => report.events.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events dated within this period.</p></section></div>`;
+  submit(
+    root.querySelector<HTMLFormElement>("#report-period")!,
+    async (data) => {
+      const from = String(data.get("from") ?? ""),
+        to = String(data.get("to") ?? "");
+      reportPeriod(state!.bookings, state!.money, from, to);
+      reportFrom = from;
+      reportTo = to;
+      renderDashboard();
+    },
+  );
+  on(root, "#report-all", "click", () => {
+    reportFrom = "";
+    reportTo = "";
+    renderDashboard();
+  });
   on(root, "#record-money", "click", () => moneyForm());
   on(root, "[data-correct]", "click", (ev) =>
     moneyCorrection((ev.currentTarget as HTMLElement).dataset.correct!),
