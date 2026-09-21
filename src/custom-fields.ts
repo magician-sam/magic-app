@@ -7,6 +7,7 @@ export const customFieldSchema = z
     type: z.enum(["text", "textarea", "number", "select"]),
     required: z.boolean(),
     active: z.boolean(),
+    position: z.number().int().min(0).optional(),
     options: z.array(short.min(1)).max(30),
   })
   .refine(
@@ -16,6 +17,9 @@ export const customFieldSchema = z
     "Choice questions need unique options.",
   );
 export type CustomField = z.infer<typeof customFieldSchema>;
+export function orderedFields(fields: CustomField[]): CustomField[] {
+  return fields.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
 export type CustomAnswer = {
   id: string;
   label: string;
@@ -28,7 +32,7 @@ export function customAnswers(
   const values = z
     .record(z.string(), z.union([z.string().max(3000), z.number().finite()]))
     .parse(input ?? {});
-  const active = fields.filter((f) => f.active);
+  const active = orderedFields(fields).filter((f) => f.active);
   requireThat(
     Object.keys(values).every((key) => active.some((f) => f.id === key)),
     "Booking questions changed. Refresh and review your answers.",

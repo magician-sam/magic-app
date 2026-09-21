@@ -949,3 +949,92 @@ test("contact history is private, scoped, revision checked and preserved", async
     409,
   );
 });
+
+test("question ordering is scoped, checked against stale lists and preserves answer history", async () => {
+  const field = {
+    label: "First question",
+    type: "text",
+    required: false,
+    active: true,
+    options: [],
+  };
+  await request("/manage/custom-fields", "POST", {
+    ...field,
+    id: "order-first",
+  });
+  await request("/manage/custom-fields", "POST", {
+    ...field,
+    id: "order-second",
+    label: "Second question",
+  });
+  const original = (await request("/manage/custom-fields")).data;
+  const previous = original.map((f) => f.id),
+    ids = previous.slice().reverse();
+  const body = { previous, ids };
+  assert.equal(
+    (await request("/manage/custom-fields/order", "PUT", body, assistant))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await request("/manage/custom-fields/order", "PUT", body, otherCookie))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await request("/manage/custom-fields/order", "PUT", {
+        previous,
+        ids: previous.map(() => previous[0]),
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request("/manage/custom-fields/order", "PUT", body)).status,
+    200,
+  );
+  assert.equal(
+    (await request("/manage/custom-fields/order", "PUT", body)).status,
+    409,
+  );
+  assert.deepEqual(
+    (await request("/manage/custom-fields")).data.map((f) => f.id),
+    ids,
+  );
+  await request("/manage/custom-fields", "POST", {
+    ...field,
+    id: "order-first",
+    label: "Renamed",
+    position: 999,
+  });
+  assert.deepEqual(
+    (await request("/manage/custom-fields")).data.map((f) => f.id),
+    ids,
+  );
+  const publicFields = (await request("/public/test", "GET", undefined, null))
+    .data.customFields;
+  assert.deepEqual(
+    publicFields.map((f) => f.id),
+    ids.filter((id) => original.find((f) => f.id === id).active),
+  );
+  const created = await newRequest();
+  const booking = await current(created.id);
+  assert.deepEqual(
+    booking.customAnswers.map((a) => a.id),
+    publicFields.map((f) => f.id),
+  );
+  await request("/manage/custom-fields/order", "PUT", {
+    previous: ids,
+    ids: previous,
+  });
+  assert.deepEqual(
+    (await current(created.id)).customAnswers,
+    booking.customAnswers,
+  );
+  assert.ok(
+    store
+      .all(business.id, "audit")
+      .some((a) => a.action === "questions.reordered"),
+  );
+});

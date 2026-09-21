@@ -1516,7 +1516,7 @@ async function editQuestions() {
     "<p>Add questions for your customers. Hide a question to remove it from new orders; answers on past events stay in their history.</p>" +
       questions
         .map(
-          (q) =>
+          (q, index) =>
             '<div class="row"><div><h3>' +
             e(q.label) +
             "</h3><p>" +
@@ -1525,11 +1525,33 @@ async function editQuestions() {
             e(q.type) +
             '</p></div><button class="outline small" data-question="' +
             e(q.id) +
-            '">Edit</button></div>',
+            '">Edit</button><button class="outline small" data-question-move="' +
+            index +
+            '" data-direction="-1" aria-label="Move ' +
+            e(q.label) +
+            ' up" ' +
+            (index === 0 ? "disabled" : "") +
+            '>↑</button><button class="outline small" data-question-move="' +
+            index +
+            '" data-direction="1" aria-label="Move ' +
+            e(q.label) +
+            ' down" ' +
+            (index === questions.length - 1 ? "disabled" : "") +
+            ">↓</button></div>",
         )
         .join("") +
       '<button id="new-question">Add a question</button>',
   );
+  on(modal, "[data-question-move]", "click", async (ev) => {
+    const target = ev.currentTarget as HTMLElement;
+    const index = Number(target.dataset.questionMove),
+      next = index + Number(target.dataset.direction);
+    const previous = questions.map((q) => q.id),
+      ids = previous.slice();
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+    await api("/manage/custom-fields/order", "PUT", { previous, ids });
+    await editQuestions();
+  });
   const edit = (q?: CustomField) => {
     const fields: Field[] = [
       {

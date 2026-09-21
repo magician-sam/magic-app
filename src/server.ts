@@ -17,6 +17,7 @@ import { rewardSettings, rewardSchema } from "./rewards.js";
 import {
   customFieldSchema,
   customAnswers,
+  orderedFields,
   type CustomField,
 } from "./custom-fields.js";
 import {
@@ -319,9 +320,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         .all<Performer>(business.id, "performers")
         .filter((p) => p.active),
       reviews,
-      customFields: store
-        .all<CustomField>(business.id, "customFields")
-        .filter((f) => f.active),
+      customFields: orderedFields(
+        store.all<CustomField>(business.id, "customFields"),
+      ).filter((f) => f.active),
     });
   });
   app.post("/api/public/:slug/visit", (req, res) => {
@@ -747,7 +748,50 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   });
   app.get("/api/manage/custom-fields", (req, res) => {
     canManage(req);
-    res.json(store.all(req.business.id, "customFields"));
+    res.json(
+      orderedFields(store.all<CustomField>(req.business.id, "customFields")),
+    );
+  });
+  app.put("/api/manage/custom-fields/order", (req, res) => {
+    canManage(req);
+    const input = z
+      .object({
+        previous: z.array(z.string()).max(50),
+        ids: z.array(z.string()).max(50),
+      })
+      .parse(req.body);
+    const result = store.transaction(() => {
+      const fields = orderedFields(
+        store.all<CustomField>(req.business.id, "customFields"),
+      );
+      const previous = fields.map((f) => f.id);
+      requireThat(
+        JSON.stringify(previous) === JSON.stringify(input.previous),
+        "Questions changed. Reopen the questions before reordering.",
+        409,
+      );
+      requireThat(
+        input.ids.length === previous.length &&
+          new Set(input.ids).size === previous.length &&
+          input.ids.every((key) => previous.includes(key)),
+        "Include each question exactly once.",
+      );
+      const next = input.ids.map((key, position) => ({
+        ...fields.find((f) => f.id === key)!,
+        position,
+      }));
+      next.forEach((f) => store.put(req.business.id, "customFields", f));
+      store.audit(
+        req.business.id,
+        req.user.email,
+        "questions.reordered",
+        "customFields",
+        previous,
+        input.ids,
+      );
+      return next;
+    });
+    res.json(result);
   });
   app.post("/api/manage/custom-fields", (req, res) => {
     canManage(req);
@@ -757,7 +801,16 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         store.all(req.business.id, "customFields").length < 50,
       "Maximum 50 questions. Edit an existing question.",
     );
-    res.json(writeRecord(req, "customFields", input));
+    const fields = store.all<CustomField>(req.business.id, "customFields");
+    const existing = fields.find((f) => f.id === input.id);
+    res.json(
+      writeRecord(req, "customFields", {
+        ...input,
+        position: existing
+          ? (existing.position ?? 0)
+          : Math.max(-1, ...fields.map((f) => f.position ?? 0)) + 1,
+      }),
+    );
   });
   app.put("/api/manage/reward-settings", (req, res) => {
     canManage(req);

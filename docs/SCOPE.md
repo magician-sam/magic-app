@@ -73,3 +73,5 @@ Seasonal catalog follow-up: More Shows includes editable enquiry entries for Ani
 Implemented contact history: staff-only manual conversation notes, optional related event, corrections with revisions, archive/restore and audit/export preservation. Existing customer follow-ups and optional supplied children ages are shown privately. Automatic delivery and WhatsApp history import are not included.
 
 Date-filtered reporting is implemented: event metrics use event dates; cash metrics use transaction dates. Each event's balance retains its full ledger. Page-view counts remain all-time. Advanced repeat-customer reports and profile counters remain pending.
+
+Custom booking questions now support up/down ordering with preserved historical answers. Custom fields for additional record types and broader public content editing remain pending.
