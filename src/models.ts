@@ -24,6 +24,16 @@ export interface Business {
   intro: string;
 }
 export interface Package {
+  bundleIds?: string[];
+  bundleBreakMinutes?: number;
+  bundleSnapshot?: {
+    id: string;
+    name: string;
+    duration: number;
+    priceMode: string;
+    price: number;
+  }[];
+  gallery?: GalleryPhoto[];
   id: string;
   name: string;
   fastOrder?: boolean;
@@ -45,6 +55,7 @@ export interface Package {
   checklist: string[];
 }
 export interface Performer {
+  gallery?: GalleryPhoto[];
   id: string;
   name: string;
   bio: string;
@@ -54,6 +65,11 @@ export interface Performer {
   areas: string;
   active: boolean;
   membershipVerified: boolean;
+}
+export interface GalleryPhoto {
+  url: string;
+  caption: string;
+  approved: true;
 }
 export interface Customer {
   id: string;

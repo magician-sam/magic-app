@@ -1749,3 +1749,10 @@ details summary {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+
+.photo-gallery{margin:1rem 0;text-align:left}.photo-gallery summary{cursor:pointer;font-weight:700;color:var(--purple,#39245b)}.gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;margin-top:12px}.gallery-grid figure{margin:0;min-width:0}.gallery-grid img,.profile .gallery-grid img{width:100%;height:180px;object-fit:contain;border-radius:12px;background:#f6f3ed}.gallery-grid figcaption{font-size:.85rem;padding:8px 0;overflow-wrap:anywhere}
+.bundle-includes { padding: .75rem; border-radius: 12px; background: #f5f0ff; }
+.bundle-saving { color: #276343; }
+#offers { scroll-margin-top: 2rem; }
+

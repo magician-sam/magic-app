@@ -79,9 +79,33 @@ export const eventSchema = z.object({
   packageIds: z.array(short.min(1)).min(1).max(12),
   performerIds: z.array(short).max(20).default([]),
 });
+export const gallerySchema = z
+  .array(
+    z.object({
+      url: z
+        .url()
+        .max(2000)
+        .refine((value) => {
+          const link = new URL(value);
+          return link.protocol === "https:" && !link.username && !link.password;
+        }, "Use a public HTTPS image link without credentials"),
+      caption: z.string().trim().min(1).max(240),
+      approved: z.literal(true, {
+        error: "Confirm permission to publish these photos",
+      }),
+    }),
+  )
+  .max(12)
+  .refine(
+    (rows) => new Set(rows.map((row) => row.url)).size === rows.length,
+    "Remove duplicate photo links",
+  );
 export const packageSchema = z
   .object({
     name: short.min(2),
+    gallery: gallerySchema.optional(),
+    bundleIds: z.array(short.min(1)).max(12).optional(),
+    bundleBreakMinutes: z.number().int().min(0).max(60).optional(),
     fastOrder: z.boolean().optional(),
     adultShow: z.boolean().optional(),
     checkoutExtra: z.boolean().optional(),
@@ -105,6 +129,7 @@ export const packageSchema = z
     "Maximum age must be at least minimum age",
   );
 export const performerSchema = z.object({
+  gallery: gallerySchema.optional(),
   name: short.min(2),
   bio: z.string().max(3000),
   categories: z.array(short.min(1).max(40)).min(1).max(30),

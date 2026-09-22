@@ -197,8 +197,46 @@ function price(p: Package) {
     ? "Quote required"
     : `${p.priceMode === "from" ? "From " : ""}${money(p.price)}`;
 }
+function photoGallery(
+  photos?: { url: string; caption: string; approved: boolean }[],
+) {
+  const approved = (photos ?? []).filter((p) => p.approved);
+  return approved.length
+    ? '<details class="photo-gallery"><summary>View photos (' +
+        approved.length +
+        ')</summary><div class="gallery-grid">' +
+        approved
+          .map(
+            (p) =>
+              '<figure><a href="' +
+              e(p.url) +
+              '" target="_blank" rel="noopener noreferrer"><img src="' +
+              e(p.url) +
+              '" alt="' +
+              e(p.caption) +
+              '" loading="lazy" referrerpolicy="no-referrer"></a><figcaption>' +
+              e(p.caption) +
+              "</figcaption></figure>",
+          )
+          .join("") +
+        "</div></details>"
+    : "";
+}
+function bundleDetails(p: Package) {
+  if (!p.bundleIds?.length) return "";
+  const parts = p.bundleIds.map((id) =>
+    catalog.packages.find((show) => show.id === id),
+  );
+  const separate = parts.every(
+    (show) => show?.active && show.priceMode === "fixed",
+  )
+    ? parts.reduce((sum, show) => sum + show!.price, 0)
+    : 0;
+  const names = (p.bundleSnapshot ?? []).map((show) => show.name).join(" + ");
+  return `<p class="bundle-includes"><strong>Included:</strong> ${e(names)}</p>${separate > p.price ? `<p class="bundle-saving">Separately ${money(separate)} · <strong>Save ${money(separate - p.price)}</strong></p>` : ""}`;
+}
 function showCard(p: Package) {
-  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p>${p.previewVideo ? `<p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch a quick preview ↗</a></p>` : ""}<div class="show-meta">${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p>${p.previewVideo ? `<p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch a quick preview ↗</a></p>` : ""}${photoGallery(p.gallery)}${bundleDetails(p)}<div class="show-meta">${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -215,7 +253,7 @@ function renderBox() {
 let showMore = false;
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.business.characterNames?.length ? '<a href="#characters">Characters</a>' : ""}<button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}${catalog.business.characterNames?.length ? '<a href="#characters">Characters</a>' : ""}<button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
     .filter(
       (p) =>
         showMore ||
@@ -224,13 +262,20 @@ function renderPublic() {
     .map(showCard)
     .join(
       "",
-    )}${showMore ? (catalog.business.otherShowNames ?? []).map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
+    )}${showMore ? (catalog.business.otherShowNames ?? []).map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
+    catalog.packages.some((p) => p.bundleIds?.length)
+      ? `<section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Your favourite shows, together in one offer.</p></div><div class="cards">${catalog.packages
+          .filter((p) => p.bundleIds?.length)
+          .map(showCard)
+          .join("")}</div></section>`
+      : ""
+  }<section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
     catalog.packages
       .filter((p) => p.adultShow ?? p.category.toLowerCase() === "magic")
       .map(showCard)
       .join("") ||
     '<p class="muted">New adult magic options are being prepared. Explore our shows or contact us to plan your event.</p>'
-  }</div></section>${catalog.business.characterNames?.length ? `<section id="characters" class="section"><div class="section-heading"><div><span class="eyebrow">A very special guest</span><h2>Characters</h2></div><p>A whole cast of happy surprises, changing with the seasons.</p></div><div class="cards"><article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Meet your surprise guest</span><h3>Choose your character</h3><p>Explore the current cast and find a favourite for your celebration.</p><button id="choose-character" class="outline">Meet the characters →</button></div></article></div></section>` : ""}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  }</div></section>${catalog.business.characterNames?.length ? `<section id="characters" class="section"><div class="section-heading"><div><span class="eyebrow">A very special guest</span><h2>Characters</h2></div><p>A whole cast of happy surprises, changing with the seasons.</p></div><div class="cards"><article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Meet your surprise guest</span><h3>Choose your character</h3><p>Explore the current cast and find a favourite for your celebration.</p><button id="choose-character" class="outline">Meet the characters →</button></div></article></div></section>` : ""}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || empty("The cast is coming together", "Performer profiles will appear here once they’re ready. You can still request your favourite shows.")}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   renderBox();
   on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
@@ -241,6 +286,23 @@ function renderPublic() {
   });
   on(app, "[data-add]", "click", (ev) => {
     const key = (ev.currentTarget as HTMLElement).dataset.add!;
+    const added = catalog.packages.find((p) => p.id === key)!;
+    const included = added.bundleIds?.length ? added.bundleIds : [key];
+    if (
+      !basket.includes(key) &&
+      catalog.packages
+        .filter((p) => basket.includes(p.id))
+        .some((p) =>
+          (p.bundleIds?.length ? p.bundleIds : [p.id]).some((id) =>
+            included.includes(id),
+          ),
+        )
+    ) {
+      notify(
+        "This show is already included in your event box. Remove the overlapping show or bundle first.",
+      );
+      return;
+    }
     basket = basket.includes(key)
       ? basket.filter((x) => x !== key)
       : [...basket, key];
@@ -1043,6 +1105,7 @@ const navItems = [
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
   ["packages", "✧", "Shows & packages"],
+  ["offers", "✦", "Offers & bundles"],
   ["performers", "☆", "Performers"],
   ["money", "$", "Money & reports"],
   ["reminders", "◷", "Follow-ups"],
@@ -1128,6 +1191,7 @@ function renderDashboard() {
   else if (currentView === "customers") renderCustomers(content);
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
+  else if (currentView === "offers") renderCatalogAdmin(content, "packages");
   else if (currentView === "money") renderMoney(content);
   else if (currentView === "reminders") renderReminders(content);
   else if (currentView === "reviews") renderReviews(content);
@@ -1493,7 +1557,24 @@ function editContactEntry(customerId: string, entry?: ContactEntry) {
 }
 
 function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
-  root.innerHTML = `<div class="toolbar"><p class="muted">Your ${kind === "packages" ? "show details, prices and venue requirements" : "cast, profiles, media and verified memberships"}.</p><button class="small" data-edit="${kind}:new">＋ Add ${kind === "packages" ? "package" : "performer"}</button></div><div class="profile-grid">${(state![kind] as (Package | Performer)[]).map((v) => `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">${v.duration} min · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit all details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button><button class="small danger" data-delete="${kind}:${v.id}">Archive</button></div></article>`).join("") || empty("Ready for a new act?", "Add a performer profile to introduce the people behind the happy memories.")}</div>`;
+  const offers = currentView === "offers";
+  root.innerHTML = `<div class="toolbar"><p class="muted">Your ${kind === "packages" ? "show details, prices and venue requirements" : "cast, profiles, media and verified memberships"}.</p><button class="small" data-edit="${kind}:new">＋ Add ${offers ? "offer / bundle" : kind === "packages" ? "package" : "performer"}</button></div><div class="profile-grid">${
+    (state![kind] as (Package | Performer)[])
+      .filter((v) => !offers || ("bundleIds" in v && v.bundleIds?.length))
+      .map(
+        (v) =>
+          `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">${v.duration} min · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit all details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button><button class="small danger" data-delete="${kind}:${v.id}">Archive</button></div></article>`,
+      )
+      .join("") ||
+    empty(
+      offers ? "Your next great offer starts here" : "Ready for a new act?",
+      offers
+        ? "Combine two or more shows, set your bundle price and publish it for customers."
+        : kind === "packages"
+          ? "Add a show with its price and venue requirements."
+          : "Add a performer profile to introduce the people behind the happy memories.",
+    )
+  }</div>`;
   on(root, "[data-duplicate]", "click", (ev) => {
     const [kind, key] = (
       ev.currentTarget as HTMLElement
@@ -2058,7 +2139,12 @@ function editRecord(kind: string, key: string, duplicate = false) {
   const list = (state as unknown as Record<string, Record<string, unknown>[]>)[
     kind
   ];
-  const item = key === "new" ? {} : (list.find((v) => v.id === key) ?? {});
+  const item =
+    key === "new"
+      ? kind === "packages" && currentView === "offers"
+        ? { category: "bundle", priceMode: "fixed", adultShow: false }
+        : {}
+      : (list.find((v) => v.id === key) ?? {});
   const f = (
     key: string,
     label: string,
@@ -2163,6 +2249,20 @@ function editRecord(kind: string, key: string, duplicate = false) {
         help: "One item per line. Add, change or remove any line.",
       }),
     ];
+  if (kind === "packages")
+    fields.push(
+      f(
+        "bundleBreakMinutes",
+        "Break between bundled shows (minutes)",
+        "number",
+        {
+          value: item.bundleBreakMinutes ?? 10,
+          min: 0,
+          max: 60,
+          help: "For bundles, duration, setup and venue needs are calculated from the included shows. Use a fixed total price.",
+        },
+      ),
+    );
   if (kind === "performers")
     fields = [
       f("name", "Stage name", "text", { required: true }),
@@ -2252,6 +2352,22 @@ function editRecord(kind: string, key: string, duplicate = false) {
       }),
       f("note", "Note", "textarea", { wide: true }),
     ];
+  if (kind === "packages" || kind === "performers") {
+    const photos = (item.gallery ?? []) as { url: string; caption: string }[];
+    fields.push(
+      f("gallery", "Gallery photos", "textarea", {
+        wide: true,
+        value: photos.map((p) => p.url + " | " + p.caption).join("\n"),
+        help: "Up to 12 photos. One per line: HTTPS image link | description. Line order is display order. Remove a line to remove a photo. Leave empty until your pictures are ready.",
+      }),
+      f(
+        "galleryApproved",
+        "I have permission to publish these gallery photos",
+        "checkbox",
+        { wide: true, value: photos.length > 0 },
+      ),
+    );
+  }
   openDialog(
     `${key === "new" || duplicate ? "Add" : "Edit"} ${kind === "customers" ? "customer" : kind === "packages" ? "package" : kind === "performers" ? "performer" : kind === "blocks" ? "availability block" : kind === "referrals" ? "referral" : "follow-up"}`,
     formBody(
@@ -2275,11 +2391,43 @@ function editRecord(kind: string, key: string, duplicate = false) {
             (item.categories as string[]) ?? ["magic"],
             "Acts / categories",
           )
-        : "",
+        : kind === "packages"
+          ? choices(
+              "bundleIds",
+              state!.packages.filter(
+                (p) => p.id !== key && !p.bundleIds?.length,
+              ),
+              (item.bundleIds as string[]) ?? [],
+              "Included shows — choose at least two for a bundle; leave empty for a single show",
+            )
+          : "",
     ),
   );
   submit(modal.querySelector("form")!, async (data) => {
     const value = formValues(data, fields);
+    if (kind === "packages") {
+      value.bundleIds = selected(data, "bundleIds");
+      if (currentView === "offers" && (value.bundleIds as string[]).length < 2)
+        throw new Error("Choose at least two shows for your bundle.");
+    }
+    if (kind === "packages" || kind === "performers") {
+      value.gallery = String(value.gallery ?? "")
+        .split("\n")
+        .filter((line) => line.trim())
+        .map((line) => {
+          const separator = line.indexOf("|");
+          if (separator < 0)
+            throw new Error(
+              "Each photo needs an HTTPS link followed by | and a description.",
+            );
+          return {
+            url: line.slice(0, separator).trim(),
+            caption: line.slice(separator + 1).trim(),
+            approved: !!value.galleryApproved,
+          };
+        });
+      delete value.galleryApproved;
+    }
     if (kind === "reminders") value.revision = item.revision ?? 0;
     if (kind === "customers") {
       value.children = String(value.children)

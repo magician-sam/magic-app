@@ -192,6 +192,132 @@ after(async () => {
     retryDelay: 100,
   });
 });
+test("gallery publication requires valid approved images and remains business scoped", async () => {
+  const original = await store.get(business.id, "packages", "magic");
+  const gallery = [
+    {
+      url: "https://example.com/show.jpg",
+      caption: "Sample show",
+      approved: true,
+    },
+  ];
+  const path = "/manage/packages/magic";
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...original,
+        gallery: [{ ...gallery[0], approved: false }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...original,
+        gallery: [{ ...gallery[0], url: "javascript:alert(1)" }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(path, "PUT", {
+        ...original,
+        gallery: [gallery[0], gallery[0]],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request(path, "PUT", { ...original, gallery }, performerCookie))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await request(path, "PUT", { ...original, gallery })).status,
+    200,
+  );
+  assert.deepEqual(
+    (await request("/public/test", "GET", undefined, null)).data.packages.find(
+      (p) => p.id === "magic",
+    ).gallery,
+    gallery,
+  );
+  assert.equal(
+    (await store.get(other.id, "packages", "magic")).gallery,
+    undefined,
+  );
+  assert.equal(
+    (await request(path, "PUT", { ...original, gallery: [] })).status,
+    200,
+  );
+  assert.deepEqual(
+    (await store.get(business.id, "packages", "magic")).gallery,
+    [],
+  );
+});
+
+test("bundles retain booking snapshots and reject overlapping shows in requests and quotes", async () => {
+  // This scenario shares the suite fixture; preserve rate counters for the existing scenarios.
+  const counters = await store.db.prepare("SELECT * FROM rate_limits").all();
+  const original = await store.get(business.id, "packages", "magic");
+  const body = {
+    ...original,
+    name: "Magic and bubbles offer",
+    priceMode: "fixed",
+    price: 30000,
+    bundleIds: ["magic", "bubbles"],
+    bundleBreakMinutes: 5,
+  };
+  const saved = await request("/manage/packages/new", "PUT", body);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  const id = saved.data.id;
+  const catalog = (await request("/public/test", "GET", undefined, null)).data;
+  const bundle = catalog.packages.find((p) => p.id === id);
+  assert.equal(bundle.bundleSnapshot.length, 2);
+  assert.equal(bundle.price, 30000);
+  assert.equal(await store.get(other.id, "packages", id), undefined);
+  const bad = await request(
+    "/public/test/requests",
+    "POST",
+    {
+      customer: { name: "Test family", phone: "+96170000000" },
+      event: { ...event, packageIds: [id, "magic"] },
+    },
+    customerCookie,
+  );
+  assert.equal(bad.status, 400);
+  const info = await newRequest({ packageIds: [id] });
+  const booking = await current(info.id);
+  assert.equal(booking.packageSnapshot[0].price, 30000);
+  assert.deepEqual(booking.packageSnapshot[0].bundleIds, ["magic", "bubbles"]);
+  const quote = await action(info.id, "quotes", {
+    options: [
+      {
+        name: "Duplicate",
+        packageIds: [id, "bubbles"],
+        amount: 30000,
+        deposit: 0,
+        notes: "",
+      },
+    ],
+  });
+  assert.equal(quote.status, 400);
+  assert.equal(
+    (await request("/manage/packages/" + id, "PUT", { ...body, price: 25000 }))
+      .status,
+    200,
+  );
+  assert.equal((await current(info.id)).packageSnapshot[0].price, 30000);
+  await request("/manage/packages/" + id, "PUT", { ...body, active: false });
+  await store.db.prepare("DELETE FROM rate_limits").run();
+  for (const row of counters)
+    await store.db
+      .prepare("INSERT INTO rate_limits(id,count,expires) VALUES(?,?,?)")
+      .run(row.id, row.count, row.expires);
+});
+
 test("private routes require a session and reject cross-origin writes", async () => {
   assert.equal(
     (await request("/manage/state", "GET", undefined, null)).status,

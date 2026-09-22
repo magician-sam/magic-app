@@ -2,6 +2,7 @@ import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
 import { followups, generateFollowups } from "./followups.js";
 import { writeRoutes } from "./write-routes.js";
+import { prepareBundle, validateBundleSelection } from "./bundles.js";
 import express, {
   type Request,
   type Response,
@@ -168,6 +169,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     packageIds: string[],
     performerIds: string[],
   ) {
+    validateBundleSelection(
+      (await store.all<Package>(businessId, "packages")).filter((p) =>
+        packageIds.includes(p.id),
+      ),
+    );
     requireThat(
       new Set(packageIds).size === packageIds.length,
       "Choose each package once.",
@@ -1183,7 +1189,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       );
     let value: object;
     if (kind === "packages") {
-      value = packageSchema.parse(req.body);
+      value = prepareBundle(
+        packageSchema.parse(req.body),
+        await store.all<Package>(req.business.id, "packages"),
+        recordId,
+      );
       // Each event/proposal keeps a package snapshot. Catalog edits apply to future requests.
     } else if (kind === "performers") value = performerSchema.parse(req.body);
     else if (kind === "customers") value = customerSchema.parse(req.body);
