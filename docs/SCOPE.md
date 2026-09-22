@@ -81,3 +81,11 @@ Timetable editing now supports explicit show positions, per-show breaks and sepa
 Per-show staffing and agreed pay now have an owner/admin-only planning editor. One performer per show can be selected from the event cast; rows can be unassigned. No payroll automation or actual payment occurs. Full-event conflict reservation remains conservative. Per-act performer-facing schedules, multiple crew per act, pay reconciliation and narrower occupied intervals remain refinements.
 
 September 22 infrastructure: awaited database adapters, transactional write routes, shared rate limits, encrypted portable backup/restore and Vercel build preparation are implemented. Live Turso/Vercel provisioning and verification remain. Follow-up planner is opt-in and dashboard-triggered, with configurable drafts and consent checks. Existing drafts require human relevance review; no autonomous delivery or background job is configured.
+
+## Current priorities — September 22
+
+Online payment integrations and performer pay summaries are postponed. Keep manual cash receipts after shows and manual Whish Money deposits, with balances calculated from recorded amounts. Finish the remaining functional work and prepare media spaces before requesting final photos from Sam. Photo content will be supplied afterward; WhatsApp imports and phone icons remain postponed.
+
+## Windows and Android delivery — latest direction
+
+After the website is ready, provide a Windows .exe and a downloadable Android app that opens the hosted Magic App. Both use the same online backend, accounts and database so changes stay synchronized. Start online-only; offline editing/conflict reconciliation is not included. This replaces the earlier postponement of Android delivery, but does not authorize deploying unfinished code or selecting a paid distribution service. iPhone delivery remains postponed. No desktop/mobile wrapper has been built yet.

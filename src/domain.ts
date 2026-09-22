@@ -138,6 +138,13 @@ export function compatibility(
       : []),
   ]);
 }
+export interface TimetableRow {
+  label: string;
+  at: string;
+  date: string;
+  duration: number;
+  packageId?: string;
+}
 export function timetable(
   booking: Booking,
   packages: Package[],
@@ -148,17 +155,20 @@ export function timetable(
   });
   const chosen = scheduledPackages(booking, packages);
   const setup = Math.max(0, ...chosen.map((p) => p.setup));
-  const rows = [
+  const rows: TimetableRow[] = [
     {
       label: "Arrival & setup",
       at: cursor.minus({ minutes: setup }).toFormat("HH:mm"),
+      date: cursor.minus({ minutes: setup }).toISODate()!,
       duration: setup,
     },
   ];
   chosen.forEach((p, i) => {
     rows.push({
       label: p.name,
+      packageId: p.id,
       at: cursor.toFormat("HH:mm"),
+      date: cursor.toISODate()!,
       duration: p.duration,
     });
     cursor = cursor.plus({ minutes: p.duration });
@@ -166,22 +176,30 @@ export function timetable(
       rows.push({
         label: "Changeover / break",
         at: cursor.toFormat("HH:mm"),
+        date: cursor.toISODate()!,
         duration: breakAfter(booking, p.id),
       });
       cursor = cursor.plus({ minutes: breakAfter(booking, p.id) });
     }
   });
-  rows.push({ label: "Finish", at: cursor.toFormat("HH:mm"), duration: 0 });
+  rows.push({
+    label: "Finish",
+    at: cursor.toFormat("HH:mm"),
+    date: cursor.toISODate()!,
+    duration: 0,
+  });
   if (booking.teardown) {
     rows.push({
       label: "Pack down",
       at: cursor.toFormat("HH:mm"),
+      date: cursor.toISODate()!,
       duration: booking.teardown,
     });
     cursor = cursor.plus({ minutes: booking.teardown });
     rows.push({
       label: "Team departure",
       at: cursor.toFormat("HH:mm"),
+      date: cursor.toISODate()!,
       duration: 0,
     });
   }

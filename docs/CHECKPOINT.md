@@ -49,3 +49,11 @@ Added async local SQLite/Turso-libSQL adapters, atomic API writes with commit-be
 All 54 automated tests pass with each database adapter (108 checks total); native libSQL fixtures exercise its engine locally, not remote HTTP. A Windows native libSQL file-handle cleanup issue was isolated and the parent test runner now cleans after child exit. Browser port 3016 verified opt-in settings, birthday generation, personalized draft, completion and preserved customer history; no recorded warnings/errors. Production accounts, remote HTTP transaction limits and actual Vercel preview remain unverified. No deployment.
 
 Next: finish remaining SCOPE items, perform full product review, then provision and test production dependencies. WhatsApp imports and phone icons remain postponed. Local source is not a Git checkout; use fast-forward GitHub Git-data publication. Preview 3016 is disposable memory.
+
+## Current priorities — September 22
+
+Online payment integrations and performer pay summaries are postponed. Keep manual cash receipts after shows and manual Whish Money deposits, with balances calculated from recorded amounts. Finish the remaining functional work and prepare media spaces before requesting final photos from Sam. Photo content will be supplied afterward; WhatsApp imports and phone icons remain postponed.
+
+Latest direction: plan a Windows .exe and Android website-wrapper app sharing the hosted backend and accounts, like the user's Shantivikasa workflow. Implement after website readiness; online-only initially. Online payment integration stays postponed; manual cash and Whish deposits remain. Photos will be supplied after functional preparation.
+
+Performer assignment display is now implemented and verified in disposable preview 3017. All changes should be published after checking the remote main. Preview 3016 remains available for the user and was not restarted. Next continue gallery preparation/remaining non-payment features. See VERIFICATION for the 35 targeted passing checks.

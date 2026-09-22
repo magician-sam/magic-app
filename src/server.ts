@@ -17,7 +17,7 @@ import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
 import { contactHistory } from "./contact-history.js";
 import { customerMerge } from "./customer-merge.js";
-import type { ActPlan } from "./act-plans.js";
+import { performerAssignments, type ActPlan } from "./act-plans.js";
 import { rewardLedger, validateQuoteReward } from "./reward-ledger.js";
 import { rewardSettings, rewardSchema } from "./rewards.js";
 import {
@@ -1856,6 +1856,17 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         ),
       ],
       timetable: timetable(b, packages, req.business.timezone),
+      ...(req.user.role === "performer"
+        ? {
+            assignments: performerAssignments(
+              b,
+              packages,
+              req.business.timezone,
+              req.user.performerId ?? "",
+              await store.get<ActPlan>(req.business.id, "actPlans", b.id),
+            ),
+          }
+        : {}),
       ...(req.user.role !== "performer"
         ? { totals: totals(b, await store.all(req.business.id, "money")) }
         : {}),

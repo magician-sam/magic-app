@@ -185,7 +185,12 @@ after(async () => {
   // The libSQL native test driver retains a Windows file handle until process exit.
   // test-drivers.mjs removes its bounded temporary directory after the worker exits.
   if (process.env.TEST_LIBSQL === "1" && process.platform === "win32") return;
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
 });
 test("private routes require a session and reject cross-origin writes", async () => {
   assert.equal(
@@ -1163,6 +1168,33 @@ test("private per-show staffing plans preserve money and prevent access or stale
   assert.deepEqual(await store.all(business.id, "money"), beforeMoney);
   const plan = (await request(path)).data.plan;
   assert.equal(plan.rows[0].agreedPay, 12345);
+  const schedulePath = `/manage/bookings/${info.id}/checks`;
+  const performerSchedule = await request(
+    schedulePath,
+    "GET",
+    undefined,
+    performerCookie,
+  );
+  assert.equal(performerSchedule.status, 200);
+  assert.equal(performerSchedule.data.assignments.length, 1);
+  assert.equal(performerSchedule.data.assignments[0].packageId, "magic");
+  assert.equal(performerSchedule.data.assignments[0].date, "2028-06-04");
+  assert.equal(
+    JSON.stringify(performerSchedule.data).includes("agreedPay"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(performerSchedule.data).includes("Private agreed fee"),
+    false,
+  );
+  assert.equal(
+    (await request(schedulePath, "GET", undefined, otherCookie)).status,
+    404,
+  );
+  assert.equal(
+    (await request(schedulePath, "GET", undefined, customerCookie)).status,
+    401,
+  );
   b = await current(info.id);
   assert.equal(b.availability.sam, "pending");
   assert.equal(b.status, "accepted");
