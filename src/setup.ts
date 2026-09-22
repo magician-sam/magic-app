@@ -1,6 +1,6 @@
+import { storeFromEnvironment } from "./runtime.js";
 import { DateTime } from "luxon";
 import { z } from "zod";
-import { Store } from "./store.js";
 import { insertUser, passwordHash } from "./auth.js";
 const email = z.email().parse(process.env.BOOTSTRAP_EMAIL);
 const password = z
@@ -11,12 +11,12 @@ const password = z
 const timezone = process.env.BUSINESS_TIMEZONE ?? "Asia/Beirut";
 if (!DateTime.now().setZone(timezone).isValid)
   throw new Error("Invalid business timezone");
-const store = new Store(process.env.DATABASE_PATH ?? "./data/magic.sqlite");
-if (store.db.prepare("SELECT id FROM users LIMIT 1").get())
+const store = storeFromEnvironment();
+if (await store.db.prepare("SELECT id FROM users LIMIT 1").get())
   throw new Error("Setup already completed; existing data was not changed.");
 const passwordValue = await passwordHash(password);
-store.transaction(() => {
-  const business = store.createBusiness(
+await store.transaction(async () => {
+  const business = await store.createBusiness(
     process.env.BUSINESS_NAME ?? "Magic by Sam",
     z
       .string()
@@ -56,10 +56,17 @@ store.transaction(() => {
   business.contactEmail = z
     .union([z.email(), z.literal("")])
     .parse(process.env.BUSINESS_CONTACT_EMAIL ?? "");
-  store.db
+  await store.db
     .prepare("UPDATE businesses SET data=? WHERE id=?")
     .run(JSON.stringify(business), business.id);
-  insertUser(store, business.id, email, passwordValue, business.name, "admin");
+  await insertUser(
+    store,
+    business.id,
+    email,
+    passwordValue,
+    business.name,
+    "admin",
+  );
 });
 store.db.close();
 console.log(

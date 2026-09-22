@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": "24.x"
   },
   "scripts": {
     "build": "tsc && node scripts/build.mjs",
@@ -15,9 +15,12 @@
     "start": "node --env-file-if-exists=.env dist/server.js",
     "dev": "npm run build && npm start",
     "setup": "npm run build && node --env-file-if-exists=.env dist/setup.js",
-    "backup": "node --env-file-if-exists=.env dist/backup.js"
+    "backup": "node --env-file-if-exists=.env dist/backup.js",
+    "restore": "node --env-file-if-exists=.env dist/restore.js",
+    "test:drivers": "npm run build && node scripts/test-drivers.mjs"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "luxon": "^3.7.2",

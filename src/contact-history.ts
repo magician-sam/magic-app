@@ -1,3 +1,4 @@
+import { writeRoutes } from "./write-routes.js";
 import type { Express, Request } from "express";
 import { z } from "zod";
 import { Store, id } from "./store.js";
@@ -22,84 +23,98 @@ export interface ContactEntry extends z.infer<typeof contactSchema> {
 }
 
 export function contactHistory(app: Express, store: Store) {
-  const customer = (req: Request) => {
+  const writes = writeRoutes(app, store);
+  const customer = async (req: Request) => {
     requireThat(req.user.role !== "performer", "Access denied", 403);
     const customerId = String(req.params.customerId);
     requireThat(
-      store.get(req.business.id, "customers", customerId),
+      await store.get(req.business.id, "customers", customerId),
       "Customer not found",
       404,
     );
     return customerId;
   };
-  app.get("/api/manage/customers/:customerId/history", (req, res) => {
-    const customerId = customer(req);
+  app.get("/api/manage/customers/:customerId/history", async (req, res) => {
+    const customerId = await customer(req);
     res.json({
-      entries: store
-        .all<ContactEntry>(req.business.id, "contactHistory")
+      entries: (
+        await store.all<ContactEntry>(req.business.id, "contactHistory")
+      )
         .filter((n) => n.customerId === customerId)
         .sort((a, b) =>
           (b.date + b.createdAt).localeCompare(a.date + a.createdAt),
         ),
       childrenAges:
-        store.get<CustomerExtras>(req.business.id, "customerExtras", customerId)
-          ?.childrenAges ?? [],
+        (
+          await store.get<CustomerExtras>(
+            req.business.id,
+            "customerExtras",
+            customerId,
+          )
+        )?.childrenAges ?? [],
     });
   });
-  app.put("/api/manage/customers/:customerId/history/:id", (req, res) => {
-    const customerId = customer(req),
-      bid = req.business.id;
-    const input = contactSchema.parse(req.body);
-    const entry = store.transaction(() => {
-      const key = String(req.params.id);
-      const before =
-        key === "new"
-          ? undefined
-          : store.get<ContactEntry>(bid, "contactHistory", key);
-      requireThat(
-        key === "new" || before?.customerId === customerId,
-        "Contact entry not found",
-        404,
-      );
-      requireThat(
-        input.revision === (before?.revision ?? 0),
-        "This note changed. Reopen the history before editing.",
-        409,
-      );
-      if (input.bookingId) {
-        const booking = store.get<Booking>(bid, "bookings", input.bookingId);
+  writes.put(
+    "/api/manage/customers/:customerId/history/:id",
+    async (req, res) => {
+      const customerId = await customer(req),
+        bid = req.business.id;
+      const input = contactSchema.parse(req.body);
+      const entry = await store.transaction(async () => {
+        const key = String(req.params.id);
+        const before =
+          key === "new"
+            ? undefined
+            : await store.get<ContactEntry>(bid, "contactHistory", key);
         requireThat(
-          booking?.customerId === customerId,
-          "Choose an event belonging to this customer.",
-          400,
+          key === "new" || before?.customerId === customerId,
+          "Contact entry not found",
+          404,
         );
-      }
-      const now = new Date().toISOString();
-      const next: ContactEntry = {
-        ...input,
-        id: before?.id ?? id(),
-        customerId,
-        revision: (before?.revision ?? 0) + 1,
-        createdAt: before?.createdAt ?? now,
-        updatedAt: now,
-      };
-      store.put(bid, "contactHistory", next);
-      store.audit(
-        bid,
-        req.user.email,
-        !before
-          ? "contact.recorded"
-          : input.archived !== before.archived
-            ? input.archived
-              ? "contact.archived"
-              : "contact.restored"
-            : "contact.corrected",
-        next.id,
-        before ?? null,
-        next,
-      );
-      return next;
-    });
-    res.json(entry);
-  });
+        requireThat(
+          input.revision === (before?.revision ?? 0),
+          "This note changed. Reopen the history before editing.",
+          409,
+        );
+        if (input.bookingId) {
+          const booking = await store.get<Booking>(
+            bid,
+            "bookings",
+            input.bookingId,
+          );
+          requireThat(
+            booking?.customerId === customerId,
+            "Choose an event belonging to this customer.",
+            400,
+          );
+        }
+        const now = new Date().toISOString();
+        const next: ContactEntry = {
+          ...input,
+          id: before?.id ?? id(),
+          customerId,
+          revision: (before?.revision ?? 0) + 1,
+          createdAt: before?.createdAt ?? now,
+          updatedAt: now,
+        };
+        await store.put(bid, "contactHistory", next);
+        await store.audit(
+          bid,
+          req.user.email,
+          !before
+            ? "contact.recorded"
+            : input.archived !== before.archived
+              ? input.archived
+                ? "contact.archived"
+                : "contact.restored"
+              : "contact.corrected",
+          next.id,
+          before ?? null,
+          next,
+        );
+        return next;
+      });
+      res.json(entry);
+    },
+  );
 }

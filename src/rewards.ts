@@ -31,33 +31,36 @@ export type CustomerExtras = {
   childrenAges: number[];
   referredBy: string;
 };
-export const rewardSettings = (
+export const rewardSettings = async (
   store: Store,
   businessId: string,
-): RewardSettings =>
-  rewardSchema.parse(store.get(businessId, "rewardSettings", "program") ?? {});
-export function customerRewards(
+): Promise<RewardSettings> =>
+  rewardSchema.parse(
+    (await store.get(businessId, "rewardSettings", "program")) ?? {},
+  );
+export async function customerRewards(
   store: Store,
   businessId: string,
   customer: Customer,
 ) {
-  const settings = rewardSettings(store, businessId);
-  const extras = store.get<CustomerExtras>(
+  const settings = await rewardSettings(store, businessId);
+  const extras = await store.get<CustomerExtras>(
     businessId,
     "customerExtras",
     customer.id,
   );
   const referred = new Set(
-    store
-      .all<CustomerExtras>(businessId, "customerExtras")
+    (await store.all<CustomerExtras>(businessId, "customerExtras"))
       .filter((x) => x.referredBy === customer.id)
       .map((x) => x.id),
   );
-  const ledger = store.all<MoneyEntry>(businessId, "money");
-  const paid = store.all<Booking>(businessId, "bookings").filter((b) => {
-    const t = totals(b, ledger);
-    return b.status === "completed" && t.agreed > 0 && t.paid >= t.agreed;
-  });
+  const ledger = await store.all<MoneyEntry>(businessId, "money");
+  const paid = (await store.all<Booking>(businessId, "bookings")).filter(
+    (b) => {
+      const t = totals(b, ledger);
+      return b.status === "completed" && t.agreed > 0 && t.paid >= t.agreed;
+    },
+  );
   const personalEvents = paid.filter(
     (b) => b.customerId === customer.id,
   ).length;

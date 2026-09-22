@@ -1,3 +1,4 @@
+import { writeRoutes } from "./write-routes.js";
 import { createHash } from "node:crypto";
 import type { Express, Request } from "express";
 import { z } from "zod";
@@ -9,7 +10,8 @@ import type { CustomerExtras } from "./rewards.js";
 import type { RewardAward } from "./reward-ledger.js";
 
 export function customerMerge(app: Express, store: Store) {
-  function preview(req: Request, targetId: string, sourceId: string) {
+  const writes = writeRoutes(app, store);
+  async function preview(req: Request, targetId: string, sourceId: string) {
     requireThat(
       ["owner", "admin"].includes(req.user.role),
       "Owner access required.",
@@ -17,12 +19,12 @@ export function customerMerge(app: Express, store: Store) {
     );
     requireThat(targetId !== sourceId, "Choose two different customers.");
     const bid = req.business.id;
-    const target = store.get<Customer>(bid, "customers", targetId);
-    const source = store.get<Customer>(bid, "customers", sourceId);
+    const target = await store.get<Customer>(bid, "customers", targetId);
+    const source = await store.get<Customer>(bid, "customers", sourceId);
     requireThat(target && source, "Customer not found.", 404);
     const reasons: string[] = [];
     if (
-      store.db
+      await store.db
         .prepare(
           "SELECT id FROM customer_accounts WHERE business_id=? AND customer_id IN (?,?)",
         )
@@ -31,35 +33,33 @@ export function customerMerge(app: Express, store: Store) {
       reasons.push(
         "A customer has a login. Account-linked records need verified identity handling and cannot be merged here.",
       );
-    const extras = store
-      .all<CustomerExtras>(bid, "customerExtras")
-      .filter(
-        (x) =>
-          [targetId, sourceId].includes(x.id) ||
-          [targetId, sourceId].includes(x.referredBy),
-      );
-    const awards = store
-      .all<RewardAward>(bid, "rewardAwards")
-      .filter(
-        (x) =>
-          [targetId, sourceId].includes(x.customerId) ||
-          Object.values(x.sourceCustomers).some((v) =>
-            [targetId, sourceId].includes(v),
-          ),
-      );
+    const extras = (
+      await store.all<CustomerExtras>(bid, "customerExtras")
+    ).filter(
+      (x) =>
+        [targetId, sourceId].includes(x.id) ||
+        [targetId, sourceId].includes(x.referredBy),
+    );
+    const awards = (await store.all<RewardAward>(bid, "rewardAwards")).filter(
+      (x) =>
+        [targetId, sourceId].includes(x.customerId) ||
+        Object.values(x.sourceCustomers).some((v) =>
+          [targetId, sourceId].includes(v),
+        ),
+    );
     if (extras.length || awards.length)
       reasons.push(
         "Referral, profile or reward history needs a separate review; this merge would affect eligibility.",
       );
-    const bookings = store
-      .all<Booking>(bid, "bookings")
-      .filter((b) => b.customerId === sourceId);
-    const reminders = store
-      .all<Reminder>(bid, "reminders")
-      .filter((r) => r.customerId === sourceId);
-    const history = store
-      .all<ContactEntry>(bid, "contactHistory")
-      .filter((h) => h.customerId === sourceId);
+    const bookings = (await store.all<Booking>(bid, "bookings")).filter(
+      (b) => b.customerId === sourceId,
+    );
+    const reminders = (await store.all<Reminder>(bid, "reminders")).filter(
+      (r) => r.customerId === sourceId,
+    );
+    const history = (
+      await store.all<ContactEntry>(bid, "contactHistory")
+    ).filter((h) => h.customerId === sourceId);
     const unique = <T>(items: T[]) => [
       ...new Map(items.map((x) => [JSON.stringify(x), x])).values(),
     ];
@@ -109,11 +109,11 @@ export function customerMerge(app: Express, store: Store) {
       history,
     };
   }
-  app.post("/api/manage/customer-merge/preview", (req, res) => {
+  writes.post("/api/manage/customer-merge/preview", async (req, res) => {
     const input = z
       .object({ targetId: short.min(1), sourceId: short.min(1) })
       .parse(req.body);
-    const p = preview(req, input.targetId, input.sourceId);
+    const p = await preview(req, input.targetId, input.sourceId);
     res.json({
       target: p.target,
       source: p.source,
@@ -127,7 +127,7 @@ export function customerMerge(app: Express, store: Store) {
       },
     });
   });
-  app.post("/api/manage/customer-merge/confirm", (req, res) => {
+  writes.post("/api/manage/customer-merge/confirm", async (req, res) => {
     const input = z
       .object({
         targetId: short.min(1),
@@ -136,8 +136,8 @@ export function customerMerge(app: Express, store: Store) {
         identityConfirmed: z.literal(true),
       })
       .parse(req.body);
-    const result = store.transaction(() => {
-      const p = preview(req, input.targetId, input.sourceId);
+    const result = await store.transaction(async () => {
+      const p = await preview(req, input.targetId, input.sourceId);
       requireThat(!p.reasons.length, p.reasons.join(" "), 409);
       requireThat(
         input.revision === p.revision,
@@ -153,8 +153,8 @@ export function customerMerge(app: Express, store: Store) {
           revision: before.revision + 1,
           updatedAt: now,
         };
-        store.put(bid, "bookings", next);
-        store.audit(
+        await store.put(bid, "bookings", next);
+        await store.audit(
           bid,
           req.user.email,
           "booking.customer-merged",
@@ -164,15 +164,19 @@ export function customerMerge(app: Express, store: Store) {
         );
       }
       for (const before of p.reminders)
-        store.put(bid, "reminders", { ...before, customerId: p.target.id });
+        await store.put(bid, "reminders", {
+          ...before,
+          customerId: p.target.id,
+          revision: (before.revision ?? 0) + 1,
+        });
       for (const before of p.history)
-        store.put(bid, "contactHistory", {
+        await store.put(bid, "contactHistory", {
           ...before,
           customerId: p.target.id,
           revision: before.revision + 1,
           updatedAt: now,
         });
-      store.put(bid, "customers", p.merged);
+      await store.put(bid, "customers", p.merged);
       // Preserve the original records and associations in a business-scoped archive.
       const archive = {
         id: id(),
@@ -189,13 +193,13 @@ export function customerMerge(app: Express, store: Store) {
         },
         after: p.merged,
       };
-      store.put(bid, "customerMerges", archive);
-      store.db
+      await store.put(bid, "customerMerges", archive);
+      await store.db
         .prepare(
           "DELETE FROM records WHERE business_id=? AND kind='customers' AND id=?",
         )
         .run(bid, p.source.id);
-      store.audit(
+      await store.audit(
         bid,
         req.user.email,
         "customer.merged",

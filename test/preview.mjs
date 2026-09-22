@@ -3,7 +3,7 @@ import { Store } from "../dist/store.js";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 const store = new Store(":memory:");
-const business = store.createBusiness("Magic by Sam", "magic-by-sam");
+const business = await store.createBusiness("Magic by Sam", "magic-by-sam");
 business.logo = "/sam-logo.png";
 business.otherShowNames = [
   "Animation",
@@ -17,7 +17,7 @@ business.otherShowNames = [
 business.characterNames = ["Polar Bear", "Panda", "Bunny"];
 business.whatsapp = "+96171299716";
 business.contactEmail = "sam.wehbi@gmail.com";
-store.db
+await store.db
   .prepare("UPDATE businesses SET data=? WHERE id=?")
   .run(JSON.stringify(business), business.id);
 await createUser(
@@ -28,7 +28,7 @@ await createUser(
   "Preview owner",
   "admin",
 );
-store.put(business.id, "performers", {
+await store.put(business.id, "performers", {
   id: "sam",
   name: "Sam · preview profile",
   bio: "Magic, science and bubbles. This is a sample profile for local testing; replace with approved biography and media before launch.",

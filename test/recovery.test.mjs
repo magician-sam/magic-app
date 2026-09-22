@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Store } from "../dist/store.js";
+import { TestStore as Store } from "./store-fixture.mjs";
 import { createApp } from "../dist/server.js";
 import { createUser } from "../dist/auth.js";
 
 test("password recovery is staff-verified, scoped, expiring, single-use and revokes sessions", async () => {
   const store = new Store(":memory:");
-  const b = store.createBusiness("Recovery", "recovery");
-  const other = store.createBusiness("Other", "other");
+  const b = await store.createBusiness("Recovery", "recovery");
+  const other = await store.createBusiness("Other", "other");
   const password = "Original-test-password-42!";
   await createUser(store, b.id, "owner@example.test", password, "Owner");
   await createUser(store, other.id, "other@example.test", password, "Other");
@@ -42,8 +42,8 @@ test("password recovery is staff-verified, scoped, expiring, single-use and revo
       password,
     });
     assert.equal(customer.status, 201);
-    const reset = (username = "recover-me") =>
-      request("/customer/recovery/reset/request", "POST", {
+    const reset = async (username = "recover-me") =>
+      await request("/customer/recovery/reset/request", "POST", {
         username,
         phone: "+96170012345",
       });
@@ -77,8 +77,8 @@ test("password recovery is staff-verified, scoped, expiring, single-use and revo
       await request("/manage/customer-resets", "GET", undefined, owner.cookie)
     ).data;
     assert.equal(queue.length, 1);
-    const issue = (auth, verified = true) =>
-      request(
+    const issue = async (auth, verified = true) =>
+      await request(
         `/manage/customer-resets/${queue[0].id}/issue`,
         "POST",
         { identityVerified: verified },
@@ -102,8 +102,8 @@ test("password recovery is staff-verified, scoped, expiring, single-use and revo
       ).includes(issued.data.code),
       false,
     );
-    const complete = (code) =>
-      request("/customer/recovery/reset/complete", "POST", {
+    const complete = async (code) =>
+      await request("/customer/recovery/reset/complete", "POST", {
         username: "recover-me",
         code,
         password: "Replacement-password-42!",
@@ -148,7 +148,7 @@ test("password recovery is staff-verified, scoped, expiring, single-use and revo
       { identityVerified: true },
       owner.cookie,
     );
-    store.db
+    await store.db
       .prepare("UPDATE customer_resets SET expires=0 WHERE id=?")
       .run(fresh.id);
     assert.equal((await complete(next.data.code)).status, 400);
@@ -178,7 +178,7 @@ test("password recovery is staff-verified, scoped, expiring, single-use and revo
     );
     assert.equal((await complete(finalCode.data.code)).status, 400);
     assert.equal(
-      JSON.stringify(store.all(b.id, "audit")).includes(issued.data.code),
+      JSON.stringify(await store.all(b.id, "audit")).includes(issued.data.code),
       false,
     );
   } finally {

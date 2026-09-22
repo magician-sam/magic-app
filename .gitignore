@@ -1,9 +1,16 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
+.vercel/
+public/client.js
+public/calendar.js
+public/reports.js
 data/
 backups/
 test-results/
+test-temp/
 playwright-report/
 *.sqlite*
 *.log

@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { Store } from "../dist/store.js";
+import { TestStore as Store } from "./store-fixture.mjs";
 import { createApp } from "../dist/server.js";
 import { createUser } from "../dist/auth.js";
 import { customerSchema } from "../dist/domain.js";
@@ -26,8 +26,8 @@ async function request(path, body, auth = owner, method = "POST") {
 }
 before(async () => {
   store = new Store(":memory:");
-  business = store.createBusiness("Merge stage", "merge");
-  other = store.createBusiness("Other stage", "other");
+  business = await store.createBusiness("Merge stage", "merge");
+  other = await store.createBusiness("Other stage", "other");
   for (const [email, bid, role] of [
     ["owner@merge.test", business.id, "owner"],
     ["assistant@merge.test", business.id, "assistant"],
@@ -58,9 +58,9 @@ after(async () => {
   await new Promise((r) => server.close(r));
   store.db.close();
 });
-function pair(prefix) {
+async function pair(prefix) {
   for (const suffix of ["target", "source"])
-    store.put(business.id, "customers", {
+    await store.put(business.id, "customers", {
       ...customerSchema.parse({
         name: `${prefix} ${suffix}`,
         phone: "+96171222222",
@@ -74,7 +74,7 @@ function pair(prefix) {
   return { targetId: `${prefix}-target`, sourceId: `${prefix}-source` };
 }
 test("customer merge requires owner, business isolation and confirmed identity", async () => {
-  const ids = pair("private");
+  const ids = await pair("private");
   for (const auth of [assistant, customer, null])
     assert.ok(
       [401, 403].includes(
@@ -106,7 +106,7 @@ test("customer merge requires owner, business isolation and confirmed identity",
   );
 });
 test("merge preserves old agreements and money, moves associations and archives originals", async () => {
-  const ids = pair("history");
+  const ids = await pair("history");
   const b = {
     id: "merge-event",
     customerId: ids.sourceId,
@@ -116,19 +116,19 @@ test("merge preserves old agreements and money, moves associations and archives 
     acceptedQuoteId: "q",
     updatedAt: "old",
   };
-  store.put(business.id, "bookings", b);
-  store.put(business.id, "money", {
+  await store.put(business.id, "bookings", b);
+  await store.put(business.id, "money", {
     id: "merge-payment",
     bookingId: b.id,
     amount: 12345,
     kind: "payment",
   });
-  store.put(business.id, "reminders", {
+  await store.put(business.id, "reminders", {
     id: "merge-reminder",
     customerId: ids.sourceId,
     bookingId: b.id,
   });
-  store.put(business.id, "contactHistory", {
+  await store.put(business.id, "contactHistory", {
     id: "merge-note",
     customerId: ids.sourceId,
     bookingId: b.id,
@@ -138,7 +138,7 @@ test("merge preserves old agreements and money, moves associations and archives 
   const p = await request("/manage/customer-merge/preview", ids);
   assert.deepEqual(p.data.counts, { bookings: 1, reminders: 1, history: 1 });
   assert.equal(
-    store.get(business.id, "bookings", b.id).customerId,
+    (await store.get(business.id, "bookings", b.id)).customerId,
     ids.sourceId,
   );
   const result = await request("/manage/customer-merge/confirm", {
@@ -147,22 +147,28 @@ test("merge preserves old agreements and money, moves associations and archives 
     identityConfirmed: true,
   });
   assert.equal(result.status, 200, JSON.stringify(result.data));
-  const next = store.get(business.id, "bookings", b.id);
+  const next = await store.get(business.id, "bookings", b.id);
   assert.equal(next.customerId, ids.targetId);
   assert.equal(next.revision, 8);
   assert.deepEqual(next.quotes, b.quotes);
   assert.equal(next.status, "completed");
-  assert.equal(store.get(business.id, "money", "merge-payment").amount, 12345);
-  assert.equal(store.get(business.id, "customers", ids.sourceId), undefined);
+  assert.equal(
+    (await store.get(business.id, "money", "merge-payment")).amount,
+    12345,
+  );
+  assert.equal(
+    await store.get(business.id, "customers", ids.sourceId),
+    undefined,
+  );
   assert.equal(result.data.customer.doNotContact, true);
   assert.equal(result.data.customer.offersConsent, false);
   assert.equal(result.data.customer.followUp, "2027-02-01");
   assert.equal(
-    store.get(business.id, "contactHistory", "merge-note").revision,
+    (await store.get(business.id, "contactHistory", "merge-note")).revision,
     3,
   );
   assert.equal(
-    store.get(business.id, "reminders", "merge-reminder").customerId,
+    (await store.get(business.id, "reminders", "merge-reminder")).customerId,
     ids.targetId,
   );
   const exported = (await request("/manage/export", undefined, owner, "GET"))
@@ -182,15 +188,15 @@ test("merge preserves old agreements and money, moves associations and archives 
 });
 test("merge rejects stale customer, booking and contact-note previews without partial writes", async () => {
   for (const kind of ["customers", "bookings", "contactHistory"]) {
-    const ids = pair("stale-" + kind);
+    const ids = await pair("stale-" + kind);
     const p = await request("/manage/customer-merge/preview", ids);
     if (kind === "customers")
-      store.put(business.id, kind, {
-        ...store.get(business.id, kind, ids.sourceId),
+      await store.put(business.id, kind, {
+        ...(await store.get(business.id, kind, ids.sourceId)),
         notes: "Changed",
       });
     else
-      store.put(business.id, kind, {
+      await store.put(business.id, kind, {
         id: "changed-" + kind,
         customerId: ids.sourceId,
         revision: 1,
@@ -205,12 +211,12 @@ test("merge rejects stale customer, booking and contact-note previews without pa
       ).status,
       409,
     );
-    assert.ok(store.get(business.id, "customers", ids.sourceId));
+    assert.ok(await store.get(business.id, "customers", ids.sourceId));
   }
 });
 test("login-linked and reward-linked customers cannot be merged", async () => {
-  const ids = pair("protected");
-  const account = store.db
+  const ids = await pair("protected");
+  const account = await store.db
     .prepare("SELECT customer_id FROM customer_accounts WHERE business_id=?")
     .get(business.id);
   let p = await request("/manage/customer-merge/preview", {
@@ -229,7 +235,7 @@ test("login-linked and reward-linked customers cannot be merged", async () => {
     ).status,
     409,
   );
-  store.put(business.id, "rewardAwards", {
+  await store.put(business.id, "rewardAwards", {
     id: "protected-award",
     customerId: "someone",
     sourceCustomers: { "old-event": ids.sourceId },
@@ -248,14 +254,14 @@ test("login-linked and reward-linked customers cannot be merged", async () => {
   );
 });
 test("merge transaction rolls back all changes when a later write fails", async () => {
-  const ids = pair("rollback");
-  store.put(business.id, "bookings", {
+  const ids = await pair("rollback");
+  await store.put(business.id, "bookings", {
     id: "rollback-event",
     customerId: ids.sourceId,
     revision: 1,
   });
   const p = await request("/manage/customer-merge/preview", ids);
-  store.db.exec(
+  await store.db.exec(
     `CREATE TRIGGER reject_merge_archive BEFORE INSERT ON records WHEN NEW.kind='customerMerges' BEGIN SELECT RAISE(ABORT,'test rollback'); END;`,
   );
   assert.equal(
@@ -268,14 +274,14 @@ test("merge transaction rolls back all changes when a later write fails", async 
     ).status,
     500,
   );
-  store.db.exec("DROP TRIGGER reject_merge_archive");
+  await store.db.exec("DROP TRIGGER reject_merge_archive");
   assert.equal(
-    store.get(business.id, "bookings", "rollback-event").customerId,
+    (await store.get(business.id, "bookings", "rollback-event")).customerId,
     ids.sourceId,
   );
   assert.equal(
-    store.get(business.id, "bookings", "rollback-event").revision,
+    (await store.get(business.id, "bookings", "rollback-event")).revision,
     1,
   );
-  assert.ok(store.get(business.id, "customers", ids.sourceId));
+  assert.ok(await store.get(business.id, "customers", ids.sourceId));
 });

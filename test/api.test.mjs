@@ -1,10 +1,9 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { backup } from "node:sqlite";
-import { Store } from "../dist/store.js";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
+import { snapshot, restoreSnapshot } from "../dist/snapshots.js";
+import { TestStore as Store } from "./store-fixture.mjs";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 
@@ -18,7 +17,9 @@ let store,
   performerCookie,
   otherCookie,
   customerCookie;
-const dir = mkdtempSync(join(tmpdir(), "magic-test-"));
+const testRoot = resolve(process.env.MAGIC_TEST_ROOT ?? "test-temp");
+mkdirSync(testRoot, { recursive: true });
+const dir = mkdtempSync(join(testRoot, "magic-test-"));
 const password = "Test-only-long-password-42";
 const performer = {
   name: "Test Performer",
@@ -86,13 +87,13 @@ async function current(id) {
 }
 async function action(id, verb, body) {
   const b = await current(id);
-  return request(`/manage/bookings/${id}/${verb}`, "POST", {
+  return await request(`/manage/bookings/${id}/${verb}`, "POST", {
     ...body,
     revision: b.revision,
   });
 }
 async function propose(id) {
-  return action(id, "quotes", {
+  return await action(id, "quotes", {
     options: [
       {
         name: "Magic only",
@@ -113,7 +114,7 @@ async function propose(id) {
 }
 async function accept(info) {
   const b = await current(info.id);
-  return request(
+  return await request(
     "/event/accept",
     "POST",
     { quoteId: b.quotes[0].id, revision: b.revision },
@@ -123,9 +124,9 @@ async function accept(info) {
 }
 before(async () => {
   store = new Store(join(dir, "test.sqlite"));
-  business = store.createBusiness("Test stage", "test");
-  other = store.createBusiness("Other stage", "other");
-  store.put(business.id, "performers", { ...performer, id: "sam" });
+  business = await store.createBusiness("Test stage", "test");
+  other = await store.createBusiness("Other stage", "other");
+  await store.put(business.id, "performers", { ...performer, id: "sam" });
   await createUser(
     store,
     business.id,
@@ -180,7 +181,11 @@ before(async () => {
 after(async () => {
   await new Promise((resolve) => server.close(resolve));
   store.db.close();
-  rmSync(dir, { recursive: true, force: true });
+  assert.ok(resolve(dir).startsWith(testRoot + sep));
+  // The libSQL native test driver retains a Windows file handle until process exit.
+  // test-drivers.mjs removes its bounded temporary directory after the worker exits.
+  if (process.env.TEST_LIBSQL === "1" && process.platform === "win32") return;
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 test("private routes require a session and reject cross-origin writes", async () => {
   assert.equal(
@@ -234,10 +239,10 @@ test("invalid, past, duplicate and cross-business selections are rejected", asyn
   }
 });
 test("repeat customer bookings reuse the authenticated profile", async () => {
-  const before = store.all(business.id, "customers").length;
+  const before = (await store.all(business.id, "customers")).length;
   await newRequest();
   await newRequest();
-  assert.equal(store.all(business.id, "customers").length, before);
+  assert.equal((await store.all(business.id, "customers")).length, before);
 });
 test("full request → quote → acceptance → deposit → availability → confirmation flow", async () => {
   const info = await newRequest();
@@ -315,9 +320,9 @@ test("full request → quote → acceptance → deposit → availability → con
     "x-event-token": info.token,
   });
   assert.equal(page.data.totals.balance, 25000);
-  const history = store
-    .all(business.id, "audit")
-    .filter((a) => a.entityId === info.id);
+  const history = (await store.all(business.id, "audit")).filter(
+    (a) => a.entityId === info.id,
+  );
   assert.ok(history.some((a) => a.action === "quote.accepted"));
 });
 test("confirmed conflict includes travel and setup", async () => {
@@ -364,9 +369,9 @@ test("stale quote acceptance and stale staff writes fail", async () => {
   assert.equal(stale.status, 409);
 });
 test("venue edits revoke confirmation and date edits reset availability", async () => {
-  const b = store
-    .all(business.id, "bookings")
-    .find((b) => b.status === "confirmed");
+  const b = (await store.all(business.id, "bookings")).find(
+    (b) => b.status === "confirmed",
+  );
   const link = await request(`/manage/bookings/${b.id}/link`, "POST", {});
   const eventToken = link.data.path.split("#")[1];
   assert.equal(
@@ -399,7 +404,7 @@ test("venue edits revoke confirmation and date edits reset availability", async 
   assert.equal(edited.data.availability.sam, "pending");
 });
 test("business separation blocks ID guessing and exports contain only the owner business", async () => {
-  const b = store.all(business.id, "bookings")[0];
+  const b = (await store.all(business.id, "bookings"))[0];
   assert.equal(
     (await request(`/manage/bookings/${b.id}/link`, "POST", {}, otherCookie))
       .status,
@@ -475,7 +480,7 @@ test("rotating a customer link invalidates the old link", async () => {
 test("completed-event reviews enforce performer identity, privacy and one submission", async () => {
   const info = await newRequest();
   const b = await current(info.id);
-  store.put(business.id, "bookings", { ...b, status: "completed" });
+  await store.put(business.id, "bookings", { ...b, status: "completed" });
   const review = {
     performerId: "",
     overall: 4,
@@ -516,9 +521,9 @@ test("completed-event reviews enforce performer identity, privacy and one submis
     ).status,
     409,
   );
-  const saved = store
-    .all(business.id, "reviews")
-    .find((r) => r.bookingId === info.id);
+  const saved = (await store.all(business.id, "reviews")).find(
+    (r) => r.bookingId === info.id,
+  );
   await request(`/manage/reviews/${saved.id}/moderate`, "POST", {
     published: true,
     reason: "Permission checked",
@@ -535,14 +540,14 @@ test("spreadsheet preview is read-only and commit skips same-file and existing d
     { name: "Duplicate", phone: "00961 71 111 222" },
     { name: "Imported B", phone: "+96173333444" },
   ];
-  const before = store.all(business.id, "customers").length;
+  const before = (await store.all(business.id, "customers")).length;
   const preview = await request("/manage/import/customers", "POST", {
     rows,
     commit: false,
   });
   assert.equal(preview.status, 200);
   assert.equal(preview.data.rows.filter((r) => r.duplicate).length, 1);
-  assert.equal(store.all(business.id, "customers").length, before);
+  assert.equal((await store.all(business.id, "customers")).length, before);
   assert.equal(
     (await request("/manage/import/customers", "POST", { rows, commit: true }))
       .data.added,
@@ -555,7 +560,7 @@ test("spreadsheet preview is read-only and commit skips same-file and existing d
   );
 });
 test("money corrections are audited, cannot over-refund, and preserve original values", async () => {
-  const entry = store.all(business.id, "money")[0];
+  const entry = (await store.all(business.id, "money"))[0];
   const corrected = await request(`/manage/money/${entry.id}/correct`, "POST", {
     amount: 4000,
     category: entry.category,
@@ -565,14 +570,12 @@ test("money corrections are audited, cannot over-refund, and preserve original v
   });
   assert.equal(corrected.status, 200);
   assert.ok(
-    store
-      .all(business.id, "audit")
-      .some(
-        (a) =>
-          a.entityId === entry.id &&
-          a.before?.amount === 5000 &&
-          a.after?.amount === 4000,
-      ),
+    (await store.all(business.id, "audit")).some(
+      (a) =>
+        a.entityId === entry.id &&
+        a.before?.amount === 5000 &&
+        a.after?.amount === 4000,
+    ),
   );
   assert.equal(
     (
@@ -588,14 +591,14 @@ test("money corrections are audited, cannot over-refund, and preserve original v
     400,
   );
 });
-test("persistent database survives reopening without changing stored records", () => {
+test("persistent database survives reopening without changing stored records", async () => {
   const path = join(dir, "persistence.sqlite");
   const s = new Store(path);
-  const b = s.createBusiness("Persistent", "persistent");
-  s.put(b.id, "customers", { id: "test", name: "Stored" });
+  const b = await s.createBusiness("Persistent", "persistent");
+  await s.put(b.id, "customers", { id: "test", name: "Stored" });
   s.db.close();
   const reopened = new Store(path);
-  assert.equal(reopened.get(b.id, "customers", "test").name, "Stored");
+  assert.equal((await reopened.get(b.id, "customers", "test")).name, "Stored");
   reopened.db.close();
 });
 test("business provisioning is isolated and duplicate requests do not leave orphan accounts", async () => {
@@ -613,12 +616,14 @@ test("business provisioning is isolated and duplicate requests do not leave orph
     409,
   );
   assert.equal(
-    store.db
-      .prepare("SELECT COUNT(*) AS count FROM businesses WHERE slug=?")
-      .get(payload.slug).count,
+    (
+      await store.db
+        .prepare("SELECT COUNT(*) AS count FROM businesses WHERE slug=?")
+        .get(payload.slug)
+    ).count,
     1,
   );
-  assert.deepEqual(store.all(added.data.id, "customers"), []);
+  assert.deepEqual(await store.all(added.data.id, "customers"), []);
   assert.equal(
     (await request("/default-business", "GET", undefined, null)).data.slug,
     "test",
@@ -660,8 +665,9 @@ test("refund below deposit revokes confirmation, without deleting the original p
   assert.equal(refund.status, 201);
   assert.equal((await current(info.id)).status, "accepted");
   assert.equal(
-    store.all(business.id, "money").filter((m) => m.bookingId === info.id)
-      .length,
+    (await store.all(business.id, "money")).filter(
+      (m) => m.bookingId === info.id,
+    ).length,
     2,
   );
 });
@@ -669,7 +675,7 @@ test("live package edits preserve proposal terms through snapshots", async () =>
   const info = await newRequest({ date: "2027-09-12" });
   await propose(info.id);
   await accept(info);
-  const original = store.get(business.id, "packages", "magic");
+  const original = await store.get(business.id, "packages", "magic");
   assert.equal(
     (
       await request("/manage/packages/magic", "PUT", {
@@ -690,15 +696,15 @@ test("live package edits preserve proposal terms through snapshots", async () =>
 });
 test("consistent backup can be opened with the same records and audit history", async () => {
   const file = join(dir, "backup.sqlite");
-  await backup(store.db, file);
   const restored = new Store(file);
+  await restoreSnapshot(restored, await snapshot(store));
   assert.equal(
-    restored.all(business.id, "bookings").length,
-    store.all(business.id, "bookings").length,
+    (await restored.all(business.id, "bookings")).length,
+    (await store.all(business.id, "bookings")).length,
   );
   assert.equal(
-    restored.all(business.id, "audit").length,
-    store.all(business.id, "audit").length,
+    (await restored.all(business.id, "audit")).length,
+    (await store.all(business.id, "audit")).length,
   );
   restored.db.close();
 });
@@ -740,15 +746,14 @@ test("user access changes revoke sessions; passwords can be changed without leak
     401,
   );
   assert.ok(
-    store
-      .all(business.id, "audit")
+    (await store.all(business.id, "audit"))
       .filter((a) => a.action === "user.password-changed")
       .every((a) => a.after === null),
   );
 });
 
 test("editable public contact and character settings stay scoped and audited", async () => {
-  const original = store.business(business.id);
+  const original = await store.business(business.id);
   const edited = {
     ...original,
     contactEmail: "contact@example.test",
@@ -784,7 +789,7 @@ test("editable public contact and character settings stay scoped and audited", a
   );
   assert.deepEqual(catalog.business.characterNames, edited.characterNames);
   assert.deepEqual(catalog.business.otherShowNames, edited.otherShowNames);
-  assert.equal(store.business(other.id).contactEmail, undefined);
+  assert.equal((await store.business(other.id)).contactEmail, undefined);
   assert.equal(
     (
       await request("/manage/business", "PUT", {
@@ -803,7 +808,7 @@ test("editable public contact and character settings stay scoped and audited", a
     ).status,
     200,
   );
-  assert.deepEqual(store.business(business.id).characterNames, []);
+  assert.deepEqual((await store.business(business.id)).characterNames, []);
   assert.equal(
     (
       await request("/manage/business", "PUT", {
@@ -814,14 +819,16 @@ test("editable public contact and character settings stay scoped and audited", a
     ).status,
     200,
   );
-  assert.deepEqual(store.business(business.id).characterNames, [
+  assert.deepEqual((await store.business(business.id)).characterNames, [
     "Winter Guest",
   ]);
-  assert.deepEqual(store.business(business.id).otherShowNames, ["Animation"]);
+  assert.deepEqual((await store.business(business.id)).otherShowNames, [
+    "Animation",
+  ]);
   assert.ok(
-    store
-      .all(business.id, "audit")
-      .some((a) => a.action === "business.updated"),
+    (await store.all(business.id, "audit")).some(
+      (a) => a.action === "business.updated",
+    ),
   );
   await request("/manage/business", "PUT", {
     ...original,
@@ -838,11 +845,17 @@ test("contact history is private, scoped, revision checked and preserved", async
     phone: "+96171111111",
   };
   const b = { ...a, id: "different-family" };
-  store.put(business.id, "customers", a);
-  store.put(business.id, "customers", b);
-  store.put(business.id, "customerExtras", { id: a.id, childrenAges: [5, 9] });
-  store.put(business.id, "bookings", { id: "history-event", customerId: a.id });
-  store.put(business.id, "bookings", {
+  await store.put(business.id, "customers", a);
+  await store.put(business.id, "customers", b);
+  await store.put(business.id, "customerExtras", {
+    id: a.id,
+    childrenAges: [5, 9],
+  });
+  await store.put(business.id, "bookings", {
+    id: "history-event",
+    customerId: a.id,
+  });
+  await store.put(business.id, "bookings", {
     id: "different-event",
     customerId: b.id,
   });
@@ -930,16 +943,16 @@ test("contact history is private, scoped, revision checked and preserved", async
     (await request("/manage/export")).data.contactHistory[0].id,
     edited.id,
   );
-  const audit = store
-    .all(business.id, "audit")
-    .filter((item) => item.action.startsWith("contact."));
+  const audit = (await store.all(business.id, "audit")).filter((item) =>
+    item.action.startsWith("contact."),
+  );
   assert.deepEqual(audit.map((item) => item.action).sort(), [
     "contact.archived",
     "contact.corrected",
     "contact.recorded",
     "contact.restored",
   ]);
-  store.db
+  await store.db
     .prepare(
       "DELETE FROM records WHERE business_id=? AND kind='bookings' AND id IN ('history-event','different-event')",
     )
@@ -1033,9 +1046,9 @@ test("question ordering is scoped, checked against stale lists and preserves ans
     booking.customAnswers,
   );
   assert.ok(
-    store
-      .all(business.id, "audit")
-      .some((a) => a.action === "questions.reordered"),
+    (await store.all(business.id, "audit")).some(
+      (a) => a.action === "questions.reordered",
+    ),
   );
 });
 
@@ -1144,10 +1157,10 @@ test("private per-show staffing plans preserve money and prevent access or stale
     ).status,
     400,
   );
-  const beforeMoney = store.all(business.id, "money");
+  const beforeMoney = await store.all(business.id, "money");
   assert.equal((await request(path, "PUT", body)).status, 200);
   assert.equal((await request(path, "PUT", body)).status, 409);
-  assert.deepEqual(store.all(business.id, "money"), beforeMoney);
+  assert.deepEqual(await store.all(business.id, "money"), beforeMoney);
   const plan = (await request(path)).data.plan;
   assert.equal(plan.rows[0].agreedPay, 12345);
   b = await current(info.id);
@@ -1192,8 +1205,8 @@ test("private per-show staffing plans preserve money and prevent access or stale
     400,
   );
   assert.ok(
-    store
-      .all(business.id, "audit")
-      .some((a) => a.action === "staffing-plan.updated"),
+    (await store.all(business.id, "audit")).some(
+      (a) => a.action === "staffing-plan.updated",
+    ),
   );
 });

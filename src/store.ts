@@ -1,61 +1,74 @@
-import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { Database } from "./database.js";
+import type { Client } from "@libsql/client/web";
 import { randomUUID } from "node:crypto";
 import type { Audit, Business, Package } from "./models.js";
 
 export const id = () => randomUUID();
 export class Store {
-  db: DatabaseSync;
-  constructor(path: string) {
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-    this.db = new DatabaseSync(path);
-    this.db
-      .exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
+  db: Database;
+  constructor(path: string, authToken?: string, client?: Client) {
+    this.db = new Database(
+      path,
+      `
+      CREATE TABLE IF NOT EXISTS rate_limits (id TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS businesses (id TEXT PRIMARY KEY, slug TEXT UNIQUE NOT NULL, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id), email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, data TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS records (business_id TEXT NOT NULL REFERENCES businesses(id), kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (business_id,kind,id));
       CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS links (hash TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id), booking_id TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS visits (business_id TEXT NOT NULL REFERENCES businesses(id), source TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(business_id,source,day));
-      CREATE INDEX IF NOT EXISTS records_kind ON records(business_id,kind);`);
+      CREATE INDEX IF NOT EXISTS records_kind ON records(business_id,kind);
+      CREATE TABLE IF NOT EXISTS customer_accounts (
+        id TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id),
+        customer_id TEXT NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL,
+        UNIQUE(business_id, username));
+      CREATE TABLE IF NOT EXISTS customer_sessions (
+        hash TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES customer_accounts(id), expires INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS customer_resets (
+        id TEXT UNIQUE NOT NULL, account_id TEXT PRIMARY KEY REFERENCES customer_accounts(id),
+        requested_at TEXT NOT NULL, code_hash TEXT, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
+      `,
+      authToken,
+      client,
+    );
   }
-  all<T>(businessId: string, kind: string): T[] {
-    return this.db
-      .prepare(
-        "SELECT data FROM records WHERE business_id=? AND kind=? ORDER BY rowid",
-      )
-      .all(businessId, kind)
-      .map((row) => JSON.parse(String(row.data)) as T);
+  async all<T>(businessId: string, kind: string): Promise<T[]> {
+    return (
+      await this.db
+        .prepare(
+          "SELECT data FROM records WHERE business_id=? AND kind=? ORDER BY rowid",
+        )
+        .all(businessId, kind)
+    ).map((row) => JSON.parse(String(row.data)) as T);
   }
-  get<T>(businessId: string, kind: string, recordId: string): T | undefined {
-    const row = this.db
+  async get<T>(
+    businessId: string,
+    kind: string,
+    recordId: string,
+  ): Promise<T | undefined> {
+    const row = await this.db
       .prepare(
         "SELECT data FROM records WHERE business_id=? AND kind=? AND id=?",
       )
       .get(businessId, kind, recordId);
     return row ? (JSON.parse(String(row.data)) as T) : undefined;
   }
-  put<T extends { id: string }>(businessId: string, kind: string, value: T) {
-    this.db
+  async put<T extends { id: string }>(
+    businessId: string,
+    kind: string,
+    value: T,
+  ) {
+    await this.db
       .prepare(
         "INSERT INTO records(business_id,kind,id,data) VALUES(?,?,?,?) ON CONFLICT(business_id,kind,id) DO UPDATE SET data=excluded.data",
       )
       .run(businessId, kind, value.id, JSON.stringify(value));
     return value;
   }
-  transaction<T>(work: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
-      const result = work();
-      this.db.exec("COMMIT");
-      return result;
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
+  async transaction<T>(work: () => T | Promise<T>): Promise<T> {
+    return await this.db.transaction(work);
   }
-  audit(
+  async audit(
     businessId: string,
     actor: string,
     action: string,
@@ -63,7 +76,7 @@ export class Store {
     before: unknown,
     after: unknown,
   ) {
-    this.put<Audit>(businessId, "audit", {
+    await this.put<Audit>(businessId, "audit", {
       id: id(),
       actor,
       action,
@@ -73,13 +86,13 @@ export class Store {
       after,
     });
   }
-  business(value: string, bySlug = false): Business | undefined {
-    const row = this.db
+  async business(value: string, bySlug = false): Promise<Business | undefined> {
+    const row = await this.db
       .prepare(`SELECT data FROM businesses WHERE ${bySlug ? "slug" : "id"}=?`)
       .get(value);
     return row ? (JSON.parse(String(row.data)) as Business) : undefined;
   }
-  createBusiness(name: string, slug: string, timezone = "Asia/Beirut") {
+  async createBusiness(name: string, slug: string, timezone = "Asia/Beirut") {
     const business: Business = {
       id: id(),
       slug,
@@ -91,7 +104,7 @@ export class Store {
       intro:
         "A little wonder. A lot of happy memories. Magic, science and bubbles, brought together for your celebration.",
     };
-    this.db
+    await this.db
       .prepare("INSERT INTO businesses(id,slug,data) VALUES(?,?,?)")
       .run(business.id, slug, JSON.stringify(business));
     const packages: Package[] = [
@@ -158,7 +171,9 @@ export class Store {
         ],
       },
     ];
-    packages.forEach((p) => this.put(business.id, "packages", p));
+    await Promise.all(
+      packages.map(async (p) => await this.put(business.id, "packages", p)),
+    );
     return business;
   }
 }

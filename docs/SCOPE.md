@@ -15,14 +15,14 @@ Catalog edits are versioned into event/proposal snapshots so existing agreements
 ## Required before accepting real customers
 
 1. Owner verifies branding, all package copy, durations, suitability, setup requirements, geographic service area, currency, timezone, price/deposit/cancellation terms, actual performer information, authorized badges and media rights. Seed catalog values are editable starting points, not verified operational requirements.
-2. Vercel hosting is now requested after completion. Migrate local SQLite persistence to a suitable external database, configure HTTPS and exact origin, and provision real credentials outside git. No production deployment has been performed. See VERCEL.md.
+2. Vercel hosting is now requested after completion. The external Turso/libSQL adapter is implemented; provision a real database, verify remote HTTP transactions and configure HTTPS/origin with credentials outside Git. No production deployment has been performed. See VERCEL.md.
 3. Set retention/privacy rules, operational account recovery, production abuse controls, monitoring, backup schedule and encrypted off-machine destination. Test recovery on the chosen host.
 4. Run the committed Playwright suite on a host where browser workers can start; broaden real-device checks for Android/iOS browsers and keyboard/screen-reader review.
 
 ## Remaining approved work / refinements
 
 - Full drag/reorder timetable editor, custom per-act breaks and distinct teardown buffers. Current timetable follows selected-package order, a maximum setup allowance and a shared travel buffer; staff must review practical routing manually.
-- Real availability invitations, reminders/offer drafts tied to a contact history, birthday/school seasonal scheduling, post-event follow-up automation. Current reminders are stored/dashboard-visible and quotes/links are shared manually. No messages are sent automatically.
+- Real availability invitations and background scheduling remain. Birthday, dated school campaigns, post-event and unanswered-proposal drafts now generate on dashboard refresh, with consent checks, duplicate prevention and explicit contact-history completion. No messages are sent automatically.
 - Individual performer assignment and agreed pay per act. Current performers are assigned to the event as a whole; conflict checks conservatively reserve the entire event for each assigned performer. Expense categories record performer/assistant/referral costs but are not a payroll system.
 - Cross-business referral consent/acceptance and minimal-data sharing. Current referral records track a listed performer’s response and fee within one business; no private records are automatically shared with another business.
 - Verified identity handling for merging customers linked to login accounts, referrals or rewards. Ordinary staff-created duplicate contacts now support reviewed merges; public submissions never overwrite an existing contact based only on an unverified phone/email.
@@ -79,3 +79,5 @@ Custom booking questions now support up/down ordering with preserved historical 
 Timetable editing now supports explicit show positions, per-show breaks and separate pack-down after quote acceptance, with availability/confirmation reset and conflict checks. Historical agreed durations and prices remain unchanged. Drag-and-drop, per-act performers/pay and practical route planning remain unfinished.
 
 Per-show staffing and agreed pay now have an owner/admin-only planning editor. One performer per show can be selected from the event cast; rows can be unassigned. No payroll automation or actual payment occurs. Full-event conflict reservation remains conservative. Per-act performer-facing schedules, multiple crew per act, pay reconciliation and narrower occupied intervals remain refinements.
+
+September 22 infrastructure: awaited database adapters, transactional write routes, shared rate limits, encrypted portable backup/restore and Vercel build preparation are implemented. Live Turso/Vercel provisioning and verification remain. Follow-up planner is opt-in and dashboard-triggered, with configurable drafts and consent checks. Existing drafts require human relevance review; no autonomous delivery or background job is configured.

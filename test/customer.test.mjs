@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Store } from "../dist/store.js";
+import { TestStore as Store } from "./store-fixture.mjs";
 import { createApp } from "../dist/server.js";
 import { createUser } from "../dist/auth.js";
 import { customerRewards } from "../dist/rewards.js";
 
 test("customer accounts isolate staff, businesses and other families; profile and password edits preserve history", async () => {
   const store = new Store(":memory:");
-  const business = store.createBusiness("Customer test", "families");
-  store.createBusiness("Other", "elsewhere");
+  const business = await store.createBusiness("Customer test", "families");
+  await store.createBusiness("Other", "elsewhere");
   const password = "Customer-test-password-42!";
   await createUser(store, business.id, "staff@example.test", password, "Owner");
   const origin = "http://localhost:43220";
@@ -27,8 +27,8 @@ test("customer accounts isolate staff, businesses and other families; profile an
     };
   };
   try {
-    const register = (name, extra = {}) =>
-      request("/customer/families/register", "POST", {
+    const register = async (name, extra = {}) =>
+      await request("/customer/families/register", "POST", {
         name,
         phone: "+96170111222",
         password,
@@ -134,9 +134,9 @@ test("customer accounts isolate staff, businesses and other families; profile an
       a.cookie,
     );
     assert.equal(booking.status, 201);
-    const snapshotExtra = store
-      .get(business.id, "bookings", booking.data.id)
-      .packageSnapshot.find((p) => p.id === extra.data.id);
+    const snapshotExtra = (
+      await store.get(business.id, "bookings", booking.data.id)
+    ).packageSnapshot.find((p) => p.id === extra.data.id);
     assert.equal(snapshotExtra.duration, 15);
     assert.equal(snapshotExtra.checkoutExtra, true);
     assert.equal(snapshotExtra.category, "character");
@@ -151,7 +151,7 @@ test("customer accounts isolate staff, businesses and other families; profile an
       ).status,
       200,
     );
-    let saved = store.get(business.id, "bookings", booking.data.id);
+    let saved = await store.get(business.id, "bookings", booking.data.id);
     assert.deepEqual(saved.customAnswers, [
       { id: "colour", label: "Party colour", value: "Purple" },
     ]);
@@ -177,7 +177,7 @@ test("customer accounts isolate staff, businesses and other families; profile an
       ).status,
       409,
     );
-    saved = store.get(business.id, "bookings", saved.id);
+    saved = await store.get(business.id, "bookings", saved.id);
     assert.equal(saved.customAnswers[0].value, "Blue");
     const mine = await request(
       "/customer/families/me",
@@ -284,12 +284,12 @@ test("customer accounts isolate staff, businesses and other families; profile an
         .rewards.profilePoints,
       35,
     );
-    const customer = store
-      .all(business.id, "customers")
-      .find((x) => x.name === "Renamed parent");
+    const customer = (await store.all(business.id, "customers")).find(
+      (x) => x.name === "Renamed parent",
+    );
     assert.equal(customer.notes, "");
     assert.equal(
-      customerRewards(store, business.id, customer).qualifyingEvents,
+      (await customerRewards(store, business.id, customer)).qualifyingEvents,
       0,
     );
     assert.equal(
@@ -370,23 +370,23 @@ test("customer accounts isolate staff, businesses and other families; profile an
   }
 });
 
-test("reward progress counts fully paid completed events and reverses after refunds", () => {
+test("reward progress counts fully paid completed events and reverses after refunds", async () => {
   const store = new Store(":memory:");
   try {
-    const business = store.createBusiness("Rewards", "rewards");
+    const business = await store.createBusiness("Rewards", "rewards");
     const customer = { id: "parent", email: "" };
-    store.put(business.id, "rewardSettings", {
+    await store.put(business.id, "rewardSettings", {
       id: "program",
       enabled: true,
       qualification: "referrals",
       terms: "One standard magic show, subject to availability.",
     });
-    store.put(business.id, "customerExtras", {
+    await store.put(business.id, "customerExtras", {
       id: "friend",
       referredBy: "parent",
       childrenAges: [],
     });
-    store.put(business.id, "bookings", {
+    await store.put(business.id, "bookings", {
       id: "event",
       customerId: "friend",
       status: "completed",
@@ -394,27 +394,27 @@ test("reward progress counts fully paid completed events and reverses after refu
       quotes: [{ id: "q", amount: 10000, deposit: 0 }],
     });
     assert.equal(
-      customerRewards(store, business.id, customer).qualifyingEvents,
+      (await customerRewards(store, business.id, customer)).qualifyingEvents,
       0,
     );
-    store.put(business.id, "money", {
+    await store.put(business.id, "money", {
       id: "paid",
       bookingId: "event",
       kind: "payment",
       amount: 10000,
     });
     assert.equal(
-      customerRewards(store, business.id, customer).qualifyingEvents,
+      (await customerRewards(store, business.id, customer)).qualifyingEvents,
       1,
     );
-    store.put(business.id, "money", {
+    await store.put(business.id, "money", {
       id: "refund",
       bookingId: "event",
       kind: "refund",
       amount: 100,
     });
     assert.equal(
-      customerRewards(store, business.id, customer).qualifyingEvents,
+      (await customerRewards(store, business.id, customer)).qualifyingEvents,
       0,
     );
   } finally {

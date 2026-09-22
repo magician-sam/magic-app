@@ -132,6 +132,10 @@ export interface MoneyEntry {
   date: string;
 }
 export interface Reminder {
+  draft?: string;
+  marketing?: boolean;
+  generatedKey?: string;
+  revision?: number;
   id: string;
   customerId: string;
   bookingId: string;

@@ -1,3 +1,4 @@
+import { writeRoutes } from "./write-routes.js";
 import type { Express, Request } from "express";
 import { z } from "zod";
 import { Store, id } from "./store.js";
@@ -31,15 +32,19 @@ export interface QuoteReward {
   terms: string;
   returnOnCancel: boolean;
 }
-function paidEvents(store: Store, businessId: string) {
-  const money = store.all<MoneyEntry>(businessId, "money");
-  return store.all<Booking>(businessId, "bookings").filter((b) => {
+async function paidEvents(store: Store, businessId: string) {
+  const money = await store.all<MoneyEntry>(businessId, "money");
+  return (await store.all<Booking>(businessId, "bookings")).filter((b) => {
     const t = totals(b, money);
     return b.status === "completed" && t.agreed > 0 && t.paid >= t.agreed;
   });
 }
-export function rewardUsage(store: Store, businessId: string, awardId: string) {
-  return store.all<Booking>(businessId, "bookings").flatMap((b) =>
+export async function rewardUsage(
+  store: Store,
+  businessId: string,
+  awardId: string,
+) {
+  return (await store.all<Booking>(businessId, "bookings")).flatMap((b) =>
     b.quotes
       .filter((q) => q.reward?.awardId === awardId)
       .filter(
@@ -55,18 +60,18 @@ export function rewardUsage(store: Store, businessId: string, awardId: string) {
       })),
   );
 }
-export function rewardView(
+export async function rewardView(
   store: Store,
   businessId: string,
   award: RewardAward,
 ) {
   const paid = new Map(
-    paidEvents(store, businessId).map((b) => [b.id, b.customerId]),
+    (await paidEvents(store, businessId)).map((b) => [b.id, b.customerId]),
   );
   const eligible = award.sourceEventIds.every(
     (key) => paid.has(key) && paid.get(key) === award.sourceCustomers[key],
   );
-  const usage = rewardUsage(store, businessId, award.id);
+  const usage = await rewardUsage(store, businessId, award.id);
   return {
     ...award,
     eligible,
@@ -76,14 +81,14 @@ export function rewardView(
       : (usage[0]?.status ?? (eligible ? "available" : "suspended")),
   };
 }
-export function validateQuoteReward(
+export async function validateQuoteReward(
   store: Store,
   businessId: string,
   booking: Booking,
   quote: Quote,
 ) {
   if (!quote.reward) return;
-  const award = store.get<RewardAward>(
+  const award = await store.get<RewardAward>(
     businessId,
     "rewardAwards",
     quote.reward.awardId,
@@ -93,7 +98,7 @@ export function validateQuoteReward(
     "This reward is not available for this customer.",
     409,
   );
-  const view = rewardView(store, businessId, award);
+  const view = await rewardView(store, businessId, award);
   requireThat(
     view.eligible,
     "A qualifying event was refunded or changed. Review this reward before proceeding.",
@@ -112,21 +117,23 @@ export function rewardLedger(
   store: Store,
   canManage: (req: Request) => void,
 ) {
-  app.get("/api/manage/customers/:id/rewards", (req, res) => {
+  const writes = writeRoutes(app, store);
+  app.get("/api/manage/customers/:id/rewards", async (req, res) => {
     canManage(req);
     requireThat(
-      store.get(req.business.id, "customers", String(req.params.id)),
+      await store.get(req.business.id, "customers", String(req.params.id)),
       "Customer not found",
       404,
     );
     res.json(
-      store
-        .all<RewardAward>(req.business.id, "rewardAwards")
-        .filter((a) => a.customerId === req.params.id)
-        .map((a) => rewardView(store, req.business.id, a)),
+      await Promise.all(
+        (await store.all<RewardAward>(req.business.id, "rewardAwards"))
+          .filter((a) => a.customerId === req.params.id)
+          .map(async (a) => await rewardView(store, req.business.id, a)),
+      ),
     );
   });
-  app.post("/api/manage/customers/:id/rewards", (req, res) => {
+  writes.post("/api/manage/customers/:id/rewards", async (req, res) => {
     canManage(req);
     const input = z
       .object({
@@ -137,12 +144,12 @@ export function rewardLedger(
     const bid = req.business.id,
       customerId = String(req.params.id);
     requireThat(
-      store.get(bid, "customers", customerId),
+      await store.get(bid, "customers", customerId),
       "Customer not found",
       404,
     );
-    const award = store.transaction(() => {
-      const settings = rewardSettings(store, bid);
+    const award = await store.transaction(async () => {
+      const settings = await rewardSettings(store, bid);
       requireThat(
         settings.enabled,
         "Enable and configure the reward program first.",
@@ -151,17 +158,16 @@ export function rewardLedger(
         input.kind === "loyalty" ||
         (input.kind === "free_show" && settings.qualification === "personal");
       const referred = new Set(
-        store
-          .all<CustomerExtras>(bid, "customerExtras")
+        (await store.all<CustomerExtras>(bid, "customerExtras"))
           .filter((e) => e.referredBy === customerId)
           .map((e) => e.id),
       );
-      const existing = store
-        .all<RewardAward>(bid, "rewardAwards")
-        .filter(
-          (a) =>
-            !a.voided && a.customerId === customerId && a.kind === input.kind,
-        );
+      const existing = (
+        await store.all<RewardAward>(bid, "rewardAwards")
+      ).filter(
+        (a) =>
+          !a.voided && a.customerId === customerId && a.kind === input.kind,
+      );
       const used = new Set(existing.flatMap((a) => a.sourceEventIds));
       const count =
         input.kind === "referral"
@@ -169,7 +175,7 @@ export function rewardLedger(
           : input.kind === "loyalty"
             ? settings.loyaltyEvery
             : settings.eventsForFree;
-      const sources = paidEvents(store, bid)
+      const sources = (await paidEvents(store, bid))
         .filter(
           (b) =>
             (personal
@@ -190,7 +196,7 @@ export function rewardLedger(
             : settings.loyaltyPercent;
       requireThat(percent > 0, "This reward's discount is currently zero.");
       if (input.kind === "free_show") {
-        const show = store.get<Package>(
+        const show = await store.get<Package>(
           bid,
           "packages",
           settings.freeShowPackageId,
@@ -213,30 +219,37 @@ export function rewardLedger(
         issuedAt: new Date().toISOString(),
         voided: false,
       };
-      store.put(bid, "rewardAwards", award);
-      store.audit(bid, req.user.email, "reward.issued", award.id, null, award);
+      await store.put(bid, "rewardAwards", award);
+      await store.audit(
+        bid,
+        req.user.email,
+        "reward.issued",
+        award.id,
+        null,
+        award,
+      );
       return award;
     });
-    res.status(201).json(rewardView(store, bid, award));
+    res.status(201).json(await rewardView(store, bid, award));
   });
-  app.post("/api/manage/rewards/:id/void", (req, res) => {
+  writes.post("/api/manage/rewards/:id/void", async (req, res) => {
     canManage(req);
     const { reason } = z.object({ reason: short.min(3) }).parse(req.body);
-    const before = store.get<RewardAward>(
+    const before = await store.get<RewardAward>(
       req.business.id,
       "rewardAwards",
       String(req.params.id),
     );
     requireThat(before, "Reward not found", 404);
     requireThat(
-      !rewardUsage(store, req.business.id, before.id).length,
+      !(await rewardUsage(store, req.business.id, before.id)).length,
       "Remove the reward from its proposal or resolve its booking before voiding it.",
       409,
     );
-    store.transaction(() => {
+    await store.transaction(async () => {
       const after = { ...before, voided: true };
-      store.put(req.business.id, "rewardAwards", after);
-      store.audit(
+      await store.put(req.business.id, "rewardAwards", after);
+      await store.audit(
         req.business.id,
         req.user.email,
         "reward.voided",
@@ -247,14 +260,18 @@ export function rewardLedger(
     });
     res.json({ ok: true });
   });
-  app.post("/api/manage/bookings/:id/reward", (req, res) => {
+  writes.post("/api/manage/bookings/:id/reward", async (req, res) => {
     canManage(req);
     const input = z
       .object({ awardId: short, quoteId: short, revision: z.number().int() })
       .parse(req.body);
     const bid = req.business.id;
-    const result = store.transaction(() => {
-      const before = store.get<Booking>(bid, "bookings", String(req.params.id));
+    const result = await store.transaction(async () => {
+      const before = await store.get<Booking>(
+        bid,
+        "bookings",
+        String(req.params.id),
+      );
       requireThat(before, "Event not found", 404);
       requireThat(
         before.revision === input.revision && before.status === "quoted",
@@ -266,19 +283,23 @@ export function rewardLedger(
         "Use only one reward per proposal set. Replace the proposal to remove its reward.",
         409,
       );
-      const award = store.get<RewardAward>(bid, "rewardAwards", input.awardId);
+      const award = await store.get<RewardAward>(
+        bid,
+        "rewardAwards",
+        input.awardId,
+      );
       requireThat(
         award && award.customerId === before.customerId && !award.voided,
         "Reward not found for this customer",
         404,
       );
-      const view = rewardView(store, bid, award);
+      const view = await rewardView(store, bid, award);
       requireThat(
         view.status === "available",
         "This reward is not currently available.",
         409,
       );
-      const next = structuredClone(before),
+      const next = await structuredClone(before),
         quote = next.quotes.find((q) => q.id === input.quoteId);
       requireThat(quote && quote.amount > 0, "Choose a nonzero quote option.");
       if (award.kind === "free_show")
@@ -302,7 +323,7 @@ export function rewardLedger(
       quote.amount -= discount;
       requireThat(
         quote.amount >=
-          totals(before, store.all<MoneyEntry>(bid, "money")).paid,
+          totals(before, await store.all<MoneyEntry>(bid, "money")).paid,
         "Refund or correct collected payments before reducing this quote.",
         409,
       );
@@ -310,8 +331,8 @@ export function rewardLedger(
       quote.reward = reward;
       next.revision++;
       next.updatedAt = new Date().toISOString();
-      store.put(bid, "bookings", next);
-      store.audit(
+      await store.put(bid, "bookings", next);
+      await store.audit(
         bid,
         req.user.email,
         "reward.applied-to-proposal",

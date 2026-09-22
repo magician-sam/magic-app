@@ -29,7 +29,7 @@ export async function createUser(
   role: User["role"] = "owner",
   performerId?: string,
 ) {
-  return insertUser(
+  return await insertUser(
     store,
     businessId,
     email,
@@ -39,7 +39,7 @@ export async function createUser(
     performerId,
   );
 }
-export function insertUser(
+export async function insertUser(
   store: Store,
   businessId: string,
   email: string,
@@ -56,7 +56,7 @@ export function insertUser(
     role,
     ...(performerId ? { performerId } : {}),
   };
-  store.db
+  await store.db
     .prepare(
       "INSERT INTO users(id,business_id,email,password,data) VALUES(?,?,?,?,?)",
     )

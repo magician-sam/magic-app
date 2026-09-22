@@ -41,3 +41,11 @@ September 21 staffing-plan increment: owner/admin-only per-show performer and ag
 
 
 September 21 customer-merge increment: owner/admin preview and explicit verified-identity confirmation combine ordinary staff-created contacts atomically, move bookings/reminders/contact history, preserve original records in a private archive/export and reject stale previews. Target identity fields remain; children/contacts/notes combine; restrictive contact preferences win. Login-linked and referral/reward-linked records are blocked pending separate identity handling. All 47 automated tests pass; build/type/lint pass. Connected browser on disposable port 3015 verified two customers, preview, confirmation, resulting single active customer and preserved notes, with no JavaScript errors. Latest user instruction selects Vercel after completion. Local SQLite must be migrated before serverless hosting; connected Vercel returned no teams. See VERCEL.md. No production deployment.
+
+## September 22 database and follow-up increment
+
+Added async local SQLite/Turso-libSQL adapters, atomic API writes with commit-before-success, persisted rate limits, Vercel Express/static-build preparation and encrypted portable backup/empty-target restore. Added configurable birthday, post-event, unanswered-proposal and school-campaign drafts, dashboard-triggered generation, idempotent reminder markers and explicit contact recording. No automatic messages.
+
+All 54 automated tests pass with each database adapter (108 checks total); native libSQL fixtures exercise its engine locally, not remote HTTP. A Windows native libSQL file-handle cleanup issue was isolated and the parent test runner now cleans after child exit. Browser port 3016 verified opt-in settings, birthday generation, personalized draft, completion and preserved customer history; no recorded warnings/errors. Production accounts, remote HTTP transaction limits and actual Vercel preview remain unverified. No deployment.
+
+Next: finish remaining SCOPE items, perform full product review, then provision and test production dependencies. WhatsApp imports and phone icons remain postponed. Local source is not a Git checkout; use fast-forward GitHub Git-data publication. Preview 3016 is disposable memory.

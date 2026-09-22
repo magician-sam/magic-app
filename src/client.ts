@@ -1,4 +1,5 @@
 import type { ActPlan } from "./act-plans.js";
+import type { FollowupSettings } from "./followups.js";
 import { reportPeriod } from "./reports.js";
 import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
@@ -13,6 +14,7 @@ import type {
   Package,
   Performer,
   Quote,
+  Reminder,
 } from "./models.js";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -1589,6 +1591,207 @@ function renderReminders(root: Element) {
       .map(bookingRow)
       .join("") || '<p class="muted">All caught up.</p>'
   }</section></div>`;
+  const toolbar = root.querySelector(".toolbar")!;
+  if (["owner", "admin"].includes(state!.user.role)) {
+    const settings = document.createElement("button");
+    settings.className = "outline small";
+    settings.textContent = "Follow-up planner";
+    settings.addEventListener("click", () => void editFollowupSettings());
+    toolbar.append(settings);
+  }
+  for (const reminder of state!.reminders) {
+    if (reminder.done || !reminder.customerId) continue;
+    const actions = root.querySelector(
+      `[data-edit="reminders:${CSS.escape(reminder.id)}"]`,
+    )?.parentElement;
+    if (!actions) continue;
+    const review = document.createElement("button");
+    review.className = "outline small";
+    review.textContent = "Review & contact";
+    review.addEventListener("click", () => reviewFollowup(reminder));
+    actions.prepend(review);
+  }
+}
+async function editFollowupSettings() {
+  try {
+    const settings = await api<FollowupSettings>("/manage/followups/settings");
+    const fields: Field[] = [
+      {
+        key: "enabled",
+        label: "Create reminders automatically when I open the dashboard",
+        type: "checkbox",
+        value: settings.enabled,
+        wide: true,
+      },
+      {
+        key: "birthday",
+        label: "Birthday follow-ups",
+        type: "checkbox",
+        value: settings.birthday,
+      },
+      {
+        key: "birthdayDays",
+        label: "Days before the birthday",
+        type: "number",
+        value: settings.birthdayDays,
+        min: 0,
+        max: 90,
+      },
+      {
+        key: "afterEvent",
+        label: "After completed events",
+        type: "checkbox",
+        value: settings.afterEvent,
+      },
+      {
+        key: "afterEventDays",
+        label: "Days after the event",
+        type: "number",
+        value: settings.afterEventDays,
+        min: 1,
+        max: 30,
+      },
+      {
+        key: "quote",
+        label: "Proposals awaiting a reply",
+        type: "checkbox",
+        value: settings.quote,
+      },
+      {
+        key: "quoteDays",
+        label: "Days after the last proposal update",
+        type: "number",
+        value: settings.quoteDays,
+        min: 1,
+        max: 30,
+      },
+      {
+        key: "schoolDate",
+        label: "School campaign date (optional)",
+        type: "date",
+        value: settings.schoolDate,
+      },
+      {
+        key: "schoolDays",
+        label: "Days before the school campaign",
+        type: "number",
+        value: settings.schoolDays,
+        min: 0,
+        max: 90,
+      },
+      ...(
+        ["birthdayText", "afterEventText", "quoteText", "schoolText"] as const
+      ).map((key) => ({
+        key,
+        label: {
+          birthdayText: "Birthday draft",
+          afterEventText: "After-event draft",
+          quoteText: "Proposal draft",
+          schoolText: "School draft",
+        }[key],
+        type: "textarea",
+        value: settings[key],
+        wide: true,
+        required: true,
+      })),
+    ];
+    openDialog(
+      "Your follow-up planner",
+      formBody(
+        fields,
+        '<p class="privacy">Creates private reminders and editable drafts only. Nothing is sent automatically. Birthday and school offers require permission for offers. Do-not-contact always takes priority. Use {customer}, {child}, {event}, {date} and {business} in drafts. February 29 birthdays use February 28 in other years. Editing a rule does not rewrite existing drafts.</p>',
+        "Save planner",
+      ),
+    );
+    submit(modal.querySelector("form")!, async (data) => {
+      await api("/manage/followups/settings", "PUT", {
+        ...formValues(data, fields),
+        revision: settings.revision,
+      });
+      const result = await api<{ added: number }>(
+        "/manage/followups/generate",
+        "POST",
+        {},
+      );
+      modal.close();
+      await loadDashboard();
+      notify(`Planner saved. ${result.added} new follow-ups prepared.`);
+    });
+  } catch (error) {
+    notify(
+      error instanceof Error ? error.message : "Unable to open the planner.",
+    );
+  }
+}
+function reviewFollowup(reminder: Reminder) {
+  const customer = state!.customers.find((c) => c.id === reminder.customerId);
+  if (!customer) return;
+  if (
+    customer.doNotContact ||
+    (reminder.marketing && !customer.offersConsent)
+  ) {
+    openDialog(
+      "Contact preference",
+      "<p>This customer’s current contact preferences prevent this follow-up. Review their customer record.</p>",
+    );
+    return;
+  }
+  const fields: Field[] = [
+    {
+      key: "summary",
+      label: "Message / contact notes",
+      type: "textarea",
+      value: reminder.draft ?? "",
+      required: true,
+      wide: true,
+    },
+    {
+      key: "channel",
+      label: "How you contacted them",
+      type: "select",
+      options: options(["whatsapp", "phone", "email", "in_person"]),
+    },
+    {
+      key: "date",
+      label: "Contact date",
+      type: "date",
+      value: localToday(),
+      required: true,
+    },
+    {
+      key: "confirmed",
+      label: "I have actually contacted this customer",
+      type: "checkbox",
+      required: true,
+      wide: true,
+    },
+  ];
+  openDialog(
+    `Follow up with ${customer.name}`,
+    formBody(
+      fields,
+      `<p><a id="followup-whatsapp" class="button outline" target="_blank" rel="noopener noreferrer">Open WhatsApp draft ↗</a></p><p class="privacy">Opening WhatsApp does not send a message. After you contact the customer yourself, record it here to finish this reminder and add it to their contact history.</p>`,
+      "Record contact & finish",
+    ),
+  );
+  const message = modal.querySelector<HTMLTextAreaElement>("textarea")!,
+    link = modal.querySelector<HTMLAnchorElement>("#followup-whatsapp")!;
+  const updateLink = () => {
+    const phone = customer.phone.replace(/\D/g, "").replace(/^00/, "");
+    link.href = `https://wa.me/${phone}?text=${encodeURIComponent(message.value)}`;
+    link.hidden = !phone;
+  };
+  updateLink();
+  message.addEventListener("input", updateLink);
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(`/manage/reminders/${reminder.id}/contact`, "POST", {
+      ...formValues(data, fields),
+      revision: reminder.revision ?? 0,
+    });
+    modal.close();
+    await loadDashboard();
+    notify("Contact recorded and follow-up completed.");
+  });
 }
 function renderReviews(root: Element) {
   root.innerHTML = `<p class="hint">Genuine ratings and words stay unchanged. Publish only with customer permission; private feedback stays backstage.</p>${state!.reviews.map((r) => `<article class="panel"><div class="row"><h3>${e(state!.bookings.find((b) => b.id === r.bookingId)?.name)}</h3>${badge(r.published ? "published" : "private")}</div><div class="review-stars">${"★".repeat(r.overall)}</div><p>${e(r.text)}</p><p class="muted">Punctuality ${r.punctuality}/5 · Engagement ${r.engagement}/5 · Communication ${r.communication}/5</p><p><b>Private feedback:</b> ${e(r.privateFeedback || "None")}</p><p class="muted">Publication permission: ${r.publishConsent ? "Yes" : "No"} · Photo permission: ${r.photoConsent ? "Yes" : "No"}</p><button class="outline small" data-moderate="${r.id}">${r.published ? "Unpublish" : "Review for publication"}</button></article>`).join("") || empty("The applause will find its way here", "After a completed event, customers can review the event and each booked performer from their private event page.")}`;
@@ -2004,6 +2207,12 @@ function editRecord(kind: string, key: string, duplicate = false) {
         ],
       }),
       f("done", "Completed", "checkbox"),
+      f("draft", "Message draft / preparation notes", "textarea", {
+        wide: true,
+      }),
+      f("marketing", "This is an offer or marketing follow-up", "checkbox", {
+        wide: true,
+      }),
     ];
   if (kind === "blocks")
     fields = [
@@ -2071,6 +2280,7 @@ function editRecord(kind: string, key: string, duplicate = false) {
   );
   submit(modal.querySelector("form")!, async (data) => {
     const value = formValues(data, fields);
+    if (kind === "reminders") value.revision = item.revision ?? 0;
     if (kind === "customers") {
       value.children = String(value.children)
         .split("\n")

@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Store } from "../dist/store.js";
+import { TestStore as Store } from "./store-fixture.mjs";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 import { rewardView } from "../dist/reward-ledger.js";
 
 test("reward issuance, quote discounts, refunds, reuse protection and rule snapshots", async () => {
   const store = new Store(":memory:");
-  const business = store.createBusiness("Rewards", "rewards");
-  const other = store.createBusiness("Other", "other");
+  const business = await store.createBusiness("Rewards", "rewards");
+  const other = await store.createBusiness("Other", "other");
   const password = "Reward-test-password-42!";
   await createUser(store, business.id, "owner@example.test", password, "Owner");
   await createUser(store, other.id, "other@example.test", password, "Other");
@@ -66,8 +66,8 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       password,
       username: "reward-family",
     });
-    const customerId = store.all(business.id, "customers")[0].id;
-    const pack = store.get(business.id, "packages", "magic");
+    const customerId = (await store.all(business.id, "customers"))[0].id;
+    const pack = await store.get(business.id, "packages", "magic");
     const settings = {
       enabled: true,
       qualification: "personal",
@@ -122,16 +122,16 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       updatedAt: new Date().toISOString(),
     });
     for (const key of ["earned-1", "earned-2"]) {
-      store.put(business.id, "bookings", booking(key, "completed"));
-      store.put(business.id, "money", {
+      await store.put(business.id, "bookings", booking(key, "completed"));
+      await store.put(business.id, "money", {
         id: key + "-paid",
         bookingId: key,
         kind: "payment",
         amount: 10001,
       });
     }
-    const issue = (kind, auth = cookie) =>
-      request(
+    const issue = async (kind, auth = cookie) =>
+      await request(
         `/manage/customers/${customerId}/rewards`,
         "POST",
         { kind, reviewed: true },
@@ -148,13 +148,18 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       loyaltyPercent: 30,
     });
     assert.equal(
-      store.get(business.id, "rewardAwards", award.data.id).percent,
+      (await store.get(business.id, "rewardAwards", award.data.id)).percent,
       15,
     );
     for (const key of ["target", "second"])
-      store.put(business.id, "bookings", booking(key));
-    const apply = (key, awardId = award.data.id, revision = 1, auth = cookie) =>
-      request(
+      await store.put(business.id, "bookings", booking(key));
+    const apply = async (
+      key,
+      awardId = award.data.id,
+      revision = 1,
+      auth = cookie,
+    ) =>
+      await request(
         `/manage/bookings/${key}/reward`,
         "POST",
         { awardId, quoteId: key + "-q", revision },
@@ -182,15 +187,15 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
     const link = (
       await request("/manage/bookings/target/link", "POST", {})
     ).data.path.split("#")[1];
-    const accept = () =>
-      request(
+    const accept = async () =>
+      await request(
         "/event/accept",
         "POST",
         { quoteId: "target-q", revision: 2 },
         null,
         { "x-event-token": link },
       );
-    store.put(business.id, "money", {
+    await store.put(business.id, "money", {
       id: "refund",
       bookingId: "earned-1",
       kind: "refund",
@@ -198,23 +203,23 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
     });
     assert.equal((await accept()).status, 409);
     assert.equal(
-      store.get(business.id, "bookings", "target").quotes[0].amount,
+      (await store.get(business.id, "bookings", "target")).quotes[0].amount,
       8501,
     );
-    store.put(business.id, "money", {
+    await store.put(business.id, "money", {
       id: "refund",
       bookingId: "earned-1",
       kind: "refund",
       amount: 0,
     });
     assert.equal((await accept()).status, 200);
-    const view = () =>
-      rewardView(
+    const view = async () =>
+      await rewardView(
         store,
         business.id,
-        store.get(business.id, "rewardAwards", award.data.id),
+        await store.get(business.id, "rewardAwards", award.data.id),
       );
-    assert.equal(view().status, "used");
+    assert.equal((await view()).status, "used");
     assert.equal((await apply("second")).status, 409);
     const profile = (
       await request("/customer/rewards/me", "GET", undefined, account.cookie)
@@ -231,7 +236,7 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       ).status,
       200,
     );
-    assert.equal(view().status, "available");
+    assert.equal((await view()).status, "available");
     assert.equal((await apply("second")).status, 200);
     // Replacing a quote releases the reservation; reapplication cannot silently stack discounts.
     assert.equal(
@@ -251,7 +256,7 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       ).status,
       200,
     );
-    assert.equal(view().status, "available");
+    assert.equal((await view()).status, "available");
     assert.equal(
       (
         await request(`/manage/rewards/${award.data.id}/void`, "POST", {
@@ -260,33 +265,33 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       ).status,
       200,
     );
-    assert.equal(view().status, "voided");
+    assert.equal((await view()).status, "voided");
     assert.equal((await issue("loyalty")).data.percent, 30);
     const free = await issue("free_show");
     assert.equal(free.status, 201);
     const freeBooking = booking("free");
     freeBooking.quotes[0].packageIds = ["magic", "bubbles"];
-    store.put(business.id, "bookings", freeBooking);
+    await store.put(business.id, "bookings", freeBooking);
     assert.equal((await apply("free", free.data.id)).status, 400);
     freeBooking.quotes[0].packageIds = ["magic"];
-    store.put(business.id, "bookings", freeBooking);
+    await store.put(business.id, "bookings", freeBooking);
     const freeApplied = await apply("free", free.data.id);
     assert.equal(freeApplied.status, 200);
     assert.equal(freeApplied.data.quotes[0].amount, 0);
     assert.equal(freeApplied.data.quotes[0].deposit, 0);
     // A referred customer's paid event earns the referrer a reward, not the friend.
-    store.put(business.id, "customers", { id: "friend", name: "Friend" });
-    store.put(business.id, "customerExtras", {
+    await store.put(business.id, "customers", { id: "friend", name: "Friend" });
+    await store.put(business.id, "customerExtras", {
       id: "friend",
       referredBy: customerId,
       childrenAges: [],
     });
-    store.put(
+    await store.put(
       business.id,
       "bookings",
       booking("friend-event", "completed", "friend"),
     );
-    store.put(business.id, "money", {
+    await store.put(business.id, "money", {
       id: "friend-payment",
       bookingId: "friend-event",
       kind: "payment",
@@ -300,7 +305,7 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
     assert.equal(referral.status, 201);
     assert.deepEqual(referral.data.sourceEventIds, ["friend-event"]);
     assert.equal((await issue("referral")).status, 409);
-    store.put(
+    await store.put(
       business.id,
       "bookings",
       booking("wrong-family", "quoted", "friend"),
@@ -308,7 +313,7 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
     assert.equal((await apply("wrong-family", referral.data.id)).status, 404);
     const alternative = booking("alternative");
     alternative.quotes.push({ ...alternative.quotes[0], id: "undiscounted" });
-    store.put(business.id, "bookings", alternative);
+    await store.put(business.id, "bookings", alternative);
     assert.equal((await apply("alternative", referral.data.id)).status, 200);
     const alternativeToken = (
       await request("/manage/bookings/alternative/link", "POST", {})
@@ -326,19 +331,22 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       200,
     );
     assert.equal(
-      rewardView(store, business.id, referral.data).status,
+      (await rewardView(store, business.id, referral.data)).status,
       "available",
     );
-    store.put(business.id, "bookings", booking("no-return"));
-    store.put(business.id, "money", {
+    await store.put(business.id, "bookings", booking("no-return"));
+    await store.put(business.id, "money", {
       id: "overpaid",
       bookingId: "no-return",
       kind: "payment",
       amount: 10001,
     });
     assert.equal((await apply("no-return", referral.data.id)).status, 409);
-    assert.equal(store.get(business.id, "bookings", "no-return").revision, 1);
-    store.put(business.id, "money", {
+    assert.equal(
+      (await store.get(business.id, "bookings", "no-return")).revision,
+      1,
+    );
+    await store.put(business.id, "money", {
       id: "overpaid",
       bookingId: "no-return",
       kind: "payment",
@@ -370,13 +378,16 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       ).status,
       200,
     );
-    assert.equal(rewardView(store, business.id, referral.data).status, "used");
+    assert.equal(
+      (await rewardView(store, business.id, referral.data)).status,
+      "used",
+    );
     // Even a contact without an account/bookings retains its issued reward history.
-    store.put(business.id, "customers", {
+    await store.put(business.id, "customers", {
       id: "history-only",
       name: "Historical contact",
     });
-    store.put(business.id, "rewardAwards", {
+    await store.put(business.id, "rewardAwards", {
       ...referral.data,
       id: "historic-award",
       customerId: "history-only",
@@ -386,7 +397,7 @@ test("reward issuance, quote discounts, refunds, reuse protection and rule snaps
       (await request("/manage/customers/history-only", "DELETE")).status,
       409,
     );
-    const audit = store.all(business.id, "audit");
+    const audit = await store.all(business.id, "audit");
     assert.ok(audit.some((a) => a.action === "reward.issued"));
     assert.ok(audit.some((a) => a.action === "reward.applied-to-proposal"));
     assert.ok(audit.some((a) => a.action === "reward.voided"));

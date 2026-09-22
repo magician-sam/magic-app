@@ -1,3 +1,7 @@
+import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
+import { rateLimit } from "./rate-limit.js";
+import { followups, generateFollowups } from "./followups.js";
+import { writeRoutes } from "./write-routes.js";
 import express, {
   type Request,
   type Response,
@@ -84,6 +88,8 @@ const kinds = [
 ] as const;
 export function createApp(store: Store, origin = "http://localhost:3000") {
   const app = express();
+  const writes = writeRoutes(app, store);
+  if (process.env.VERCEL) app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(
     helmet({
@@ -119,45 +125,27 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     }
     next();
   });
-  const limits = new Map<string, { count: number; until: number }>();
-  function limited(req: Request, key: string, max = 30) {
-    const now = Date.now();
-    if (limits.size > 10000)
-      for (const [key, value] of limits)
-        if (value.until < now) limits.delete(key);
-    const k = `${key}:${req.ip}`;
-    const state = limits.get(k);
-    if (!state || state.until < now)
-      limits.set(k, { count: 1, until: now + 15 * 60_000 });
-    else {
-      requireThat(
-        state.count < max,
-        "Too many attempts. Try again in 15 minutes.",
-        429,
-      );
-      state.count++;
-    }
-  }
-  const owned = <T>(businessId: string, kind: string, key: string) => {
-    const value = store.get<T>(businessId, kind, key);
+  app.use("/api", rateLimit(store));
+  const owned = async <T>(businessId: string, kind: string, key: string) => {
+    const value = await store.get<T>(businessId, kind, key);
     requireThat(value, "Record not found", 404);
     return value;
   };
-  function businessBySlug(slug: string) {
-    const business = store.business(slug, true);
+  async function businessBySlug(slug: string) {
+    const business = await store.business(slug, true);
     requireThat(business, "Business not found", 404);
     return business;
   }
-  function writeRecord<T extends { id: string }>(
+  async function writeRecord<T extends { id: string }>(
     req: Authed,
     kind: string,
     record: T,
     action = "updated",
   ) {
-    return store.transaction(() => {
-      const before = store.get(req.business.id, kind, record.id);
-      store.put(req.business.id, kind, record);
-      store.audit(
+    return await store.transaction(async () => {
+      const before = await store.get(req.business.id, kind, record.id);
+      await store.put(req.business.id, kind, record);
+      await store.audit(
         req.business.id,
         req.user.email,
         `${kind}.${action}`,
@@ -175,7 +163,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       403,
     );
   }
-  function validateSelection(
+  async function validateSelection(
     businessId: string,
     packageIds: string[],
     performerIds: string[],
@@ -188,16 +176,20 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       new Set(performerIds).size === performerIds.length,
       "Choose each performer once.",
     );
-    packageIds.forEach((key) =>
-      requireThat(
-        owned<Package>(businessId, "packages", key).active,
-        "A selected package is unavailable.",
+    await Promise.all(
+      packageIds.map(async (key) =>
+        requireThat(
+          (await owned<Package>(businessId, "packages", key)).active,
+          "A selected package is unavailable.",
+        ),
       ),
     );
-    performerIds.forEach((key) =>
-      requireThat(
-        owned<Performer>(businessId, "performers", key).active,
-        "A selected performer is unavailable.",
+    await Promise.all(
+      performerIds.map(async (key) =>
+        requireThat(
+          (await owned<Performer>(businessId, "performers", key)).active,
+          "A selected performer is unavailable.",
+        ),
       ),
     );
   }
@@ -223,32 +215,32 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "Choose a future event date and time.",
       );
   }
-  function issueLink(businessId: string, bookingId: string) {
+  async function issueLink(businessId: string, bookingId: string) {
     const value = token();
-    store.db
+    await store.db
       .prepare("DELETE FROM links WHERE business_id=? AND booking_id=?")
       .run(businessId, bookingId);
-    store.db
+    await store.db
       .prepare(
         "INSERT INTO links(hash,business_id,booking_id,expires) VALUES(?,?,?,?)",
       )
       .run(hash(value), businessId, bookingId, Date.now() + 180 * 86400_000);
     return `/event#${value}`;
   }
-  function eventAccess(req: Request) {
+  async function eventAccess(req: Request) {
     const value = req.headers["x-event-token"];
     requireThat(
       typeof value === "string" && value.length === 64,
       "Event link is missing or expired.",
       404,
     );
-    const row = store.db
+    const row = await store.db
       .prepare("SELECT * FROM links WHERE hash=? AND expires>?")
       .get(hash(value), Date.now());
     requireThat(row, "Event link is missing or expired.", 404);
     return {
-      business: store.business(String(row.business_id))!,
-      booking: owned<Booking>(
+      business: (await store.business(String(row.business_id)))!,
+      booking: await owned<Booking>(
         String(row.business_id),
         "bookings",
         String(row.booking_id),
@@ -256,19 +248,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     };
   }
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
-  app.get("/api/default-business", (_req, res) => {
-    const row = store.db
+  app.get("/api/default-business", async (_req, res) => {
+    const row = await store.db
       .prepare("SELECT slug FROM businesses ORDER BY rowid LIMIT 1")
       .get();
     requireThat(row, "The business has not been set up yet.", 503);
     res.json({ slug: String(row.slug) });
   });
-  app.post("/api/login", async (req, res) => {
-    limited(req, "login", 10);
+  writes.post("/api/login", async (req, res) => {
     const data = z
       .object({ email: z.email(), password: z.string().min(1).max(200) })
       .parse(req.body);
-    const row = store.db
+    const row = await store.db
       .prepare("SELECT * FROM users WHERE email=?")
       .get(data.email.toLowerCase());
     // A real scrypt even for unknown users reduces account enumeration through timing.
@@ -278,8 +269,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     );
     requireThat(row && valid, "Email or password is incorrect.", 401);
     const value = token();
-    store.db.prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
-    store.db
+    await store.db
+      .prepare("DELETE FROM sessions WHERE expires<?")
+      .run(Date.now());
+    await store.db
       .prepare("INSERT INTO sessions(hash,user_id,expires) VALUES(?,?,?)")
       .run(hash(value), String(row.id), Date.now() + 8 * 3600_000);
     res.cookie("magic_session", value, {
@@ -291,18 +284,19 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ user: JSON.parse(String(row.data)) });
   });
-  app.post("/api/logout", (req, res) => {
+  writes.post("/api/logout", async (req, res) => {
     const cookie = req.headers.cookie?.match(
       /(?:^|;\s*)magic_session=([a-f0-9]{64})(?:;|$)/,
     )?.[1];
     if (cookie)
-      store.db.prepare("DELETE FROM sessions WHERE hash=?").run(hash(cookie));
+      await store.db
+        .prepare("DELETE FROM sessions WHERE hash=?")
+        .run(hash(cookie));
     res.clearCookie("magic_session", { path: "/" }).json({ ok: true });
   });
-  app.get("/api/public/:slug", (req, res) => {
-    const business = businessBySlug(String(req.params.slug));
-    const reviews = store
-      .all<Review>(business.id, "reviews")
+  app.get("/api/public/:slug", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    const reviews = (await store.all<Review>(business.id, "reviews"))
       .filter((r) => r.published && r.publishConsent)
       .map((r) => ({
         performerId: r.performerId,
@@ -315,21 +309,20 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }));
     res.json({
       business,
-      packages: store
-        .all<Package>(business.id, "packages")
-        .filter((p) => p.active),
-      performers: store
-        .all<Performer>(business.id, "performers")
-        .filter((p) => p.active),
+      packages: (await store.all<Package>(business.id, "packages")).filter(
+        (p) => p.active,
+      ),
+      performers: (
+        await store.all<Performer>(business.id, "performers")
+      ).filter((p) => p.active),
       reviews,
       customFields: orderedFields(
-        store.all<CustomField>(business.id, "customFields"),
+        await store.all<CustomField>(business.id, "customFields"),
       ).filter((f) => f.active),
     });
   });
-  app.post("/api/public/:slug/visit", (req, res) => {
-    limited(req, "visit", 100);
-    const business = businessBySlug(String(req.params.slug));
+  writes.post("/api/public/:slug/visit", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
     const { source } = z
       .object({
         source: z
@@ -344,39 +337,32 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           .default("direct"),
       })
       .parse(req.body);
-    store.db
+    await store.db
       .prepare(
         "INSERT INTO visits(business_id,source,day,count) VALUES(?,?,?,1) ON CONFLICT(business_id,source,day) DO UPDATE SET count=count+1",
       )
       .run(business.id, source, new Date().toISOString().slice(0, 10));
     res.json({ ok: true });
   });
-  const customerSession = customerAccounts(
-    app,
-    store,
-    origin,
-    limited,
-    issueLink,
-  );
-  app.post("/api/public/:slug/requests", (req, res) => {
-    limited(req, "request", 20);
-    const business = businessBySlug(String(req.params.slug));
-    const account = customerSession(req, business.id);
+  const customerSession = customerAccounts(app, store, origin, issueLink);
+  writes.post("/api/public/:slug/requests", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    const account = await customerSession(req, business.id);
     const input = z
       .object({ event: eventSchema, customAnswers: z.unknown().optional() })
       .parse(req.body);
-    validateSelection(
+    await validateSelection(
       business.id,
       input.event.packageIds,
       input.event.performerIds,
     );
     validEventDate(business, input.event);
     const answers = customAnswers(
-      store.all<CustomField>(business.id, "customFields"),
+      await store.all<CustomField>(business.id, "customFields"),
       input.customAnswers,
     );
-    const result = store.transaction(() => {
-      const customer = owned<Customer>(
+    const result = await store.transaction(async () => {
+      const customer = await owned<Customer>(
         business.id,
         "customers",
         account.customerId,
@@ -385,8 +371,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       const booking: Booking = {
         customAnswers: answers,
         ...input.event,
-        packageSnapshot: input.event.packageIds.map((p) =>
-          owned<Package>(business.id, "packages", p),
+        packageSnapshot: await Promise.all(
+          input.event.packageIds.map(
+            async (p) => await owned<Package>(business.id, "packages", p),
+          ),
         ),
         id: id(),
         customerId: customer.id,
@@ -405,8 +393,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         createdAt: now,
         updatedAt: now,
       };
-      store.put(business.id, "bookings", booking);
-      store.audit(
+      await store.put(business.id, "bookings", booking);
+      await store.audit(
         business.id,
         "customer",
         "booking.requested",
@@ -416,24 +404,22 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       );
       return {
         id: booking.id,
-        path: issueLink(business.id, booking.id),
+        path: await issueLink(business.id, booking.id),
         status: booking.status,
       };
     });
     res.status(201).json(result);
   });
-  app.get("/api/event", (req, res) => {
-    const { business, booking } = eventAccess(req);
+  app.get("/api/event", async (req, res) => {
+    const { business, booking } = await eventAccess(req);
     const packages = [
       ...new Map(
         [
-          ...store
-            .all<Package>(business.id, "packages")
-            .filter(
-              (p) =>
-                booking.packageIds.includes(p.id) ||
-                booking.quotes.some((q) => q.packageIds.includes(p.id)),
-            ),
+          ...(await store.all<Package>(business.id, "packages")).filter(
+            (p) =>
+              booking.packageIds.includes(p.id) ||
+              booking.quotes.some((q) => q.packageIds.includes(p.id)),
+          ),
           ...(booking.packageSnapshot ?? []),
           ...booking.quotes.flatMap((q) => q.packageSnapshot ?? []),
         ].map((p) => [p.id, p]),
@@ -481,24 +467,23 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         customAnswers: booking.customAnswers ?? [],
       },
       packages,
-      performers: store
-        .all<Performer>(business.id, "performers")
-        .filter((p) => performerIds.includes(p.id)),
+      performers: (
+        await store.all<Performer>(business.id, "performers")
+      ).filter((p) => performerIds.includes(p.id)),
       totals: ((t) => ({
         agreed: t.agreed,
         paid: t.paid,
         balance: t.balance,
         deposit: t.deposit,
-      }))(totals(booking, store.all(business.id, "money"))),
+      }))(totals(booking, await store.all(business.id, "money"))),
       timetable: timetable(booking, packages, business.timezone),
-      reviewed: store
-        .all<Review>(business.id, "reviews")
+      reviewed: (await store.all<Review>(business.id, "reviews"))
         .filter((r) => r.bookingId === id)
         .map((r) => r.performerId),
     });
   });
-  app.post("/api/event/accept", (req, res) => {
-    const { business, booking } = eventAccess(req);
+  writes.post("/api/event/accept", async (req, res) => {
+    const { business, booking } = await eventAccess(req);
     const input = z
       .object({ quoteId: short, revision: z.number().int() })
       .parse(req.body);
@@ -524,15 +509,15 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       revision: booking.revision + 1,
       updatedAt: new Date().toISOString(),
     };
-    store.transaction(() => {
-      validateQuoteReward(
+    await store.transaction(async () => {
+      await validateQuoteReward(
         store,
         business.id,
         booking,
         booking.quotes.find((q) => q.id === input.quoteId)!,
       );
-      store.put(business.id, "bookings", next);
-      store.audit(
+      await store.put(business.id, "bookings", next);
+      await store.audit(
         business.id,
         "customer",
         "quote.accepted",
@@ -543,8 +528,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ ok: true });
   });
-  app.post("/api/event/details", (req, res) => {
-    const { business, booking } = eventAccess(req);
+  writes.post("/api/event/details", async (req, res) => {
+    const { business, booking } = await eventAccess(req);
     const input = z
       .object({
         revision: z.number().int(),
@@ -580,9 +565,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       revision: booking.revision + 1,
       updatedAt: new Date().toISOString(),
     };
-    store.transaction(() => {
-      store.put(business.id, "bookings", next);
-      store.audit(
+    await store.transaction(async () => {
+      await store.put(business.id, "bookings", next);
+      await store.audit(
         business.id,
         "customer",
         "details.updated-recheck-required",
@@ -593,8 +578,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ ok: true });
   });
-  app.post("/api/event/reviews", (req, res) => {
-    const { business, booking } = eventAccess(req);
+  writes.post("/api/event/reviews", async (req, res) => {
+    const { business, booking } = await eventAccess(req);
     requireThat(
       booking.status === "completed",
       "Reviews open after the event is completed.",
@@ -620,12 +605,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "Only booked performers can be reviewed.",
     );
     requireThat(
-      !store
-        .all<Review>(business.id, "reviews")
-        .some(
-          (r) =>
-            r.bookingId === booking.id && r.performerId === input.performerId,
-        ),
+      !(await store.all<Review>(business.id, "reviews")).some(
+        (r) =>
+          r.bookingId === booking.id && r.performerId === input.performerId,
+      ),
       "A review already exists for this event or performer.",
       409,
     );
@@ -636,9 +619,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       published: false,
       createdAt: new Date().toISOString(),
     };
-    store.transaction(() => {
-      store.put(business.id, "reviews", review);
-      store.audit(
+    await store.transaction(async () => {
+      await store.put(business.id, "reviews", review);
+      await store.audit(
         business.id,
         "customer",
         "review.submitted",
@@ -649,13 +632,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.status(201).json({ ok: true });
   });
-  app.use("/api/manage", (req, _res, next) => {
+  app.use("/api/manage", async (req, _res, next) => {
     try {
       const cookie = req.headers.cookie?.match(
         /(?:^|;\s*)magic_session=([a-f0-9]{64})(?:;|$)/,
       )?.[1];
       requireThat(cookie, "Please sign in.", 401);
-      const row = store.db
+      const row = await store.db
         .prepare(
           "SELECT u.data FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.hash=? AND s.expires>?",
         )
@@ -663,7 +646,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       requireThat(row, "Please sign in.", 401);
       const user = JSON.parse(String(row.data)) as User;
       const target = req.headers["x-support-business"];
-      let business = store.business(user.businessId)!;
+      let business = (await store.business(user.businessId))!;
       if (target && target !== user.businessId) {
         requireThat(
           user.role === "admin" && typeof target === "string",
@@ -675,9 +658,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           typeof reason === "string" && reason.trim().length >= 10,
           "A support-access reason is required.",
         );
-        business = store.business(target)!;
+        business = (await store.business(target))!;
         requireThat(business, "Business not found", 404);
-        store.audit(
+        await store.audit(
           business.id,
           user.email,
           "admin.support-access",
@@ -693,17 +676,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       next(error);
     }
   });
-  app.get("/api/manage/reward-settings", (req, res) => {
+  app.get("/api/manage/reward-settings", async (req, res) => {
     canManage(req);
-    res.json(rewardSettings(store, req.business.id));
+    res.json(await rewardSettings(store, req.business.id));
   });
-  customerRecovery(app, store, limited, canManage);
+  customerRecovery(app, store, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);
   customerMerge(app, store);
-  app.put("/api/manage/bookings/:id/custom-answers", (req, res) => {
+  followups(app, store);
+  writes.put("/api/manage/bookings/:id/custom-answers", async (req, res) => {
     canManage(req);
-    const booking = owned<Booking>(
+    const booking = await owned<Booking>(
       req.business.id,
       "bookings",
       String(req.params.id),
@@ -733,7 +717,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "Unknown booking question.",
     );
     res.json(
-      writeRecord(
+      await writeRecord(
         req,
         "bookings",
         {
@@ -749,13 +733,15 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.get("/api/manage/custom-fields", (req, res) => {
+  app.get("/api/manage/custom-fields", async (req, res) => {
     canManage(req);
     res.json(
-      orderedFields(store.all<CustomField>(req.business.id, "customFields")),
+      orderedFields(
+        await store.all<CustomField>(req.business.id, "customFields"),
+      ),
     );
   });
-  app.put("/api/manage/custom-fields/order", (req, res) => {
+  writes.put("/api/manage/custom-fields/order", async (req, res) => {
     canManage(req);
     const input = z
       .object({
@@ -763,9 +749,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         ids: z.array(z.string()).max(50),
       })
       .parse(req.body);
-    const result = store.transaction(() => {
+    const result = await store.transaction(async () => {
       const fields = orderedFields(
-        store.all<CustomField>(req.business.id, "customFields"),
+        await store.all<CustomField>(req.business.id, "customFields"),
       );
       const previous = fields.map((f) => f.id);
       requireThat(
@@ -783,8 +769,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         ...fields.find((f) => f.id === key)!,
         position,
       }));
-      next.forEach((f) => store.put(req.business.id, "customFields", f));
-      store.audit(
+      await Promise.all(
+        next.map(
+          async (f) => await store.put(req.business.id, "customFields", f),
+        ),
+      );
+      await store.audit(
         req.business.id,
         req.user.email,
         "questions.reordered",
@@ -796,18 +786,21 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json(result);
   });
-  app.post("/api/manage/custom-fields", (req, res) => {
+  writes.post("/api/manage/custom-fields", async (req, res) => {
     canManage(req);
     const input = customFieldSchema.parse(req.body);
     requireThat(
-      store.get(req.business.id, "customFields", input.id) ||
-        store.all(req.business.id, "customFields").length < 50,
+      (await store.get(req.business.id, "customFields", input.id)) ||
+        (await store.all(req.business.id, "customFields")).length < 50,
       "Maximum 50 questions. Edit an existing question.",
     );
-    const fields = store.all<CustomField>(req.business.id, "customFields");
+    const fields = await store.all<CustomField>(
+      req.business.id,
+      "customFields",
+    );
     const existing = fields.find((f) => f.id === input.id);
     res.json(
-      writeRecord(req, "customFields", {
+      await writeRecord(req, "customFields", {
         ...input,
         position: existing
           ? (existing.position ?? 0)
@@ -815,29 +808,33 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }),
     );
   });
-  app.put("/api/manage/reward-settings", (req, res) => {
+  writes.put("/api/manage/reward-settings", async (req, res) => {
     canManage(req);
     res.json(
-      writeRecord(req, "rewardSettings", {
+      await writeRecord(req, "rewardSettings", {
         ...rewardSchema.parse(req.body),
         id: "program",
       }),
     );
   });
-  app.get("/api/manage/state", (request, res) => {
+  app.get("/api/manage/state", async (request, res) => {
+    if (request.user.role !== "performer")
+      await generateFollowups(store, request.business);
     const req = request as Authed;
     const bid = req.business.id;
     const result: Record<string, unknown> = {
       business: req.business,
       user: req.user,
     };
-    kinds.forEach((kind) => {
-      result[kind] = store.all(bid, kind);
-    });
+    await Promise.all(
+      kinds.map(async (kind) => {
+        result[kind] = await store.all(bid, kind);
+      }),
+    );
     if (req.user.role === "performer") {
-      const assigned = store
-        .all<Booking>(bid, "bookings")
-        .filter((b) => b.performerIds.includes(req.user.performerId ?? ""));
+      const assigned = (await store.all<Booking>(bid, "bookings")).filter((b) =>
+        b.performerIds.includes(req.user.performerId ?? ""),
+      );
       result.bookings = assigned.map((b) => ({
         ...b,
         quotes: [],
@@ -854,17 +851,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "referrals",
       ])
         result[k] = [];
-      result.blocks = store
-        .all<AvailabilityBlock>(bid, "blocks")
-        .filter((b) => b.performerId === req.user.performerId);
+      result.blocks = (
+        await store.all<AvailabilityBlock>(bid, "blocks")
+      ).filter((b) => b.performerId === req.user.performerId);
     }
     if (["owner", "admin"].includes(req.user.role)) {
-      result.audit = store.all(bid, "audit").slice(-200).reverse();
-      result.users = store.db
-        .prepare("SELECT data FROM users WHERE business_id=?")
-        .all(bid)
-        .map((row) => JSON.parse(String(row.data)));
-      result.visits = store.db
+      result.audit = (await store.all(bid, "audit")).slice(-200).reverse();
+      result.users = (
+        await store.db
+          .prepare("SELECT data FROM users WHERE business_id=?")
+          .all(bid)
+      ).map((row) => JSON.parse(String(row.data)));
+      result.visits = await store.db
         .prepare(
           "SELECT source,SUM(count) as count FROM visits WHERE business_id=? GROUP BY source",
         )
@@ -876,7 +874,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     }
     res.json(result);
   });
-  app.put("/api/manage/business", (request, res) => {
+  writes.put("/api/manage/business", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const value = z
@@ -912,11 +910,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       })
       .parse(req.body);
     const next = { ...req.business, ...value };
-    store.transaction(() => {
-      store.db
+    await store.transaction(async () => {
+      await store.db
         .prepare("UPDATE businesses SET data=? WHERE id=?")
         .run(JSON.stringify(next), req.business.id);
-      store.audit(
+      await store.audit(
         req.business.id,
         req.user.email,
         "business.updated",
@@ -927,7 +925,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json(next);
   });
-  app.post("/api/manage/users", async (request, res) => {
+  writes.post("/api/manage/users", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
@@ -942,13 +940,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     if (input.role === "performer")
       requireThat(
         input.performerId &&
-          store.get(req.business.id, "performers", input.performerId),
+          (await store.get(req.business.id, "performers", input.performerId)),
         "Choose an existing performer.",
       );
     requireThat(
-      !store.db
+      !(await store.db
         .prepare("SELECT id FROM users WHERE email=?")
-        .get(input.email.toLowerCase()),
+        .get(input.email.toLowerCase())),
       "This email already has an account.",
       409,
     );
@@ -961,7 +959,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       input.role,
       input.performerId,
     );
-    store.audit(
+    await store.audit(
       req.business.id,
       req.user.email,
       "user.created",
@@ -971,29 +969,30 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     );
     res.status(201).json(user);
   });
-  app.post("/api/manage/password", async (req, res) => {
+  writes.post("/api/manage/password", async (req, res) => {
     const input = z
       .object({
         currentPassword: z.string().max(200),
         newPassword: z.string().min(14).max(200),
       })
       .parse(req.body);
-    limited(req, "password", 10);
-    const row = store.db
+    const row = (await store.db
       .prepare("SELECT password FROM users WHERE id=?")
-      .get(req.user.id)!;
+      .get(req.user.id))!;
     requireThat(
       await passwordMatches(input.currentPassword, String(row.password)),
       "Current password is incorrect.",
       400,
     );
     const next = await passwordHash(input.newPassword);
-    store.transaction(() => {
-      store.db
+    await store.transaction(async () => {
+      await store.db
         .prepare("UPDATE users SET password=? WHERE id=?")
         .run(next, req.user.id);
-      store.db.prepare("DELETE FROM sessions WHERE user_id=?").run(req.user.id);
-      store.audit(
+      await store.db
+        .prepare("DELETE FROM sessions WHERE user_id=?")
+        .run(req.user.id);
+      await store.audit(
         req.user.businessId,
         req.user.email,
         "user.password-changed",
@@ -1004,7 +1003,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.clearCookie("magic_session", { path: "/" }).json({ ok: true });
   });
-  app.put("/api/manage/users/:id", (req, res) => {
+  writes.put("/api/manage/users/:id", async (req, res) => {
     canManage(req);
     const key = String(req.params.id);
     const input = z
@@ -1015,7 +1014,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         performerId: short.optional(),
       })
       .parse(req.body);
-    const row = store.db
+    const row = await store.db
       .prepare("SELECT data FROM users WHERE id=? AND business_id=?")
       .get(key, req.business.id);
     requireThat(row, "User not found", 404);
@@ -1033,25 +1032,25 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "You cannot change your own access level.",
     );
     requireThat(
-      !store.db
+      !(await store.db
         .prepare("SELECT id FROM users WHERE email=? AND id<>?")
-        .get(input.email.toLowerCase(), key),
+        .get(input.email.toLowerCase(), key)),
       "Email already has an account.",
       409,
     );
     if (input.role === "performer")
       requireThat(
         input.performerId &&
-          store.get(req.business.id, "performers", input.performerId),
+          (await store.get(req.business.id, "performers", input.performerId)),
         "Choose a performer profile.",
       );
     const next = { ...old, ...input, email: input.email.toLowerCase() };
-    store.transaction(() => {
-      store.db
+    await store.transaction(async () => {
+      await store.db
         .prepare("UPDATE users SET email=?,data=? WHERE id=?")
         .run(next.email, JSON.stringify(next), key);
-      store.db.prepare("DELETE FROM sessions WHERE user_id=?").run(key);
-      store.audit(
+      await store.db.prepare("DELETE FROM sessions WHERE user_id=?").run(key);
+      await store.audit(
         req.business.id,
         req.user.email,
         "user.updated",
@@ -1062,12 +1061,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json(next);
   });
-  app.delete("/api/manage/users/:id", (request, res) => {
+  writes.delete("/api/manage/users/:id", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const key = String(req.params.id);
     requireThat(key !== req.user.id, "You cannot remove your own access.");
-    const row = store.db
+    const row = await store.db
       .prepare("SELECT data FROM users WHERE id=? AND business_id=?")
       .get(key, req.business.id);
     requireThat(row, "User not found", 404);
@@ -1075,10 +1074,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       (JSON.parse(String(row.data)) as User).role !== "admin",
       "Platform administrator removal requires an operational account recovery process.",
     );
-    store.transaction(() => {
-      store.db.prepare("DELETE FROM sessions WHERE user_id=?").run(key);
-      store.db.prepare("DELETE FROM users WHERE id=?").run(key);
-      store.audit(
+    await store.transaction(async () => {
+      await store.db.prepare("DELETE FROM sessions WHERE user_id=?").run(key);
+      await store.db.prepare("DELETE FROM users WHERE id=?").run(key);
+      await store.audit(
         req.business.id,
         req.user.email,
         "user.removed",
@@ -1089,7 +1088,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ ok: true });
   });
-  app.post("/api/manage/businesses", async (request, res) => {
+  writes.post("/api/manage/businesses", async (request, res) => {
     const req = request as Authed;
     requireThat(
       req.user.role === "admin",
@@ -1110,26 +1109,32 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "Choose a valid timezone.",
     );
     requireThat(
-      !store.business(value.slug, true),
+      !(await store.business(value.slug, true)),
       "This public address is in use.",
       409,
     );
     requireThat(
-      !store.db
+      !(await store.db
         .prepare("SELECT id FROM users WHERE email=?")
-        .get(value.email.toLowerCase()),
+        .get(value.email.toLowerCase())),
       "This email already has an account.",
       409,
     );
     const passwordValue = await passwordHash(value.password);
-    const business = store.transaction(() => {
-      const business = store.createBusiness(
+    const business = await store.transaction(async () => {
+      const business = await store.createBusiness(
         value.name,
         value.slug,
         value.timezone,
       );
-      insertUser(store, business.id, value.email, passwordValue, value.name);
-      store.audit(
+      await insertUser(
+        store,
+        business.id,
+        value.email,
+        passwordValue,
+        value.name,
+      );
+      await store.audit(
         business.id,
         req.user.email,
         "business.created",
@@ -1141,16 +1146,16 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.status(201).json(business);
   });
-  app.get("/api/manage/businesses", (request, res) => {
+  app.get("/api/manage/businesses", async (request, res) => {
     const req = request as Authed;
     requireThat(
       req.user.role === "admin",
       "Administrator access required.",
       403,
     );
-    res.json(store.db.prepare("SELECT id,slug FROM businesses").all());
+    res.json(await store.db.prepare("SELECT id,slug FROM businesses").all());
   });
-  app.put("/api/manage/:kind/:id", (request, res, next) => {
+  writes.put("/api/manage/:kind/:id", async (request, res, next) => {
     const req = request as Authed;
     const kind = String(req.params.kind);
     const key = String(req.params.id);
@@ -1168,7 +1173,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       return;
     }
     const recordId = key === "new" ? id() : key;
-    if (key !== "new") owned(req.business.id, kind, key);
+    if (key !== "new") await owned(req.business.id, kind, key);
     if (["packages", "performers", "referrals"].includes(kind)) canManage(req);
     else
       requireThat(
@@ -1190,11 +1195,33 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           title: short.min(2),
           date,
           done: z.boolean(),
+          draft: z.string().trim().max(5000).default(""),
+          marketing: z.boolean().default(false),
+          revision: z.number().int().min(0).default(0),
         })
         .parse(req.body);
-      if (v.customerId) owned(req.business.id, "customers", v.customerId);
-      if (v.bookingId) owned(req.business.id, "bookings", v.bookingId);
-      value = v;
+      if (v.customerId) await owned(req.business.id, "customers", v.customerId);
+      if (v.bookingId) {
+        const booking = await owned<Booking>(
+          req.business.id,
+          "bookings",
+          v.bookingId,
+        );
+        requireThat(
+          !v.customerId || booking.customerId === v.customerId,
+          "Choose an event belonging to this customer.",
+        );
+      }
+      const before =
+        key === "new"
+          ? undefined
+          : await owned<Reminder>(req.business.id, "reminders", key);
+      requireThat(
+        v.revision === (before?.revision ?? 0),
+        "This reminder changed. Reopen it before saving.",
+        409,
+      );
+      value = { ...before, ...v, revision: v.revision + 1 };
     } else if (kind === "blocks") {
       const v = z
         .object({
@@ -1206,7 +1233,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         })
         .parse(req.body);
       requireThat(v.end > v.start, "End must follow start on the same day.");
-      owned(req.business.id, "performers", v.performerId);
+      await owned(req.business.id, "performers", v.performerId);
       if (req.user.role === "performer") {
         requireThat(
           v.performerId === req.user.performerId,
@@ -1215,8 +1242,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         );
         if (key !== "new")
           requireThat(
-            owned<AvailabilityBlock>(req.business.id, kind, key).performerId ===
-              req.user.performerId,
+            (await owned<AvailabilityBlock>(req.business.id, kind, key))
+              .performerId === req.user.performerId,
             "Access denied",
             403,
           );
@@ -1232,13 +1259,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           note: short,
         })
         .parse(req.body);
-      owned(req.business.id, "bookings", v.bookingId);
-      owned(req.business.id, "performers", v.performerId);
+      await owned(req.business.id, "bookings", v.bookingId);
+      await owned(req.business.id, "performers", v.performerId);
       value = v;
     }
-    res.json(writeRecord(req, kind, { ...value, id: recordId }));
+    res.json(await writeRecord(req, kind, { ...value, id: recordId }));
   });
-  app.delete("/api/manage/:kind/:id", (request, res) => {
+  writes.delete("/api/manage/:kind/:id", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const kind = String(req.params.kind),
@@ -1254,38 +1281,52 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ].includes(kind),
       "This record requires a logged correction or cancellation.",
     );
-    const before = owned<Record<string, unknown>>(req.business.id, kind, key);
-    const bookings = store.all<Booking>(req.business.id, "bookings");
+    const before = await owned<Record<string, unknown>>(
+      req.business.id,
+      kind,
+      key,
+    );
+    const bookings = await store.all<Booking>(req.business.id, "bookings");
     if (kind === "customers")
       requireThat(
-        !store.db
+        !(await store.db
           .prepare(
             "SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?",
           )
-          .get(req.business.id, key) &&
+          .get(req.business.id, key)) &&
           !bookings.some((b) => b.customerId === key) &&
-          !store
-            .all<{ customerId: string }>(req.business.id, "contactHistory")
-            .some((n) => n.customerId === key) &&
-          !store
-            .all<{ customerId: string }>(req.business.id, "rewardAwards")
-            .some((a) => a.customerId === key) &&
-          !store
-            .all<Reminder>(req.business.id, "reminders")
-            .some((r) => r.customerId === key),
+          !(
+            await store.all<{ customerId: string }>(
+              req.business.id,
+              "contactHistory",
+            )
+          ).some((n) => n.customerId === key) &&
+          !(
+            await store.all<{ customerId: string }>(
+              req.business.id,
+              "rewardAwards",
+            )
+          ).some((a) => a.customerId === key) &&
+          !(await store.all<Reminder>(req.business.id, "reminders")).some(
+            (r) => r.customerId === key,
+          ),
         "This customer has history. Edit their details or mark Do not contact instead.",
         409,
       );
-    store.transaction(() => {
+    await store.transaction(async () => {
       if (["packages", "performers"].includes(kind))
-        store.put(req.business.id, kind, { ...before, id: key, active: false });
+        await store.put(req.business.id, kind, {
+          ...before,
+          id: key,
+          active: false,
+        });
       else
-        store.db
+        await store.db
           .prepare(
             "DELETE FROM records WHERE business_id=? AND kind=? AND id=?",
           )
           .run(req.business.id, kind, key);
-      store.audit(
+      await store.audit(
         req.business.id,
         req.user.email,
         `${kind}.removed`,
@@ -1296,18 +1337,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ ok: true });
   });
-  app.post("/api/manage/bookings/:id/link", (request, res) => {
+  writes.post("/api/manage/bookings/:id/link", async (request, res) => {
     const req = request as Authed;
     requireThat(req.user.role !== "performer", "Access denied", 403);
-    const b = owned<Booking>(
+    const b = await owned<Booking>(
       req.business.id,
       "bookings",
       String(req.params.id),
     );
     res.json({
-      path: store.transaction(() => {
-        const path = issueLink(req.business.id, b.id);
-        store.audit(
+      path: await store.transaction(async () => {
+        const path = await issueLink(req.business.id, b.id);
+        await store.audit(
           req.business.id,
           req.user.email,
           "event-link.rotated",
@@ -1319,12 +1360,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }),
     });
   });
-  function editBooking(
+  async function editBooking(
     req: Authed,
-    work: (booking: Booking) => Booking,
+    work: (booking: Booking) => Booking | Promise<Booking>,
     action: string,
   ) {
-    const old = owned<Booking>(
+    const old = await owned<Booking>(
       req.business.id,
       "bookings",
       String(req.params.id),
@@ -1334,12 +1375,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       "Another change was saved. Refresh before editing.",
       409,
     );
-    const next = work(structuredClone(old));
+    const next = await work(structuredClone(old));
     next.revision++;
     next.updatedAt = new Date().toISOString();
-    return writeRecord(req, "bookings", next, action);
+    return await writeRecord(req, "bookings", next, action);
   }
-  app.put("/api/manage/bookings/:id/details", (request, res) => {
+  writes.put("/api/manage/bookings/:id/details", async (request, res) => {
     const req = request as Authed;
     requireThat(req.user.role !== "performer", "Access denied", 403);
     const input = eventSchema
@@ -1354,16 +1395,23 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           .max(100),
       })
       .parse(req.body);
-    if (input.customerId) owned(req.business.id, "customers", input.customerId);
-    validateSelection(req.business.id, input.packageIds, input.performerIds);
-    input.backupPerformerIds.forEach((p) =>
-      owned(req.business.id, "performers", p),
+    if (input.customerId)
+      await owned(req.business.id, "customers", input.customerId);
+    await validateSelection(
+      req.business.id,
+      input.packageIds,
+      input.performerIds,
+    );
+    await Promise.all(
+      input.backupPerformerIds.map(
+        async (p) => await owned(req.business.id, "performers", p),
+      ),
     );
     validEventDate(req.business, input, false);
     res.json(
-      editBooking(
+      await editBooking(
         req,
-        (b) => {
+        async (b) => {
           requireThat(
             !["completed", "cancelled"].includes(b.status),
             "Closed bookings retain their event history.",
@@ -1383,8 +1431,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             ...input,
             runningOrder: packageChanged ? undefined : b.runningOrder,
             packageSnapshot: packageChanged
-              ? input.packageIds.map((p) =>
-                  owned<Package>(req.business.id, "packages", p),
+              ? await Promise.all(
+                  input.packageIds.map(
+                    async (p) =>
+                      await owned<Package>(req.business.id, "packages", p),
+                  ),
                 )
               : b.packageSnapshot,
             status: packageChanged
@@ -1408,15 +1459,15 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.get("/api/manage/bookings/:id/act-plan", (req, res) => {
+  app.get("/api/manage/bookings/:id/act-plan", async (req, res) => {
     canManage(req);
-    const b = owned<Booking>(
+    const b = await owned<Booking>(
       req.business.id,
       "bookings",
       String(req.params.id),
     );
     res.json({
-      plan: store.get<ActPlan>(req.business.id, "actPlans", b.id) ?? {
+      plan: (await store.get<ActPlan>(req.business.id, "actPlans", b.id)) ?? {
         id: b.id,
         rows: [],
         notes: "",
@@ -1424,11 +1475,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       revision: b.revision,
       shows: selectedPackages(
         b,
-        store.all<Package>(req.business.id, "packages"),
+        await store.all<Package>(req.business.id, "packages"),
       ),
     });
   });
-  app.put("/api/manage/bookings/:id/act-plan", (req, res) => {
+  writes.put("/api/manage/bookings/:id/act-plan", async (req, res) => {
     canManage(req);
     const input = z
       .object({
@@ -1445,8 +1496,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       })
       .parse(req.body);
     res.json(
-      store.transaction(() => {
-        const b = owned<Booking>(
+      await store.transaction(async () => {
+        const b = await owned<Booking>(
           req.business.id,
           "bookings",
           String(req.params.id),
@@ -1462,29 +1513,35 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         );
         const shows = selectedPackages(
           b,
-          store.all<Package>(req.business.id, "packages"),
+          await store.all<Package>(req.business.id, "packages"),
         );
         requireThat(
           new Set(input.rows.map((r) => r.packageId)).size ===
             input.rows.length,
           "Assign each show once.",
         );
-        input.rows.forEach((row) => {
-          requireThat(
-            shows.some((p) => p.id === row.packageId),
-            "Choose an agreed show.",
-          );
-          requireThat(
-            b.performerIds.includes(row.performerId),
-            "Choose a performer already assigned to this event.",
-          );
-          owned<Performer>(req.business.id, "performers", row.performerId);
-        });
+        await Promise.all(
+          input.rows.map(async (row) => {
+            requireThat(
+              shows.some((p) => p.id === row.packageId),
+              "Choose an agreed show.",
+            );
+            requireThat(
+              b.performerIds.includes(row.performerId),
+              "Choose a performer already assigned to this event.",
+            );
+            await owned<Performer>(
+              req.business.id,
+              "performers",
+              row.performerId,
+            );
+          }),
+        );
         const before =
-          store.get<ActPlan>(req.business.id, "actPlans", b.id) ?? null;
+          (await store.get<ActPlan>(req.business.id, "actPlans", b.id)) ?? null;
         const plan = { id: b.id, ...input };
-        store.put(req.business.id, "actPlans", plan);
-        store.audit(
+        await store.put(req.business.id, "actPlans", plan);
+        await store.audit(
           req.business.id,
           req.user.email,
           "staffing-plan.updated",
@@ -1501,8 +1558,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             b.performerIds.map((p) => [p, "pending" as const]),
           ),
         };
-        store.put(req.business.id, "bookings", next);
-        store.audit(
+        await store.put(req.business.id, "bookings", next);
+        await store.audit(
           req.business.id,
           req.user.email,
           "bookings.staffing-plan.recheck-required",
@@ -1514,7 +1571,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }),
     );
   });
-  app.put("/api/manage/bookings/:id/running-order", (req, res) => {
+  writes.put("/api/manage/bookings/:id/running-order", async (req, res) => {
     canManage(req);
     const input = z
       .object({
@@ -1531,16 +1588,16 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       })
       .parse(req.body);
     res.json(
-      editBooking(
+      await editBooking(
         req,
-        (b) => {
+        async (b) => {
           requireThat(
             ["accepted", "confirmed"].includes(b.status),
             "Edit the running order after the customer accepts a quote.",
           );
           const chosen = selectedPackages(
             b,
-            store.all<Package>(req.business.id, "packages"),
+            await store.all<Package>(req.business.id, "packages"),
           );
           const ids = input.runningOrder.map((row) => row.packageId);
           requireThat(
@@ -1566,14 +1623,14 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.put("/api/manage/bookings/:id/checklist", (request, res) => {
+  writes.put("/api/manage/bookings/:id/checklist", async (request, res) => {
     const req = request as Authed;
     const input = z
       .array(z.object({ text: short.min(1), done: z.boolean() }))
       .max(100)
       .parse(req.body.checklist);
     res.json(
-      editBooking(
+      await editBooking(
         req,
         (b) => {
           if (req.user.role === "performer")
@@ -1588,7 +1645,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.post("/api/manage/bookings/:id/availability", (request, res) => {
+  writes.post("/api/manage/bookings/:id/availability", async (request, res) => {
     const req = request as Authed;
     const input = z
       .object({
@@ -1597,7 +1654,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       })
       .parse(req.body);
     res.json(
-      editBooking(
+      await editBooking(
         req,
         (b) => {
           requireThat(
@@ -1624,7 +1681,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.post("/api/manage/bookings/:id/quotes", (request, res) => {
+  writes.post("/api/manage/bookings/:id/quotes", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const options = z
@@ -1645,34 +1702,41 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .min(1)
       .max(3)
       .parse(req.body.options);
-    options.forEach((q) =>
-      validateSelection(req.business.id, q.packageIds, []),
+    await Promise.all(
+      options.map(
+        async (q) => await validateSelection(req.business.id, q.packageIds, []),
+      ),
     );
     res.json(
-      editBooking(
+      await editBooking(
         req,
-        (b) => {
+        async (b) => {
           requireThat(
             !["completed", "cancelled", "confirmed"].includes(b.status),
             "Reopen a confirmed booking by editing details before replacing its proposal.",
           );
           const previouslyPaid = totals(
             b,
-            store.all(req.business.id, "money"),
+            await store.all(req.business.id, "money"),
           ).paid;
           requireThat(
             options.every((q) => q.amount >= previouslyPaid),
             "Refund or correct collected payments before proposing a lower total.",
           );
-          b.quotes = options.map(
-            (q) =>
-              ({
-                ...q,
-                id: id(),
-                packageSnapshot: q.packageIds.map((p) =>
-                  owned<Package>(req.business.id, "packages", p),
-                ),
-              }) as Quote,
+          b.quotes = await Promise.all(
+            options.map(
+              async (q) =>
+                ({
+                  ...q,
+                  id: id(),
+                  packageSnapshot: await Promise.all(
+                    q.packageIds.map(
+                      async (p) =>
+                        await owned<Package>(req.business.id, "packages", p),
+                    ),
+                  ),
+                }) as Quote,
+            ),
           );
           b.acceptedQuoteId = "";
           b.runningOrder = undefined;
@@ -1683,7 +1747,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.post("/api/manage/bookings/:id/status", (request, res) => {
+  writes.post("/api/manage/bookings/:id/status", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
@@ -1693,9 +1757,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       })
       .parse(req.body);
     res.json(
-      editBooking(
+      await editBooking(
         req,
-        (b) => {
+        async (b) => {
           requireThat(
             !["completed", "cancelled"].includes(b.status),
             "This event is already closed.",
@@ -1703,7 +1767,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           if (input.status === "confirmed") {
             const selected = b.quotes.find((q) => q.id === b.acceptedQuoteId);
             if (selected)
-              validateQuoteReward(store, req.business.id, b, selected);
+              await validateQuoteReward(store, req.business.id, b, selected);
             requireThat(
               b.status === "accepted",
               "The customer must accept a current quote first.",
@@ -1713,19 +1777,22 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
                 b.performerIds.every((p) => b.availability[p] === "available"),
               "All assigned performers must confirm availability.",
             );
-            const packages = store.all<Package>(req.business.id, "packages");
+            const packages = await store.all<Package>(
+              req.business.id,
+              "packages",
+            );
             const issues = [
               ...compatibility(b, selectedPackages(b, packages)),
               ...conflicts(
                 b,
-                store.all(req.business.id, "bookings"),
+                await store.all(req.business.id, "bookings"),
                 packages,
-                store.all(req.business.id, "blocks"),
+                await store.all(req.business.id, "blocks"),
                 req.business.timezone,
               ),
             ];
             requireThat(!issues.length, issues.join(" "), 409);
-            const money = totals(b, store.all(req.business.id, "money"));
+            const money = totals(b, await store.all(req.business.id, "money"));
             requireThat(
               money.paid >= money.deposit,
               "The agreed deposit must be recorded first.",
@@ -1749,7 +1816,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             );
           }
           b.status = input.status;
-          store.audit(
+          await store.audit(
             req.business.id,
             req.user.email,
             "booking.status-reason",
@@ -1763,9 +1830,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
   });
-  app.get("/api/manage/bookings/:id/checks", (request, res) => {
+  app.get("/api/manage/bookings/:id/checks", async (request, res) => {
     const req = request as Authed;
-    const b = owned<Booking>(
+    const b = await owned<Booking>(
       req.business.id,
       "bookings",
       String(req.params.id),
@@ -1776,25 +1843,25 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "Access denied",
         403,
       );
-    const packages = store.all<Package>(req.business.id, "packages");
+    const packages = await store.all<Package>(req.business.id, "packages");
     res.json({
       issues: [
         ...compatibility(b, selectedPackages(b, packages)),
         ...conflicts(
           b,
-          store.all(req.business.id, "bookings"),
+          await store.all(req.business.id, "bookings"),
           packages,
-          store.all(req.business.id, "blocks"),
+          await store.all(req.business.id, "blocks"),
           req.business.timezone,
         ),
       ],
       timetable: timetable(b, packages, req.business.timezone),
       ...(req.user.role !== "performer"
-        ? { totals: totals(b, store.all(req.business.id, "money")) }
+        ? { totals: totals(b, await store.all(req.business.id, "money")) }
         : {}),
     });
   });
-  app.post("/api/manage/money", (request, res) => {
+  writes.post("/api/manage/money", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
@@ -1807,12 +1874,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         date,
       })
       .parse(req.body);
-    const booking = owned<Booking>(
+    const booking = await owned<Booking>(
       req.business.id,
       "bookings",
       input.bookingId,
     );
-    const balance = totals(booking, store.all(req.business.id, "money"));
+    const balance = totals(booking, await store.all(req.business.id, "money"));
     if (input.kind === "refund")
       requireThat(
         input.amount <= balance.paid,
@@ -1828,10 +1895,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "Payment exceeds the outstanding balance.",
       );
     }
-    const result = store.transaction(() => {
+    const result = await store.transaction(async () => {
       const entry = { ...input, id: id() };
-      store.put(req.business.id, "money", entry);
-      store.audit(
+      await store.put(req.business.id, "money", entry);
+      await store.audit(
         req.business.id,
         req.user.email,
         "money.recorded",
@@ -1849,8 +1916,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           status: "accepted" as const,
           revision: booking.revision + 1,
         };
-        store.put(req.business.id, "bookings", next);
-        store.audit(
+        await store.put(req.business.id, "bookings", next);
+        await store.audit(
           req.business.id,
           req.user.email,
           "booking.deposit-recheck",
@@ -1863,13 +1930,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.status(201).json(result);
   });
-  app.post("/api/manage/reviews/:id/moderate", (request, res) => {
+  writes.post("/api/manage/reviews/:id/moderate", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
       .object({ published: z.boolean(), reason: short.min(3) })
       .parse(req.body);
-    const review = owned<Review>(
+    const review = await owned<Review>(
       req.business.id,
       "reviews",
       String(req.params.id),
@@ -1878,7 +1945,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       !input.published || review.publishConsent,
       "The customer has not permitted publication.",
     );
-    writeRecord(
+    await writeRecord(
       req,
       "reviews",
       { ...review, published: input.published },
@@ -1886,7 +1953,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     );
     res.json({ ok: true });
   });
-  app.post("/api/manage/money/:id/correct", (request, res) => {
+  writes.post("/api/manage/money/:id/correct", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
@@ -1898,12 +1965,16 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         reason: short.min(3),
       })
       .parse(req.body);
-    const old = owned<MoneyEntry>(
+    const old = await owned<MoneyEntry>(
       req.business.id,
       "money",
       String(req.params.id),
     );
-    const booking = owned<Booking>(req.business.id, "bookings", old.bookingId);
+    const booking = await owned<Booking>(
+      req.business.id,
+      "bookings",
+      old.bookingId,
+    );
     const corrected = {
       ...old,
       amount: input.amount,
@@ -1911,15 +1982,15 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       note: input.note,
       date: input.date,
     };
-    const entries = store
-      .all<MoneyEntry>(req.business.id, "money")
-      .map((m) => (m.id === old.id ? corrected : m));
+    const entries = (await store.all<MoneyEntry>(req.business.id, "money")).map(
+      (m) => (m.id === old.id ? corrected : m),
+    );
     const t = totals(booking, entries);
     requireThat(t.paid >= 0, "Correction would make refunds exceed payments.");
     requireThat(t.paid <= t.agreed, "Correction would create an overpayment.");
-    store.transaction(() => {
-      store.put(req.business.id, "money", corrected);
-      store.audit(
+    await store.transaction(async () => {
+      await store.put(req.business.id, "money", corrected);
+      await store.audit(
         req.business.id,
         req.user.email,
         `money.corrected: ${input.reason}`,
@@ -1933,8 +2004,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           status: "accepted" as const,
           revision: booking.revision + 1,
         };
-        store.put(req.business.id, "bookings", next);
-        store.audit(
+        await store.put(req.business.id, "bookings", next);
+        await store.audit(
           req.business.id,
           req.user.email,
           "booking.deposit-recheck",
@@ -1946,7 +2017,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json(corrected);
   });
-  app.post("/api/manage/import/customers", (request, res) => {
+  writes.post("/api/manage/import/customers", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const input = z
@@ -1955,7 +2026,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         commit: z.boolean(),
       })
       .parse(req.body);
-    const existing = store.all<Customer>(req.business.id, "customers");
+    const existing = await store.all<Customer>(req.business.id, "customers");
     const seen = new Set(existing.map((c) => normalizePhone(c.phone)));
     const emails = new Set(
       existing.filter((c) => c.email).map((c) => c.email.toLowerCase()),
@@ -1969,29 +2040,31 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       return { ...c, duplicate };
     });
     if (input.commit)
-      store.transaction(() => {
-        rows
-          .filter((c) => !c.duplicate)
-          .forEach(({ duplicate: _, ...c }) => {
-            void _;
-            const customer = { ...c, id: id() };
-            store.put(req.business.id, "customers", customer);
-            store.audit(
-              req.business.id,
-              req.user.email,
-              "customer.imported",
-              customer.id,
-              null,
-              customer,
-            );
-          });
+      await store.transaction(async () => {
+        await Promise.all(
+          rows
+            .filter((c) => !c.duplicate)
+            .map(async ({ duplicate: _, ...c }) => {
+              void _;
+              const customer = { ...c, id: id() };
+              await store.put(req.business.id, "customers", customer);
+              await store.audit(
+                req.business.id,
+                req.user.email,
+                "customer.imported",
+                customer.id,
+                null,
+                customer,
+              );
+            }),
+        );
       });
     res.json({
       rows,
       added: input.commit ? rows.filter((c) => !c.duplicate).length : 0,
     });
   });
-  app.get("/api/manage/export", (request, res) => {
+  app.get("/api/manage/export", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const data: Record<string, unknown> = {
@@ -1999,20 +2072,24 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       exportedAt: new Date().toISOString(),
       business: req.business,
     };
-    [
-      ...kinds,
-      "audit",
-      "rewardSettings",
-      "rewardAwards",
-      "customerExtras",
-      "contactHistory",
-      "actPlans",
-      "customerMerges",
-      "customFields",
-    ].forEach((kind) => {
-      data[kind] = store.all(req.business.id, kind);
-    });
-    store.audit(
+    await Promise.all(
+      [
+        ...kinds,
+        "audit",
+        "rewardSettings",
+        "rewardAwards",
+        "customerExtras",
+        "contactHistory",
+        "actPlans",
+        "customerMerges",
+        "followupSettings",
+        "followupRuns",
+        "customFields",
+      ].map(async (kind) => {
+        data[kind] = await store.all(req.business.id, kind);
+      }),
+    );
+    await store.audit(
       req.business.id,
       req.user.email,
       "business.exported",
@@ -2032,7 +2109,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   );
   app.use(express.static(resolve("dist/public"), { index: false }));
   app.get(["/", "/b/:slug", "/manage", "/event"], (_req, res) =>
-    res.sendFile(resolve("dist/public/index.html")),
+    res.sendFile(resolve("public/index.html")),
   );
   app.use(
     (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
@@ -2067,10 +2144,10 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  const origin = process.env.APP_ORIGIN ?? "http://localhost:3000";
+  const origin = applicationOrigin();
   if (process.env.NODE_ENV === "production" && !origin.startsWith("https://"))
     throw new Error("Production requires an HTTPS APP_ORIGIN.");
-  const store = new Store(process.env.DATABASE_PATH ?? "./data/magic.sqlite");
+  const store = storeFromEnvironment();
   const server = createApp(store, origin).listen(
     Number(process.env.PORT ?? 3000),
     process.env.HOST ?? "127.0.0.1",
@@ -2084,3 +2161,8 @@ if (
   process.on("SIGINT", close);
   process.on("SIGTERM", close);
 }
+
+// Vercel imports the app; local commands and tests retain explicit setup.
+export default process.env.VERCEL
+  ? createApp(storeFromEnvironment(), applicationOrigin())
+  : undefined;

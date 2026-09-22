@@ -71,3 +71,9 @@ Staffing plan verification: full suite initially found a nested-transaction erro
 
 
 Customer merge (September 21): all 47 tests pass using node --test --test-isolation=none test/*.test.mjs. Five new tests cover owner/business restrictions, explicit identity confirmation, reference movement with unchanged finances, stale records, account/reward blocking and atomic rollback on injected archive failure. Build, typecheck and lint pass. Connected browser verified the complete merge on two in-memory preview contacts and reopened the result to verify preserved source notes. No recorded JavaScript errors; narrow dialog screenshot reviewed. No real contacts were used and no production/Vercel tests are claimed.
+
+## September 22 database and follow-up increment
+
+Added async local SQLite/Turso-libSQL adapters, atomic API writes with commit-before-success, persisted rate limits, Vercel Express/static-build preparation and encrypted portable backup/empty-target restore. Added configurable birthday, post-event, unanswered-proposal and school-campaign drafts, dashboard-triggered generation, idempotent reminder markers and explicit contact recording. No automatic messages.
+
+All 54 automated tests pass with each database adapter (108 checks total); native libSQL fixtures exercise its engine locally, not remote HTTP. A Windows native libSQL file-handle cleanup issue was isolated and the parent test runner now cleans after child exit. Browser port 3016 verified opt-in settings, birthday generation, personalized draft, completion and preserved customer history; no recorded warnings/errors. Production accounts, remote HTTP transaction limits and actual Vercel preview remain unverified. No deployment.

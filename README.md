@@ -4,7 +4,7 @@ A playful customer website and a private, business-isolated entertainment dashbo
 
 ## Run locally
 
-Requires Node.js 24+. Runtime dependencies are Express, Helmet, Luxon and Zod; persistence uses Node's SQLite API. This app needs a long-running Node process and a persistent writable disk. Do not deploy it to an ephemeral serverless filesystem.
+Requires Node.js 24.x. Persistence supports local SQLite on a persistent disk or an external Turso/libSQL database through the web client. Vercel requires the external database; local files are rejected there. See [VERCEL.md](docs/VERCEL.md) for configuration and remaining live checks.
 
 ```sh
 npm ci
@@ -32,7 +32,7 @@ Setup refuses to overwrite an existing account. The production database starts w
 - Families/children, schools, organizations, planners and venues, multiple contacts, notes, contact preferences, birthday nudges, follow-ups, booking history, editable record association.
 - Manual deposits, balances, payments, refunds, expenses, referral-fee tracking, estimated profit, booking-source reports, popular requested packages and anonymous page-view counts.
 - Separate businesses; owners, assistants and performers; assigned-event-only performer view; user editing/removal; password changes revoke sessions. Platform support API requires a reason for cross-business access and logs it.
-- CSV spreadsheet import with preview and duplicate detection, business JSON exports, consistent SQLite backup command.
+- CSV spreadsheet import with preview and duplicate detection, business JSON exports, encrypted portable full-system backup and empty-target restore commands.
 - Owner-reviewed duplicate customer merge with a change preview, explicit identity confirmation, stale-change protection and a private archive of original records. Login-linked and reward-linked customers require separate identity/eligibility handling and cannot be merged through this workflow.
 - Editable business/profile/package/customer/event/quote/reminder/checklist/referral fields. Linked historical records are protected; catalog removals archive, money corrections preserve previous values in the audit trail, and reviews are moderated without altering genuine ratings.
 
@@ -44,6 +44,7 @@ See [SCOPE.md](docs/SCOPE.md) for the exact remaining work and limitations. This
 npm run typecheck
 npm run lint
 npm test
+npm run test:drivers
 npx playwright install chromium
 npm run test:e2e
 ```
@@ -64,16 +65,20 @@ Browser runner limitations and the separately verified interactive browser journ
 
 ## Deployment and operations
 
-Vercel is the owner's selected future hosting target. The current SQLite implementation is **not yet Vercel-ready**. See [VERCEL.md](docs/VERCEL.md) for the remaining persistence migration and launch checks. No production deployment has been made.
+Vercel is the owner's selected future hosting target. The external database adapter, Express entry and static-asset build configuration are implemented. See [VERCEL.md](docs/VERCEL.md) for provisioning and live preview checks still required. No production deployment has been made.
 
 Use HTTPS with `NODE_ENV=production`, set `APP_ORIGIN` to the exact public HTTPS origin, and set `HOST=0.0.0.0` only on a secured application host. Terminate TLS at a trusted reverse proxy. The server validates write origins, uses HttpOnly/SameSite session cookies and a restrictive content policy, and never places event tokens in a URL path or query (the private token is in the fragment and sent in a request header). Private links are bearer access: anyone holding one can view and act on that event. They expire after 180 days and can be rotated by staff.
 
 Keep the database on an encrypted persistent volume. Configure database/file permissions, HTTPS hosting, a retention policy, operational account recovery, monitoring and off-machine backups before production use. No real payment provider, outbound email/SMS/WhatsApp sender, automatic social feed or live travel-routing provider is configured. Staff share links manually and record received payments; the app does not charge customers.
 
-`npm run backup` creates a consistent database snapshot under ignored `backups/`. Copy backups to encrypted off-machine storage with an operator-managed schedule. To restore, stop the application, preserve the current database and any WAL/SHM files together in a separate recovery directory, restore a tested snapshot to `DATABASE_PATH`, and restart. Never overwrite a running database. JSON business exports intentionally omit passwords, sessions and access tokens and are not a full-system restore format.
+`npm run backup` creates an encrypted `.magicbackup` snapshot under ignored `backups/`. Set BACKUP_PASSPHRASE to a strong passphrase of at least 20 characters and keep it separately. Copy backups to protected off-machine storage on an operator-managed schedule. To restore or migrate, select a fresh empty database through the environment and run `npm run restore -- path/to/file.magicbackup` with the same passphrase. Stop writes during migration and verify the restored records before switching the application. Restore refuses to overwrite existing records. Old raw SQLite backups are not this format: restore them to a separate local SQLite file first. Business JSON exports omit credentials and are not full-system backups.
 
 The initial audit log is application-append-only, not cryptographically tamper-proof against a database administrator. It contains personal data; protect it like the customer database.
 
 ## September 19 update
 
 Show cards no longer display or enforce age limits. Adult Magic Shows uses an editable package checkbox; the same show can appear in Fast Order and Adult Magic without being duplicated in the basket. Business settings now edit a character enquiry list, public email and WhatsApp number. Sam’s supplied contacts and Polar Bear/Panda/Bunny names are configured in the example bootstrap environment and isolated preview; other businesses do not inherit them. Character cards are enquiries, not bookable packages with invented prices/durations. Approved photos are still to be supplied.
+
+## Follow-up planner
+
+Owners/admins can enable birthday, completed-event, unanswered-proposal and dated school-campaign reminders and edit their draft templates. Generation runs when staff open/refresh the dashboard; this is not a background scheduler. Offers require recorded permission and do-not-contact takes priority. Staff review drafts, handle contact themselves, then explicitly record contact to finish the reminder and preserve the notes. Existing drafts are not rewritten by rule edits; staff should review their relevance before contacting. Nothing is sent automatically.

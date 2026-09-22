@@ -1,11 +1,18 @@
-import { backup } from "node:sqlite";
-import { mkdirSync } from "node:fs";
-import { Store } from "./store.js";
-mkdirSync("backups", { recursive: true });
-const store = new Store(process.env.DATABASE_PATH ?? "./data/magic.sqlite");
-const path = `backups/magic-${new Date().toISOString().replace(/[:.]/g, "-")}.sqlite`;
-await backup(store.db, path);
-store.db.close();
-console.log(
-  `Consistent database backup saved to ${path}. Store encrypted copies off this machine.`,
-);
+import { mkdir, writeFile } from "node:fs/promises";
+import { storeFromEnvironment } from "./runtime.js";
+import { snapshot, encryptSnapshot } from "./snapshots.js";
+const store = storeFromEnvironment();
+try {
+  const encrypted = encryptSnapshot(
+    await snapshot(store),
+    process.env.BACKUP_PASSPHRASE ?? "",
+  );
+  await mkdir("backups", { recursive: true });
+  const path = `backups/magic-${new Date().toISOString().replace(/[:.]/g, "-")}.magicbackup`;
+  await writeFile(path, encrypted, { flag: "wx", mode: 0o600 });
+  console.log(
+    `Encrypted backup saved to ${path}. Keep its passphrase separately and copy the file to offsite storage.`,
+  );
+} finally {
+  store.db.close();
+}
