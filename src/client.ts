@@ -3663,12 +3663,15 @@ async function start() {
     : (await api<{ slug: string }>("/default-business")).slug;
   catalog = await api<Catalog>(`/public/${encodeURIComponent(slug)}`);
   renderPublic();
-  if (new URLSearchParams(location.search).get("reset") === "1") {
+  const linkOptions = new URLSearchParams(location.search);
+  if (linkOptions.get("reset") === "1") {
     customerResetComplete(
-      new URLSearchParams(location.search).get("username") ?? "",
+      linkOptions.get("username") ?? "",
       location.hash.slice(1),
     );
     history.replaceState(null, "", location.pathname);
+  } else if (linkOptions.get("account") === "create") {
+    customerAuth(false, true);
   }
   if (!sessionStorage.getItem(`visit:${slug}`)) {
     const source =
@@ -3691,3 +3694,4 @@ async function start() {
 start().catch((error) => {
   app.innerHTML = `<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });
+
