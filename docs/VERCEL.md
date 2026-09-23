@@ -49,3 +49,9 @@ The Vercel import flow now confirms Project Created for magic-app under magician
 - Prepared scripts/vercel-setup.mjs, production-only setup runner, and setup --if-empty. The runner is NOT wired into the build yet. After the user saves credentials, update vercel.json buildCommand to `npm run build && node scripts/vercel-setup.mjs`, then publish and verify the resulting deployment. A test confirms repeat setup never changes the existing user and needs no bootstrap credentials. Remove/clear bootstrap password after first successful setup. Check blank imported optional environment fields before setup (for example BUSINESS_LOGO and BUSINESS_TIMEZONE).
 - Real customer workflow, production login and backup/recovery remain unverified. Local example offer and prices were disposable fixture data and were not uploaded to production.
 
+## Production initialization completed
+
+Deployment 590a77f completed and its build log reports: "Business and administrator created." The live alias https://magic-app-gray.vercel.app loads the public Magic by Sam catalog from the production Turso database. The included shows still have placeholder descriptions and quote-only prices. No real booking has been submitted or login tested by the assistant. The one-time bootstrap build hook is removed in the next commit so later builds do not rerun setup.
+
+After verifying owner login, remove the BOOTSTRAP_PASSWORD variable from Vercel production and preview settings; the stored password hash in the database remains. The owner must handle that credential deletion in the browser. Keep the Turso integration variables connected. Configure show/performer details and media before sharing the public link widely. A real production request, proposal, review, backup and recovery drill still require verification.
+
