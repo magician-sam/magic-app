@@ -922,6 +922,12 @@ async function customerAccount() {
     customerAuth();
     return;
   }
+  const invitationLink =
+    location.origin +
+    "/b/" +
+    encodeURIComponent(catalog.business.slug) +
+    "?account=create&ref=" +
+    encodeURIComponent(account.referralCode);
   const fields: Field[] = [
     {
       key: "username",
@@ -1001,11 +1007,9 @@ async function customerAccount() {
         .join("") || "<p>No rewards issued yet.</p>") +
       "<p>Your referral code: <strong>" +
       e(account.referralCode) +
-      '</strong></p><p><a href="/b/' +
-      e(catalog.business.slug) +
-      "?ref=" +
-      e(account.referralCode) +
-      '">Your shareable invitation link ↗</a></p><h3>My celebrations</h3>' +
+      '</strong></p><p><a href="' +
+      e(invitationLink) +
+      '">Open my invitation link ↗</a> <button type="button" class="outline small" id="copy-referral-link">Copy invitation link</button></p><h3>My celebrations</h3>' +
       (account.bookings
         .map(
           (b) =>
@@ -1034,6 +1038,10 @@ async function customerAccount() {
     });
     notify("Your profile is saved.");
     await customerAccount();
+  });
+  on(modal, "#copy-referral-link", "click", async () => {
+    await navigator.clipboard.writeText(invitationLink);
+    notify("Invitation link copied. Paste it into WhatsApp to invite a friend.");
   });
   on(modal, "#customer-password", "click", () => {
     openDialog(
