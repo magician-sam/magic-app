@@ -65,7 +65,13 @@ Browser runner limitations and the separately verified interactive browser journ
 
 ## Deployment and operations
 
-Vercel is the owner's selected future hosting target. The external database adapter, Express entry and static-asset build configuration are implemented. See [VERCEL.md](docs/VERCEL.md) for provisioning and live preview checks still required. No production deployment has been made.
+The website is deployed at https://magic-app-gray.vercel.app with a separate Turso production database. See [VERCEL.md](docs/VERCEL.md) for production checks still required.
+
+## Windows app
+
+The `desktop/` folder builds an online Windows app that opens the same live Magic App, including future website photo and content changes. It starts at `/manage`; public pages are available inside the app. It needs internet access and does not provide offline editing or automatic binary updates. Links to other websites require confirmation and open in the default browser. The installer is unsigned, so Windows may show a publisher warning.
+
+On Windows, run `npm ci` and `npm test` from `desktop/`, then `npm run build:win`. The portable `.exe` appears in `desktop/release/`. The desktop package has its own dependencies and does not change the Vercel web build. An optional installer build is available with `npm run build:installer`; it has not passed packaging on this machine yet.
 
 Use HTTPS with `NODE_ENV=production`, set `APP_ORIGIN` to the exact public HTTPS origin, and set `HOST=0.0.0.0` only on a secured application host. Terminate TLS at a trusted reverse proxy. The server validates write origins, uses HttpOnly/SameSite session cookies and a restrictive content policy, and never places event tokens in a URL path or query (the private token is in the fragment and sent in a request header). Private links are bearer access: anyone holding one can view and act on that event. They expire after 180 days and can be rotated by staff.
 

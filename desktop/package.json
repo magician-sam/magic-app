@@ -1,0 +1,27 @@
+{
+  "name": "magic-app-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Magic App Windows companion",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "build:win": "electron-builder --win portable --x64",
+    "build:installer": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.magicbysam.desktop",
+    "productName": "Magic App",
+    "directories": { "output": "release" },
+    "files": ["main.cjs", "navigation.cjs", "offline.html", "assets/icon.png", "package.json"],
+    "icon": "assets/icon.png",
+    "win": { "target": ["nsis", "portable"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "Magic-App-Setup-${version}.${ext}" },
+    "portable": { "artifactName": "Magic-App-Portable-${version}.${ext}" }
+  }
+}

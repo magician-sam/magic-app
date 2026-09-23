@@ -15,3 +15,6 @@ playwright-report/
 *.sqlite*
 *.log
 *.tsbuildinfo
+desktop/release/
+desktop/node_modules/
+.npm-cache/
