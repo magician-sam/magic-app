@@ -8,7 +8,21 @@ import express, {
   type Response,
   type NextFunction,
 } from "express";
-import helmet from "helmet";
+import {
+  contentSecurityPolicy,
+  crossOriginOpenerPolicy,
+  crossOriginResourcePolicy,
+  originAgentCluster,
+  referrerPolicy,
+  strictTransportSecurity,
+  xContentTypeOptions,
+  xDnsPrefetchControl,
+  xDownloadOptions,
+  xFrameOptions,
+  xPermittedCrossDomainPolicies,
+  xPoweredBy,
+  xXssProtection,
+} from "helmet";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DateTime } from "luxon";
@@ -93,21 +107,30 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   if (process.env.VERCEL) app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'"],
-          imgSrc: ["'self'", "https:", "data:"],
-          connectSrc: ["'self'"],
-          frameSrc: ["'none'"],
-          formAction: ["'self'"],
-          upgradeInsecureRequests: origin.startsWith("https:") ? [] : null,
-        },
+    contentSecurityPolicy({
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "https:", "data:"],
+        connectSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        formAction: ["'self'"],
+        upgradeInsecureRequests: origin.startsWith("https:") ? [] : null,
       },
-      referrerPolicy: { policy: "no-referrer" },
     }),
+    crossOriginOpenerPolicy(),
+    crossOriginResourcePolicy(),
+    originAgentCluster(),
+    referrerPolicy({ policy: "no-referrer" }),
+    strictTransportSecurity(),
+    xContentTypeOptions(),
+    xDnsPrefetchControl(),
+    xDownloadOptions(),
+    xFrameOptions(),
+    xPermittedCrossDomainPolicies(),
+    xPoweredBy(),
+    xXssProtection(),
   );
   app.use(express.json({ limit: "512kb" }));
   app.use("/api", (_req, res, next) => {
@@ -2187,3 +2210,4 @@ if (
 export default process.env.VERCEL
   ? createApp(storeFromEnvironment(), applicationOrigin())
   : undefined;
+

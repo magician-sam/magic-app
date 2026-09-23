@@ -1,13 +1,17 @@
 import { Store } from "./store.js";
 
 export function storeFromEnvironment() {
-  const url = process.env.TURSO_DATABASE_URL;
+  const url =
+    process.env.MAGIC_TURSO_DATABASE_URL || process.env.TURSO_DATABASE_URL;
+  const token = process.env.MAGIC_TURSO_DATABASE_URL
+    ? process.env.MAGIC_TURSO_AUTH_TOKEN
+    : process.env.TURSO_AUTH_TOKEN;
   if (url) {
-    if (!/^(libsql|https):\/\//.test(url) || !process.env.TURSO_AUTH_TOKEN)
+    if (!/^(libsql|https):\/\//.test(url) || !token)
       throw new Error(
         "Set a secure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.",
       );
-    return new Store(url, process.env.TURSO_AUTH_TOKEN);
+    return new Store(url, token);
   }
   if (process.env.VERCEL)
     throw new Error(
@@ -33,3 +37,4 @@ export function applicationOrigin() {
     throw new Error("Production requires an HTTPS APP_ORIGIN.");
   return url.origin;
 }
+
