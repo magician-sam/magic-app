@@ -40,3 +40,12 @@ Validation: 59 tests passed on each of SQLite and native libSQL; build and lint 
 
 The Vercel import flow now confirms Project Created for magic-app under magician-sam. No deployment was started. Opening the optional Turso Add integration was blocked by automatic approval review pending user approval of separate free-only database provisioning. Existing Shantivikasa resources remain untouched.
 
+## First successful deployment — September 23
+
+- Production deployment d9ff66c is Ready at https://magic-app-gray.vercel.app. Live UI reaches the database and reports that the business has not been set up yet.
+- Turso Starter ($0/month) resource magic-app-production created through Vercel. Connected to Production only, prefix MAGIC. Runtime accepts MAGIC_TURSO_DATABASE_URL and MAGIC_TURSO_AUTH_TOKEN as a pair. No credentials copied into code.
+- APP_ORIGIN configured to https://magic-app-gray.vercel.app. Helmet default import failed Vercel compilation; named middleware imports preserve the same header policies and the Vercel build now succeeds. Both 59-test driver suites and lint passed after the change.
+- Administrator setup is pending user-entered BOOTSTRAP_EMAIL and BOOTSTRAP_PASSWORD in Vercel. Browser handoff opened the email editor; user must enter credentials and save. Password minimum is 14 characters.
+- Prepared scripts/vercel-setup.mjs, production-only setup runner, and setup --if-empty. The runner is NOT wired into the build yet. After the user saves credentials, update vercel.json buildCommand to `npm run build && node scripts/vercel-setup.mjs`, then publish and verify the resulting deployment. A test confirms repeat setup never changes the existing user and needs no bootstrap credentials. Remove/clear bootstrap password after first successful setup. Check blank imported optional environment fields before setup (for example BUSINESS_LOGO and BUSINESS_TIMEZONE).
+- Real customer workflow, production login and backup/recovery remain unverified. Local example offer and prices were disposable fixture data and were not uploaded to production.
+

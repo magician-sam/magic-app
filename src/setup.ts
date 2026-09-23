@@ -2,6 +2,17 @@ import { storeFromEnvironment } from "./runtime.js";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { insertUser, passwordHash } from "./auth.js";
+const store = storeFromEnvironment();
+if (await store.db.prepare("SELECT id FROM users LIMIT 1").get()) {
+  store.db.close();
+  if (process.argv.includes("--if-empty")) {
+    console.log(
+      "Business setup already completed; existing records unchanged.",
+    );
+    process.exit(0);
+  }
+  throw new Error("Setup already completed; existing data was not changed.");
+}
 const email = z.email().parse(process.env.BOOTSTRAP_EMAIL);
 const password = z
   .string()
@@ -11,9 +22,6 @@ const password = z
 const timezone = process.env.BUSINESS_TIMEZONE ?? "Asia/Beirut";
 if (!DateTime.now().setZone(timezone).isValid)
   throw new Error("Invalid business timezone");
-const store = storeFromEnvironment();
-if (await store.db.prepare("SELECT id FROM users LIMIT 1").get())
-  throw new Error("Setup already completed; existing data was not changed.");
 const passwordValue = await passwordHash(password);
 await store.transaction(async () => {
   const business = await store.createBusiness(
@@ -72,3 +80,4 @@ store.db.close();
 console.log(
   "Business and administrator created. Configure packages and performers before accepting real bookings.",
 );
+
