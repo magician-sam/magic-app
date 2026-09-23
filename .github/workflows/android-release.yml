@@ -19,7 +19,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
@@ -40,3 +39,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title 'Magic by Sam Android test 0.1.0' \
             --notes 'Test build for Android. Opens the live Magic by Sam website; internet access is required. This debug APK is not the Google Play release.'
+
