@@ -19,17 +19,17 @@ const password = z
   .min(14)
   .max(200)
   .parse(process.env.BOOTSTRAP_PASSWORD);
-const timezone = process.env.BUSINESS_TIMEZONE ?? "Asia/Beirut";
+const timezone = process.env.BUSINESS_TIMEZONE || "Asia/Beirut";
 if (!DateTime.now().setZone(timezone).isValid)
   throw new Error("Invalid business timezone");
 const passwordValue = await passwordHash(password);
 await store.transaction(async () => {
   const business = await store.createBusiness(
-    process.env.BUSINESS_NAME ?? "Magic by Sam",
+    process.env.BUSINESS_NAME || "Magic by Sam",
     z
       .string()
       .regex(/^[a-z0-9-]+$/)
-      .parse(process.env.BUSINESS_SLUG ?? "magic-by-sam"),
+      .parse(process.env.BUSINESS_SLUG || "magic-by-sam"),
     timezone,
   );
   business.logo = z
@@ -80,4 +80,5 @@ store.db.close();
 console.log(
   "Business and administrator created. Configure packages and performers before accepting real bookings.",
 );
+
 
