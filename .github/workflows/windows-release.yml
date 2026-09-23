@@ -1,0 +1,40 @@
+name: Windows download
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/windows-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install and test
+        working-directory: desktop
+        run: |
+          npm ci
+          npm test
+      - name: Build Windows app
+        working-directory: desktop
+        run: npm run build:win
+      - name: Publish download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version
+          $tag = "windows-v$version"
+          $asset = "desktop/release/Magic-App-Portable-$version.exe"
+          gh release create $tag $asset --target $env:GITHUB_SHA --title "Magic App for Windows $version" --notes "Portable Windows app for the live Magic App. Internet access is required. The executable is unsigned, so Windows may show a publisher warning."
+
