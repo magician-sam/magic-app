@@ -55,3 +55,6 @@ Deployment 590a77f completed and its build log reports: "Business and administra
 
 After verifying owner login, remove the BOOTSTRAP_PASSWORD variable from Vercel production and preview settings; the stored password hash in the database remains. The owner must handle that credential deletion in the browser. Keep the Turso integration variables connected. Configure show/performer details and media before sharing the public link widely. A real production request, proposal, review, backup and recovery drill still require verification.
 
+## Owner password recovery — September 23
+
+The owner entered a new password in Vercel's Production-only OWNER_RECOVERY_PASSWORD secret. A one-time production build reported `Owner recovery: completed`, verified the new password hash, revoked prior sessions, and recorded a recovery marker so repeats cannot reset the account. The temporary build hook and recovery code were then removed. The owner still needs to confirm interactive login and delete both OWNER_RECOVERY_PASSWORD and the original BOOTSTRAP_PASSWORD from Vercel's environment settings. Neither secret belongs in source control.
