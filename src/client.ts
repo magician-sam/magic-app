@@ -292,7 +292,7 @@ const guestPhotoGroups = [
   { match: /bmx/i, photos: [["bmx-1", "BMX stunt show"], ["bmx-2", "BMX stage performance"]] },
   { match: /clown/i, photos: [["clown-1", "Clown performance"], ["clown-2", "Clown character close-up"]] },
   { match: /breakdance/i, photos: [["breakdance", "Breakdance performers"]] },
-  { match: /aerial/i, photos: [["aerial", "Aerial ring act"]] },
+  { match: /aerial/i, photos: [["aerial", "Aerial ring act"], ["aerial-hair", "Hair-suspension aerial act"]] },
   { match: /fire show/i, photos: [["fire-show", "Fire performance"]] },
   { match: /led robot|robot show/i, photos: [["led-robots", "LED robot performers"]] },
   { match: /live music|violin/i, photos: [["live-music", "Live violin performance"]] },
