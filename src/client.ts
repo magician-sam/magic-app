@@ -631,7 +631,7 @@ function enquiryDetails(name: string) {
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
   on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
 }
@@ -649,20 +649,15 @@ function chooseCharacter() {
           required: true,
         },
       ],
-      `<p>Our cast changes with the seasons. Pick your favourite to ask about details and availability.</p>${characterGallery()}`,
-      "Choose this character",
-    ),
+      `<p>Pick a character you love. We’ll check the costume and your date.</p>`,
+      "Ask about this character →",
+    ) + characterGallery(),
   );
   submit(modal.querySelector("form")!, async (data) => {
     const name = String(data.get("character"));
     if (!names.includes(name))
       throw new Error("Please choose a current character.");
-    openDialog(
-      name + " for your celebration",
-      `<p>A special guest, a happy memory. Ask us about your date and the visit you have in mind.</p>${enquiryLinks(name)}<p class="privacy">An enquiry does not reserve a character. The team confirms availability and the final details before a booking is confirmed.</p><button class="link" id="back-to-characters">Choose another character</button>`,
-    );
-    on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
-    on(modal, "#back-to-characters", "click", () => chooseCharacter());
+    serviceEnquiry(name);
   });
 }
 function eventFields(b?: Partial<Booking>): Field[] {

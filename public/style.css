@@ -1841,6 +1841,7 @@ button.show-art:hover { transform: none; }
 .photo-upload input { display: block; max-width: 100%; }
 .photo-upload small { display: block; margin-top: 8px; color: var(--muted); }
 .photo-upload [role="status"] { margin-bottom: 0; }
+.show-detail-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 22px; }
 .show-detail-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .show-detail-footer strong { font-size: 18px; }
 .bundle-includes { padding: .75rem; border-radius: 12px; background: #f5f0ff; }
