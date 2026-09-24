@@ -397,7 +397,7 @@ function renderPublic() {
     .map(showCard)
     .join(
       "",
-    )}${showMore ? moreShowNames().map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
+    )}${showMore ? `<div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, characters…" autocomplete="off"><span id="show-search-count" role="status"></span></div>${moreShowNames().map(enquiryCard).join("")}` : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
     catalog.packages.some((p) => p.bundleIds?.length)
       ? `<section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Your favourite shows, together in one offer.</p></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
@@ -427,6 +427,17 @@ function renderPublic() {
     showMore = !showMore;
     renderPublic();
     document.querySelector("#shows")?.scrollIntoView();
+  });
+  on(app, "#find-show", "input", (ev) => {
+    const query = (ev.currentTarget as HTMLInputElement).value.trim().toLocaleLowerCase();
+    const cards = [...app.querySelectorAll<HTMLElement>("[data-guest-name]")];
+    let found = 0;
+    for (const card of cards) {
+      card.hidden = !card.dataset.guestName?.includes(query);
+      if (!card.hidden) found++;
+    }
+    const count = app.querySelector("#show-search-count");
+    if (count) count.textContent = query ? `${found} guest show${found === 1 ? "" : "s"} found` : "";
   });
   on(app, "[data-add]", "click", (ev) => {
     togglePackage((ev.currentTarget as HTMLElement).dataset.add!);
@@ -472,7 +483,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article class="show-card"><button type="button" class="show-art other${characters ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${characters ? `<img class="show-cover" src="${characterPhotos[0].url}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${characters ? '<p class="show-media-note">4 real character photos</p>' : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${characters ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${characters ? `<img class="show-cover" src="${characterPhotos[0].url}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${characters ? '<p class="show-media-note">4 real character photos</p>' : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   openDialog(
