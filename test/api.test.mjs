@@ -192,6 +192,29 @@ after(async () => {
     retryDelay: 100,
   });
 });
+test("visitors can enquire about guest services and only staff can see their details", async () => {
+  const input = {
+    service: "Decoration",
+    name: "Test visitor",
+    phone: "+96170123456",
+    date: "2027-05-04",
+    location: "Beirut",
+    notes: "Dinosaur birthday",
+  };
+  const created = await request("/public/test/enquiries", "POST", input, null);
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.ok(created.data.id);
+  const owner = (await request("/manage/state")).data;
+  assert.equal(owner.enquiries.find((item) => item.id === created.data.id).service, "Decoration");
+  const performerState = (await request("/manage/state", "GET", undefined, performerCookie)).data;
+  assert.deepEqual(performerState.enquiries, []);
+  const otherState = (await request("/manage/state", "GET", undefined, otherCookie)).data;
+  assert.deepEqual(otherState.enquiries, []);
+  assert.equal((await request(`/manage/enquiries/${created.data.id}/contacted`, "POST", {}, performerCookie)).status, 403);
+  assert.equal((await request(`/manage/enquiries/${created.data.id}/contacted`, "POST", {})).status, 200);
+  assert.equal((await request("/manage/state")).data.enquiries.find((item) => item.id === created.data.id).status, "contacted");
+  assert.equal((await request("/public/test/enquiries", "POST", { ...input, phone: "123" }, null)).status, 400);
+});
 test("gallery publication requires valid approved images and remains business scoped", async () => {
   const original = await store.get(business.id, "packages", "magic");
   const gallery = [

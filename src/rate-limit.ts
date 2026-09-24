@@ -21,13 +21,15 @@ export function rateLimit(store: Store): RequestHandler {
                 ? "visit"
                 : /\/requests$/.test(path)
                   ? "request"
+                  : /\/enquiries$/.test(path)
+                    ? "enquiry"
                   : "write";
     const max =
       key === "reset-request"
         ? 5
         : key === "visit"
           ? 100
-          : key === "request"
+          : key === "request" || key === "enquiry"
             ? 20
             : key === "write"
               ? 300
@@ -55,3 +57,4 @@ export function rateLimit(store: Store): RequestHandler {
     next();
   };
 }
+

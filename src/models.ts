@@ -203,6 +203,17 @@ export interface Referral {
   status: "offered" | "accepted" | "declined";
   note: string;
 }
+export interface ServiceEnquiry {
+  id: string;
+  service: string;
+  name: string;
+  phone: string;
+  date: string;
+  location: string;
+  notes: string;
+  status: "new" | "contacted";
+  createdAt: string;
+}
 export interface Dashboard {
   uploadsEnabled?: boolean;
   business: Business;
@@ -217,6 +228,7 @@ export interface Dashboard {
   audit: Audit[];
   blocks: AvailabilityBlock[];
   referrals: Referral[];
+  enquiries: ServiceEnquiry[];
   users: User[];
   visits: { source: string; count: number }[];
 }

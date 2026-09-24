@@ -548,11 +548,32 @@ function renderPublic() {
 }
 function enquiryLinks(name: string) {
   const business = catalog.business;
-  return business.whatsapp
-    ? `<a class="button outline" href="https://wa.me/${e(business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like to ask about " + name + " for my event.")}" target="_blank" rel="noopener noreferrer">Ask about ${e(name)} ↗</a>`
+  return `<button type="button" data-service-enquiry="${e(name)}">Ask about ${e(name)} ↗</button>${business.whatsapp
+    ? `<a class="button outline" href="https://wa.me/${e(business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like to ask about " + name + " for my event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>`
     : business.contactEmail
-      ? `<a class="button outline" href="mailto:${e(business.contactEmail)}?subject=${encodeURIComponent(name + " event enquiry")}">Ask about ${e(name)} ↗</a>`
-      : '<p class="muted">Enquiry details coming soon.</p>';
+      ? `<a class="button outline" href="mailto:${e(business.contactEmail)}?subject=${encodeURIComponent(name + " event enquiry")}">Email ↗</a>`
+      : ""}`;
+}
+function serviceEnquiry(name: string) {
+  const fields: Field[] = [
+    { key: "name", label: "Your name", required: true, autocomplete: "name" },
+    { key: "phone", label: "Phone or WhatsApp number", type: "tel", required: true, autocomplete: "tel" },
+    { key: "date", label: "Event date (if known)", type: "date" },
+    { key: "location", label: "Area or venue (if known)" },
+    { key: "notes", label: "What would you like?", type: "textarea", wide: true },
+  ];
+  openDialog(
+    `Ask about ${name}`,
+    formBody(fields, `<p class="hint">Tell us a little about your event. We’ll contact you to check availability and price for <strong>${e(name)}</strong>.</p><p class="privacy">We use these details only to respond to your enquiry. Sending this form does not reserve a date.</p>`, "Send enquiry →"),
+  );
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(`/public/${catalog.business.slug}/enquiries`, "POST", {
+      ...formValues(data, fields),
+      service: name,
+    });
+    openDialog("Thanks! We’ve got your enquiry.", `<p>We’ll contact you about <strong>${e(name)}</strong> using the number you provided.</p><button type="button" id="enquiry-done">Back to the shows</button>`);
+    on(modal, "#enquiry-done", "click", () => modal.close());
+  });
 }
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
@@ -612,6 +633,7 @@ function enquiryDetails(name: string) {
     name,
     `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
+  on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
 }
 function chooseCharacter() {
   const names = catalog.business.characterNames ?? [];
@@ -639,6 +661,7 @@ function chooseCharacter() {
       name + " for your celebration",
       `<p>A special guest, a happy memory. Ask us about your date and the visit you have in mind.</p>${enquiryLinks(name)}<p class="privacy">An enquiry does not reserve a character. The team confirms availability and the final details before a booking is confirmed.</p><button class="link" id="back-to-characters">Choose another character</button>`,
     );
+    on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
     on(modal, "#back-to-characters", "click", () => chooseCharacter());
   });
 }
@@ -1408,6 +1431,7 @@ async function loadDashboard() {
 const navItems = [
   ["today", "✦", "Today"],
   ["bookings", "▤", "Events & requests"],
+  ["enquiries", "✉", "Service enquiries"],
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
   ["packages", "✧", "Shows & packages"],
@@ -1478,7 +1502,7 @@ function renderDashboard() {
       .filter((b) => b.status !== "cancelled" && b.status !== "completed")
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
       .slice(0, 6);
-    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${state.user.role !== "performer" ? stats() : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
+    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${state.user.role !== "performer" ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new") ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new").length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
       state.reminders
         .filter((r) => !r.done)
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -1494,6 +1518,7 @@ function renderDashboard() {
     renderCalendar(content);
     return;
   } else if (currentView === "bookings") renderBookings(content);
+  else if (currentView === "enquiries") renderEnquiries(content);
   else if (currentView === "customers") renderCustomers(content);
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
@@ -1503,6 +1528,15 @@ function renderDashboard() {
   else if (currentView === "reviews") renderReviews(content);
   else renderSettings(content);
   wireDashboard(content);
+}
+function renderEnquiries(root: Element) {
+  const enquiries = [...state!.enquiries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  root.innerHTML = `<p class="hint">These requests are enquiries, not confirmed bookings. Contact the customer, then mark the enquiry as handled.</p>${enquiries.map((item) => `<article class="panel service-enquiry"><div class="section-heading"><div><span class="eyebrow">${e(item.status === "new" ? "New enquiry" : "Contacted")}</span><h3>${e(item.service)}</h3></div><small>${e(new Date(item.createdAt).toLocaleString("en-GB"))}</small></div><p><strong>${e(item.name)}</strong> · <a href="tel:${e(item.phone.replace(/[^\d+]/g, ""))}">${e(item.phone)}</a></p>${item.date || item.location ? `<p>${item.date ? e(day(item.date)) : "Date to confirm"} · ${e(item.location || "Location to confirm")}</p>` : ""}${item.notes ? `<p>${e(item.notes)}</p>` : ""}${item.status === "new" ? `<button class="outline small" data-enquiry-contacted="${e(item.id)}">Mark contacted</button>` : ""}</article>`).join("") || empty("No enquiries yet", "When someone asks about a service, their request will appear here.")}`;
+  on(root, "[data-enquiry-contacted]", "click", async (event) => {
+    const key = (event.currentTarget as HTMLElement).dataset.enquiryContacted!;
+    await api(`/manage/enquiries/${key}/contacted`, "POST", {});
+    await loadDashboard();
+  });
 }
 function wireDashboard(root: ParentNode) {
   on(root, "[data-booking]", "click", (ev) =>

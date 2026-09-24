@@ -82,6 +82,7 @@ import type {
   Review,
   AvailabilityBlock,
   MoneyEntry,
+  ServiceEnquiry,
 } from "./models.js";
 
 declare module "express-serve-static-core" {
@@ -377,6 +378,28 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     res.json({ ok: true });
   });
   const customerSession = customerAccounts(app, store, origin, issueLink);
+  writes.post("/api/public/:slug/enquiries", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    const input = z.object({
+      service: short.min(2).max(100),
+      name: short.min(2).max(120),
+      phone: customerSchema.shape.phone,
+      date: z.union([date, z.literal("")]).default(""),
+      location: short.max(240).default(""),
+      notes: z.string().trim().max(1500).default(""),
+    }).parse(req.body);
+    const enquiry: ServiceEnquiry = {
+      ...input,
+      id: id(),
+      status: "new",
+      createdAt: new Date().toISOString(),
+    };
+    await store.transaction(async () => {
+      await store.put(business.id, "enquiries", enquiry);
+      await store.audit(business.id, "visitor", "enquiry.created", enquiry.id, null, enquiry);
+    });
+    res.status(201).json({ id: enquiry.id });
+  });
   writes.post("/api/public/:slug/requests", async (req, res) => {
     const business = await businessBySlug(String(req.params.slug));
     const account = await customerSession(req, business.id);
@@ -891,6 +914,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         result[kind] = await store.all(bid, kind);
       }),
     );
+    result.enquiries = req.user.role === "performer"
+      ? []
+      : await store.all<ServiceEnquiry>(bid, "enquiries");
     if (req.user.role === "performer") {
       const assigned = (await store.all<Booking>(bid, "bookings")).filter((b) =>
         b.performerIds.includes(req.user.performerId ?? ""),
@@ -933,6 +959,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       result.visits = [];
     }
     res.json(result);
+  });
+  writes.post("/api/manage/enquiries/:id/contacted", async (request, res) => {
+    const req = request as Authed;
+    requireThat(req.user.role !== "performer", "Not allowed to manage enquiries.", 403);
+    const enquiry = await owned<ServiceEnquiry>(req.business.id, "enquiries", String(req.params.id));
+    const next: ServiceEnquiry = { ...enquiry, status: "contacted" };
+    res.json(await writeRecord(req, "enquiries", next, "contacted"));
   });
   writes.put("/api/manage/business", async (request, res) => {
     const req = request as Authed;
