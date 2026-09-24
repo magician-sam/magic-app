@@ -9,8 +9,9 @@ import {
   type RewardSettings,
 } from "./rewards.js";
 import type { Booking, MoneyEntry, Package, Quote } from "./models.js";
+import { tokenPercent, tokenWallet, type TokenCost, type TokenAdjustment } from "./tokens.js";
 
-export type RewardKind = "referral" | "loyalty" | "free_show";
+export type RewardKind = "referral" | "loyalty" | "free_show" | "token";
 export interface RewardAward {
   id: string;
   customerId: string;
@@ -19,6 +20,7 @@ export interface RewardAward {
   sourceCustomers: Record<string, string>;
   settings: RewardSettings;
   percent: number;
+  tokenCost?: TokenCost;
   issuedAt: string;
   voided: boolean;
 }
@@ -99,6 +101,11 @@ export async function validateQuoteReward(
     409,
   );
   const view = await rewardView(store, businessId, award);
+  if (award.kind === "token") {
+    const wallet = await tokenWallet(store, businessId, booking.customerId);
+    requireThat(wallet.earned + wallet.manual >= wallet.spent,
+      "A referral was refunded. Review the customer's token balance before confirming.", 409);
+  }
   requireThat(
     view.eligible,
     "A qualifying event was refunded or changed. Review this reward before proceeding.",
@@ -118,6 +125,31 @@ export function rewardLedger(
   canManage: (req: Request) => void,
 ) {
   const writes = writeRoutes(app, store);
+  app.get("/api/manage/customers/:id/tokens", async (req, res) => {
+    canManage(req);
+    const customerId = String(req.params.id);
+    requireThat(await store.get(req.business.id, "customers", customerId), "Customer not found", 404);
+    res.json(await tokenWallet(store, req.business.id, customerId));
+  });
+  writes.post("/api/manage/customers/:id/tokens", async (req, res) => {
+    canManage(req);
+    const customerId = String(req.params.id);
+    requireThat(await store.get(req.business.id, "customers", customerId), "Customer not found", 404);
+    const input = z.object({
+      amount: z.number().int().min(-100).max(100).refine((value) => value !== 0),
+      reason: short.min(3),
+    }).parse(req.body);
+    const before = await tokenWallet(store, req.business.id, customerId);
+    requireThat(before.earned + before.manual + input.amount >= before.spent,
+      "This change would remove tokens already used on a proposal.", 409);
+    const adjustment: TokenAdjustment = {
+      id: id(), customerId, amount: input.amount, reason: input.reason,
+      at: new Date().toISOString(), actor: req.user.email,
+    };
+    await store.put(req.business.id, "tokenAdjustments", adjustment);
+    await store.audit(req.business.id, req.user.email, "tokens.adjusted", customerId, before, adjustment);
+    res.status(201).json(await tokenWallet(store, req.business.id, customerId));
+  });
   app.get("/api/manage/customers/:id/rewards", async (req, res) => {
     canManage(req);
     requireThat(
@@ -344,4 +376,59 @@ export function rewardLedger(
     });
     res.json(result);
   });
+  writes.post("/api/manage/bookings/:id/token-reward", async (req, res) => {
+    canManage(req);
+    const input = z.object({
+      quoteId: short,
+      revision: z.number().int(),
+      tokens: z.number().int().min(1).max(5),
+    }).parse(req.body);
+    const bid = req.business.id;
+    const booking = await store.get<Booking>(bid, "bookings", String(req.params.id));
+    requireThat(booking && booking.status === "quoted" && booking.revision === input.revision,
+      "Refresh this event and prepare a current proposal first.", 409);
+    requireThat(!booking.quotes.some((quote) => quote.reward),
+      "Use only one reward per proposal set. Replace the proposal to change it.", 409);
+    const quote = booking.quotes.find((entry) => entry.id === input.quoteId);
+    requireThat(quote && quote.amount > 0, "Choose a nonzero quote option.");
+    const wallet = await tokenWallet(store, bid, booking.customerId);
+    requireThat(wallet.balance >= input.tokens,
+      `This customer has ${wallet.balance} tokens available.`, 409);
+    const selected = quote.packageSnapshot ??
+      await Promise.all(quote.packageIds.map(async (key) => await store.get<Package>(bid, "packages", key)));
+    requireThat(selected.length === 1 && selected[0]?.category.toLowerCase() === "magic" &&
+      !selected[0].bundleIds?.length,
+      "Token rewards are for one magic show. Quote other shows separately.", 409);
+    const cost = input.tokens as TokenCost;
+    const percent = tokenPercent[cost];
+    const settings = await rewardSettings(store, bid);
+    const award: RewardAward = {
+      id: id(), customerId: booking.customerId, kind: "token", tokenCost: cost,
+      sourceEventIds: [], sourceCustomers: {}, settings, percent,
+      issuedAt: new Date().toISOString(), voided: false,
+    };
+    const next = structuredClone(booking);
+    const nextQuote = next.quotes.find((entry) => entry.id === input.quoteId)!;
+    const discount = Math.round(nextQuote.amount * percent / 100);
+    requireThat(discount > 0, "The calculated discount is below one cent.");
+    const originalAmount = nextQuote.amount;
+    const originalDeposit = nextQuote.deposit;
+    nextQuote.amount -= discount;
+    requireThat(nextQuote.amount >= totals(booking, await store.all<MoneyEntry>(bid, "money")).paid,
+      "Refund or correct collected payments before reducing this quote.", 409);
+    nextQuote.deposit = Math.min(nextQuote.deposit, nextQuote.amount);
+    nextQuote.reward = {
+      awardId: award.id, kind: "token", originalAmount, originalDeposit,
+      discount, percent,
+      terms: `${input.tokens} token${input.tokens === 1 ? "" : "s"} used for ${percent === 100 ? "a free magic show" : `${percent}% off a magic show`}.`,
+      returnOnCancel: true,
+    };
+    next.revision++;
+    next.updatedAt = new Date().toISOString();
+    await store.put(bid, "rewardAwards", award);
+    await store.put(bid, "bookings", next);
+    await store.audit(bid, req.user.email, "tokens.applied-to-proposal", booking.id, booking, next);
+    res.json({ booking: next, wallet: await tokenWallet(store, bid, booking.customerId) });
+  });
 }
+

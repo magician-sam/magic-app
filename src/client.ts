@@ -63,6 +63,7 @@ let calendarMonth = "",
   calendarStatus = "all",
   calendarPerformer = "";
 let basket: string[] = [];
+let requestBundleDiscount = false;
 let selectedPerformers: string[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
 function notify(message: string) {
@@ -253,8 +254,9 @@ function bundleDetails(p: Package) {
   )
     ? parts.reduce((sum, show) => sum + show!.price, 0)
     : 0;
-  const names = (p.bundleSnapshot ?? []).map((show) => show.name).join(" + ");
-  return `<p class="bundle-includes"><strong>Included:</strong> ${e(names)}</p>${separate > p.price ? `<p class="bundle-saving">Separately ${money(separate)} · <strong>Save ${money(separate - p.price)}</strong></p>` : ""}`;
+  const names = (p.bundleSnapshot ?? parts.filter((show): show is Package => !!show))
+    .map((show) => show.name);
+  return `<div class="bundle-summary"><span class="eyebrow">In this bundle</span><div class="bundle-parts">${names.map((name) => `<span>${e(name)}</span>`).join("")}</div>${separate > p.price ? `<p class="bundle-saving"><strong>Save ${money(separate - p.price)}</strong><small>Instead of ${money(separate)} separately</small></p>` : ""}</div>`;
 }
 const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {};
 const portfolioShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
@@ -356,7 +358,7 @@ function showCard(p: Package) {
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return `<article class="show-card"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function showDetails(p: Package) {
   const photos = showPhotos(p);
@@ -409,6 +411,15 @@ function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
   const node = document.querySelector("#event-box")!;
   node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${chosen.length ? chosen.map((p) => `<div class="box-item"><span>${e(p.name)}<br><small>${p.duration} min · ${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(p.name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}<div class="box-total"><span>Show time</span><strong>${chosen.reduce((n, p) => n + p.duration, 0)} min</strong></div>${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${chosen.length ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  if (chosen.length >= 2 || chosen.some((item) => item.bundleIds?.length)) {
+    const label = document.createElement("label");
+    label.className = "bundle-discount-request";
+    label.innerHTML = `<input type="checkbox" id="ask-bundle-discount" ${requestBundleDiscount ? "checked" : ""}><span><strong>Ask for a bundle discount</strong><small>We’ll review your mix of shows and send the best offer.</small></span>`;
+    node.querySelector("#request")?.before(label);
+    on(label, "#ask-bundle-discount", "change", (event) => {
+      requestBundleDiscount = (event.currentTarget as HTMLInputElement).checked;
+    });
+  }
   on(node, "[data-remove]", "click", (ev) => {
     basket = basket.filter(
       (id) => id !== (ev.currentTarget as HTMLElement).dataset.remove,
@@ -447,7 +458,6 @@ function togglePackage(key: string) {
   );
   return true;
 }
-let showMore = false;
 function samProfile() {
   return `<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Magic, curious science and bubbles are the shows Sam brings to your celebration. Explore the photos, build your event box, and tell us what kind of day you are planning.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
 }
@@ -459,30 +469,43 @@ function characterFeature() {
 }
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${characterFeature()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
-    .filter(
-      (p) =>
-        showMore ||
-        (p.fastOrder ?? ["magic", "science", "bubbles"].includes(p.id)),
-    )
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${characterFeature()}${referralPromo()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Find your favourite, then open the photos.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+    .filter((p) => !p.bundleIds?.length)
     .map(showCard)
     .join(
       "",
-    )}${showMore ? `<div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, characters…" autocomplete="off"><span id="show-search-count" role="status"></span></div>${moreShowNames().map(enquiryCard).join("")}` : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
-    catalog.packages.some((p) => p.bundleIds?.length)
-      ? `<section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Your favourite shows, together in one offer.</p></div><div class="cards">${catalog.packages
+    )}<div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div>${moreShowNames().map(enquiryCard).join("")}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Choose a ready-made offer, or pick two or more shows and ask us for a bundle discount.</p></div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Your favourite shows, together.</strong><p>Add shows to your event box and tick “Ask for a bundle discount.” We’ll send you a personal proposal.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
-          .join("")}</div></section>`
-      : ""
-  }<section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
+          .join("")}</div></section><section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
     catalog.packages
       .filter((p) => p.adultShow ?? p.category.toLowerCase() === "magic")
       .map(showCard)
       .join("") ||
     '<p class="muted">New adult magic options are being prepared. Explore our shows or contact us to plan your event.</p>'
   }</div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  if (!catalog.packages.some((item) => item.bundleIds?.length)) {
+    const offersLink = document.createElement("a");
+    offersLink.href = "#offers";
+    offersLink.textContent = "Offers & bundles";
+    document.querySelector(".site-nav a[href='#characters']")?.before(offersLink);
+  }
+  const moments = [
+    ["/portfolio/sam-magic-live-2.jpg", "Magic with Sam"],
+    ["/portfolio/sam-science-1.jpg", "Science show"],
+    ["/portfolio/characters-rabbits.jpg", "Character costumes"],
+    ["/portfolio/decoration/dinosaur-birthday.jpg", "Birthday decoration"],
+    ["/portfolio/presentation/carnival-games.jpg", "Carnival games"],
+    ["/portfolio/characters-panda-bear.jpg", "Panda and bear characters"],
+  ];
+  const strip = document.createElement("div");
+  strip.className = "moments-strip";
+  strip.setAttribute("aria-label", "Real moments from our shows and events");
+  const tiles = moments.map(([url, label]) => `<figure><img src="${url}" alt="${label}" loading="lazy"><figcaption>${label}</figcaption></figure>`).join("");
+  strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles}</div><div class="moments-set" aria-hidden="true">${tiles.replaceAll(/alt="[^"]*"/g, 'alt=""')}</div></div>`;
+  document.querySelector(".ribbon")?.after(strip);
   renderBox();
+  on(app, "#referral-account", "click", () => customerAccount());
   on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
   on(app, "[data-show-details]", "click", (ev) => {
@@ -493,11 +516,6 @@ function renderPublic() {
   on(app, "[data-enquiry-details]", "click", (ev) => {
     const name = (ev.currentTarget as HTMLElement).dataset.enquiryDetails;
     if (name) enquiryDetails(name);
-  });
-  on(app, "#more-shows", "click", () => {
-    showMore = !showMore;
-    renderPublic();
-    document.querySelector("#shows")?.scrollIntoView();
   });
   on(app, "#find-show", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim().toLocaleLowerCase();
@@ -547,14 +565,14 @@ function enquiryCard(name: string) {
         ? "Hands-on activities · by request"
         : "Guest entertainment · by request";
   const specialDescription = /carnival games?/i.test(name)
-    ? "Playful game stations for parties and family days. Tell us your space, age group and guest count, and we'll plan the right mix."
+    ? "Playful games for big smiles. See the photos."
     : /children.?s workshops?|kids.? workshops?/i.test(name)
-      ? "Hands-on activities for curious kids, from creative art to playful science. We'll shape the session around their ages and your event."
+      ? "Creative and science activities for curious kids."
       : /decoration|balloon decor/i.test(name)
-        ? "Balloon backdrops and themed setups that make your celebration feel unmistakably yours. Share your colors, theme and venue."
+        ? "Balloon backdrops and themed setups, made for your day."
       : /live music/i.test(name)
-        ? "Bring energy through live performers and colorful walk-around parades. We'll match the lineup to your celebration and venue."
-      : "Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.";
+        ? "Live performers and colorful parades for your event."
+      : "See photos. Ask us about availability and price.";
   const icon = ([
     [/carnival games?/i, "🎯"],
     [/children.?s workshops?|kids.? workshops?/i, "🧪"],
@@ -733,7 +751,10 @@ function eventFields(b?: Partial<Booking>): Field[] {
   ];
 }
 async function requestForm() {
-  let account: { profile: { name: string; phone: string; email: string } };
+  let account: {
+    profile: { name: string; phone: string; email: string };
+    rewards: { tokens: { balance: number } };
+  };
   try {
     account = await api(`/customer/${catalog.business.slug}/me`);
   } catch {
@@ -745,6 +766,8 @@ async function requestForm() {
     (p) => p.checkoutExtra && !basket.includes(p.id),
   );
   const fields = eventFields();
+  const magicOnly = basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
+  const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
   openDialog(
     "Let’s make a happy day.",
     formBody(
@@ -759,7 +782,7 @@ async function requestForm() {
           wide: f.type === "textarea",
         })),
       ],
-      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${p.duration} min · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
+      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${p.duration} min · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}${tokenChoices ? `<div class="token-request"><label for="request-tokens"><strong>Use my tokens on this magic show</strong></label><select id="request-tokens" name="requestTokens"><option value="0">Save my ${account.rewards.tokens.balance} tokens for later</option>${Array.from({ length: tokenChoices }, (_, index) => index + 1).map((cost) => `<option value="${cost}">${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}</option>`).join("")}</select><small>We’ll apply your choice to your proposal after checking the show details.</small></div>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
       "Send my event request →",
     ),
   );
@@ -779,6 +802,7 @@ async function requestForm() {
         ),
         event: {
           ...formValues(data, fields),
+          notes: `${requestBundleDiscount ? "Bundle discount requested. " : ""}${Number(data.get("requestTokens") ?? 0) > 0 ? `${Number(data.get("requestTokens"))} referral tokens requested for magic show. ` : ""}${String(data.get("notes") ?? "")}`.trim(),
           packageIds: [
             ...new Set([...basket, ...selected(data, "checkout-extra")]),
           ],
@@ -1134,6 +1158,42 @@ async function customerResetQueue() {
     });
   });
 }
+function tokenLadder() {
+  return '<div class="token-ladder" aria-label="Magic show token rewards">' +
+    [10, 20, 30, 40, 100].map((percent, index) =>
+      `<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? "Free magic show" : `${percent}% off`}</strong></div>`
+    ).join("") + '</div>';
+}
+function referralPromo() {
+  return `<section id="rewards" class="section referral-promo"><div><span class="eyebrow">Your friends bring the magic</span><h2>Invite friends.<br><em>Get a free magic show.</em></h2><p>Share your link. When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.</p><button type="button" id="referral-account">Get my invitation link ↗</button><small>One token per referred friend. Use tokens one by one or save five for a free magic show.</small></div>${tokenLadder()}</section>`;
+}
+async function offerNotification() {
+  try {
+    const account = await api<{ username: string; announcements: { id: string; title: string }[] }>(
+      `/customer/${catalog.business.slug}/me`,
+    );
+    const latest = account.announcements[0];
+    if (!latest) return;
+    const key = `magic-offer-seen:${catalog.business.slug}:${account.username}`;
+    if (localStorage.getItem(key) === latest.id) return;
+    if (document.querySelector(".offer-notification")) return;
+    const banner = document.createElement("div");
+    banner.className = "offer-notification";
+    const text = document.createElement("span");
+    text.textContent = `✦ New offer: ${latest.title}`;
+    const link = document.createElement("a");
+    link.href = "#offers";
+    link.textContent = "See offer ↗";
+    link.addEventListener("click", () => {
+      localStorage.setItem(key, latest.id);
+      banner.remove();
+    });
+    banner.append(text, link);
+    document.querySelector(".site-header")?.after(banner);
+  } catch {
+    // Visitors without an account see the offers on the public page.
+  }
+}
 async function customerAccount() {
   type Account = {
     username: string;
@@ -1142,6 +1202,7 @@ async function customerAccount() {
       settings: RewardSettings;
       profilePoints: number;
       qualifyingEvents: number;
+      tokens: { earned: number; manual: number; spent: number; balance: number; referredCount: number };
       awards: {
         id: string;
         kind: string;
@@ -1150,6 +1211,7 @@ async function customerAccount() {
         status: string;
       }[];
     };
+    announcements: { id: string; packageId: string; title: string; description: string; at: string }[];
     profile: {
       name: string;
       phone: string;
@@ -1211,28 +1273,14 @@ async function customerAccount() {
       e(account.username) +
       '</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>' +
       formBody(fields) +
-      "<h3>A little extra sparkle</h3><p>" +
-      account.rewards.profilePoints +
-      " profile points · a profile-completion score, not payment credit.</p><p>Optional email: " +
-      account.rewards.settings.emailPoints +
-      " points. Optional children’s ages: " +
-      account.rewards.settings.childrenPoints +
-      " points total, regardless of how many children.</p>" +
-      (account.rewards.settings.enabled
-        ? "<p>" +
-          account.rewards.qualifyingEvents +
-          " / " +
-          account.rewards.settings.eventsForFree +
-          " qualifying events toward a free magic show.</p><p>Referral discount: " +
-          account.rewards.settings.discountPercent +
-          "%. Loyalty: " +
-          account.rewards.settings.loyaltyPercent +
-          "% after every " +
-          account.rewards.settings.loyaltyEvery +
-          " qualifying personal events.</p><p>" +
-          e(account.rewards.settings.terms) +
-          "</p><p>The team reviews earned rewards and applies them to your proposal. Review the reduced total before accepting.</p>"
-        : "<p>Referral rewards are being prepared. No discount or free-show offer is active yet.</p>") +
+      '<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>' +
+      account.rewards.tokens.balance +
+      ' token' + (account.rewards.tokens.balance === 1 ? '' : 's') +
+      ' ready to use</h3><p>When a friend joins with your link and completes a fully paid Magic, Science or Bubbles show, you get one token.</p>' +
+      tokenLadder() +
+      '<p class="hint">Choose how many to use on one magic show. Spend 2 from a balance of 3 and keep 1. Ask us to apply your choice to your proposal. Extra tokens can be added by our team.</p></section>' +
+      (account.announcements.length ? '<section class="account-announcements"><h3>New offers for you</h3>' +
+        account.announcements.map((item) => '<a class="announcement" href="#offers" data-announcement="' + e(item.id) + '"><strong>✦ ' + e(item.title) + '</strong><span>' + e(item.description) + '</span></a>').join('') + '</section>' : '') +
       "<h3>My issued rewards</h3>" +
       (account.rewards.awards
         .map(
@@ -1285,6 +1333,13 @@ async function customerAccount() {
   on(modal, "#copy-referral-link", "click", async () => {
     await navigator.clipboard.writeText(invitationLink);
     notify("Invitation link copied. Paste it into WhatsApp to invite a friend.");
+  });
+  on(modal, "[data-announcement]", "click", (event) => {
+    const entry = event.currentTarget as HTMLElement;
+    localStorage.setItem(`magic-offer-seen:${catalog.business.slug}:${account.username}`,
+      entry.dataset.announcement ?? "");
+    document.querySelector(".offer-notification")?.remove();
+    modal.close();
   });
   on(modal, "#customer-password", "click", () => {
     openDialog(
@@ -3391,9 +3446,13 @@ async function rewardDialog(b: Booking) {
   const awards = await api<Award[]>(
     `/manage/customers/${b.customerId}/rewards`,
   );
+  const wallet = await api<{ earned: number; manual: number; spent: number; balance: number }>(
+    `/manage/customers/${b.customerId}/tokens`,
+  );
   openDialog(
     "A little thank-you, carefully tracked",
-    "<p>Issue a reward after reviewing the qualifying events. One reward can be attached to one quote option at a time. Refunded qualifying events suspend unused rewards.</p>" +
+    `<section class="panel token-admin"><span class="eyebrow">Referral tokens</span><h3>${wallet.balance} ready to use</h3><p>${wallet.earned} from referred friends · ${wallet.manual} added by you · ${wallet.spent} used</p>${tokenLadder()}<div class="actions"><button type="button" class="small" id="apply-tokens" ${b.status !== "quoted" || wallet.balance < 1 ? "disabled" : ""}>Use tokens on a magic quote</button><button type="button" class="outline small" id="adjust-tokens">Add or correct tokens</button></div><small>One token per referred friend after a Magic, Science or Bubbles show is completed and fully paid. Add extra tokens manually for more shows.</small></section>` +
+    "<details><summary>Earlier rewards</summary><p>Issue a reward after reviewing qualifying events. Refunded events suspend unused rewards.</p>" +
       awards
         .map(
           (a) =>
@@ -3417,7 +3476,7 @@ async function rewardDialog(b: Booking) {
         ],
         "<p>The system checks completed and fully paid events and prevents duplicate issuance for the same event and reward type.</p>",
         "Issue earned reward",
-      ),
+      ) + "</details>",
   );
   const refresh = async () => {
     await loadDashboard();
@@ -3429,6 +3488,33 @@ async function rewardDialog(b: Booking) {
       reviewed: data.has("reviewed"),
     });
     await refresh();
+  });
+  on(modal, "#adjust-tokens", "click", () => {
+    openDialog("Adjust referral tokens", formBody([
+      { key: "amount", label: "Tokens to add (negative number removes)", type: "number", min: -100, max: 100, required: true },
+      { key: "reason", label: "Why?", required: true },
+    ], "<p>Use this for extra shows or a correction. Every adjustment is recorded.</p>", "Save tokens"));
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/manage/customers/${b.customerId}/tokens`, "POST", {
+        amount: Number(data.get("amount")), reason: String(data.get("reason")),
+      });
+      await refresh();
+    });
+  });
+  on(modal, "#apply-tokens", "click", () => {
+    openDialog("Use tokens on a magic show", formBody([
+      { key: "tokens", label: "Tokens to use", type: "select", options: [1, 2, 3, 4, 5]
+        .filter((cost) => cost <= wallet.balance)
+        .map((cost) => ({ value: String(cost), label: `${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}` })) },
+      { key: "quoteId", label: "Magic show quote", type: "select", options: b.quotes.map((quote) => ({ value: quote.id, label: `${quote.name} · ${money(quote.amount)}` })) },
+    ], "<p>Tokens are used only when this reward is put on a quote. A cancelled booking returns them. Quote extra shows separately.</p>", "Apply token reward"));
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/manage/bookings/${b.id}/token-reward`, "POST", {
+        tokens: Number(data.get("tokens")), quoteId: data.get("quoteId"), revision: b.revision,
+      });
+      await loadDashboard();
+      await openBooking(b.id);
+    });
   });
   on(modal, "[data-apply-reward]", "click", (ev) => {
     const awardId = (ev.currentTarget as HTMLElement).dataset.applyReward!;
@@ -3965,6 +4051,8 @@ async function start() {
     : (await api<{ slug: string }>("/default-business")).slug;
   catalog = await api<Catalog>(`/public/${encodeURIComponent(slug)}`);
   renderPublic();
+  offerNotification();
+  setInterval(() => { if (!document.hidden) offerNotification(); }, 60_000);
   const linkOptions = new URLSearchParams(location.search);
   if (linkOptions.get("reset") === "1") {
     customerResetComplete(

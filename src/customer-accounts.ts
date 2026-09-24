@@ -7,6 +7,7 @@ import { customerSchema, requireThat, short } from "./domain.js";
 import type { Booking, Customer } from "./models.js";
 import { customerRewards, type CustomerExtras } from "./rewards.js";
 import { rewardView, type RewardAward } from "./reward-ledger.js";
+import { tokenWallet } from "./tokens.js";
 
 export function customerAccounts(
   app: Express,
@@ -164,6 +165,7 @@ export function customerAccounts(
       referralCode: account.id,
       rewards: {
         ...(await customerRewards(store, b.id, c)),
+        tokens: await tokenWallet(store, b.id, c.id),
         awards: await Promise.all(
           (await store.all<RewardAward>(b.id, "rewardAwards"))
             .filter((a) => a.customerId === c.id)
@@ -176,6 +178,11 @@ export function customerAccounts(
             })),
         ),
       },
+      announcements: (await store.all<{
+        id: string; packageId: string; title: string; description: string; at: string;
+      }>(b.id, "bundleAnnouncements"))
+        .filter((item) => item.at >= new Date(Date.now() - 30 * 86400_000).toISOString())
+        .slice(-8).reverse(),
       profile: {
         name: c.name,
         phone: c.phone,
@@ -335,3 +342,4 @@ export function customerAccounts(
   });
   return session;
 }
+

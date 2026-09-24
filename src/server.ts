@@ -1327,7 +1327,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       await owned(req.business.id, "performers", v.performerId);
       value = v;
     }
-    res.json(await writeRecord(req, kind, { ...value, id: recordId }));
+    const saved = await writeRecord(req, kind, { ...value, id: recordId });
+    if (kind === "packages" && key === "new") {
+      const bundle = saved as Package;
+      if (bundle.active && bundle.bundleIds?.length) {
+        await store.put(req.business.id, "bundleAnnouncements", {
+          id: id(), packageId: bundle.id, title: bundle.name,
+          description: bundle.description.slice(0, 180),
+          at: new Date().toISOString(),
+        });
+      }
+    }
+    res.json(saved);
   });
   writes.delete("/api/manage/:kind/:id", async (request, res) => {
     const req = request as Authed;

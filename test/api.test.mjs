@@ -302,6 +302,12 @@ test("bundles retain booking snapshots and reject overlapping shows in requests 
   const saved = await request("/manage/packages/new", "PUT", body);
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
   const id = saved.data.id;
+  const alerts = await store.all(business.id, "bundleAnnouncements");
+  assert.equal(alerts.length, 1);
+  assert.equal(alerts[0].packageId, id);
+  const accountAlerts = await request("/customer/test/me", "GET", undefined, customerCookie);
+  assert.equal(accountAlerts.status, 200);
+  assert.equal(accountAlerts.data.announcements[0].title, body.name);
   const catalog = (await request("/public/test", "GET", undefined, null)).data;
   const bundle = catalog.packages.find((p) => p.id === id);
   assert.equal(bundle.bundleSnapshot.length, 2);
