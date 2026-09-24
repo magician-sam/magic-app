@@ -284,6 +284,9 @@ const characterPhotos = [
 ];
 const guestPhotoGroups = [
   { match: /animation/i, photos: [["../presentation/kids-animation", "Children enjoying an activity session"]] },
+  { match: /carnival games?/i, photos: [["../presentation/carnival-games", "Carnival game stalls"], ["../presentation/carnival-arcade", "Colorful arcade games"]] },
+  { match: /children.?s workshops?|kids.? workshops?/i, photos: [["../presentation/painting-workshop", "Children's painting activity"], ["../presentation/science-workshop", "Hands-on science activity"]] },
+  { match: /decoration|balloon decor/i, photos: [["../decoration/garden-birthday", "Garden birthday backdrop"], ["../decoration/black-gold-birthday", "Black and gold birthday setup"], ["../decoration/basketball-birthday", "Basketball-themed celebration"], ["../decoration/dinosaur-birthday", "Dinosaur birthday backdrop"], ["../decoration/pink-first-birthday", "Pink first-birthday setup"], ["../decoration/gold-white-celebration", "White and gold celebration"], ["../decoration/daisy-first-birthday", "Daisy-themed first birthday"], ["../decoration/baby-celebration", "Baby celebration balloons"], ["../decoration/pink-character-birthday", "Pink character-themed birthday"], ["../decoration/space-birthday", "Space-themed birthday setup"], ["../decoration/video-game-birthday", "Video-game-themed birthday"], ["../decoration/fairytale-celebration", "Fairytale celebration backdrop"], ["../decoration/gender-reveal", "Gender reveal balloon setup"], ["../decoration/bridal-room", "Bridal celebration balloons"]] },
   { match: /face paint|glitter/i, photos: [["face-painting-1", "Butterfly face painting"], ["face-painting-2", "Tiger face painting"]] },
   { match: /dance show|dance performance/i, photos: [["dance", "Dance performance"]] },
   { match: /dog show/i, photos: [["dog-1", "Dog show obstacle act"], ["dog-2", "Dog show hoop act"], ["dog-3", "Dog show performer"]] },
@@ -296,7 +299,7 @@ const guestPhotoGroups = [
   { match: /aerial/i, photos: [["aerial", "Aerial ring act"], ["aerial-hair", "Hair-suspension aerial act"]] },
   { match: /fire show/i, photos: [["fire-show", "Fire performance"]] },
   { match: /led robot|robot show/i, photos: [["led-robots", "LED robot performers"], ["../presentation/led-robots", "LED performers on stage"]] },
-  { match: /live music|violin/i, photos: [["live-music", "Live violin performance"]] },
+  { match: /live music|violin/i, photos: [["live-music", "Live violin performance"], ["circus-parade", "Costumed parade performers"], ["../presentation/stilt-walker", "Stilt performer at an outdoor event"]] },
   { match: /caricatur/i, photos: [["caricaturist", "Caricaturist drawing at an event"]] },
   { match: /human statue/i, photos: [["human-statues", "Human statue performer"]] },
   { match: /football|soccer/i, photos: [["football", "Football-themed entertainment"]] },
@@ -308,6 +311,8 @@ function guestPhotos(name: string) {
   return group?.photos.map(([file, caption]) => ({
     url: file.startsWith("../presentation/")
       ? `/portfolio/presentation/${file.slice("../presentation/".length)}.jpg`
+      : file.startsWith("../decoration/")
+        ? `/portfolio/decoration/${file.slice("../decoration/".length)}.jpg`
       : `/portfolio/guest/${file}.jpg`,
     caption,
   })) ?? [];
@@ -366,9 +371,12 @@ function showDetails(p: Package) {
   });
 }
 function moreShowNames() {
-  const names = [...(catalog.business.otherShowNames ?? [])];
+  const names = [...(catalog.business.otherShowNames ?? [])].filter((name) => !/character/i.test(name));
   for (const [name, match] of [
     ["Animation", /animation/i],
+    ["Carnival Games", /carnival games?/i],
+    ["Children's Workshops", /children.?s workshops?|kids.? workshops?/i],
+    ["Decoration", /decoration|balloon decor/i],
     ["Face Painting & Glitter", /face paint|glitter/i],
     ["Balloon Twisting", /balloon twist/i],
     ["Kids Theatre", /kids theatre|children.s theatre/i],
@@ -383,7 +391,7 @@ function moreShowNames() {
     ["Aerial Show", /aerial/i],
     ["Fire Show", /fire show/i],
     ["LED Robots", /led robot/i],
-    ["Live Music", /live music/i],
+    ["Live Music & Parades", /live music/i],
     ["Caricaturist", /caricatur/i],
     ["Mime", /^mime$/i],
     ["Human Statues", /human statue/i],
@@ -392,7 +400,7 @@ function moreShowNames() {
     ["Circus Parade", /circus parade/i],
     ["Characters", /character/i],
   ] as const) {
-    if (name === "Characters" && catalog.business.characterNames?.length) continue;
+    if (name === "Characters") continue;
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }
   return names;
@@ -443,9 +451,15 @@ let showMore = false;
 function samProfile() {
   return `<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Magic, curious science and bubbles are the shows Sam brings to your celebration. Explore the photos, build your event box, and tell us what kind of day you are planning.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
 }
+function characterFeature() {
+  const chooser = catalog.business.characterNames?.length
+    ? 'id="choose-character"'
+    : 'data-enquiry-details="Characters"';
+  return `<section id="characters" class="section character-section"><div class="section-heading"><div><span class="eyebrow">Meet our own characters</span><h2>Characters for unforgettable visits.</h2></div><p>Pick a favourite from the costumes we actually have. We confirm availability for your date.</p></div><div class="character-feature"><div class="character-feature-copy"><span class="eyebrow">A special guest, a big smile</span><h3>Meet the cast</h3><p>From cuddly bears and rabbits to larger-than-life gorillas, explore the real costumes ready to make an entrance at your celebration.</p><button type="button" ${chooser}>Explore the characters ↗</button><small>Four real costume photos · visits by request</small></div><div class="character-feature-grid">${characterPhotos.map((photo) => `<button type="button" class="character-feature-photo" data-enquiry-details="Characters" aria-label="See ${e(photo.caption)}"><img src="${e(photo.url)}" alt="" loading="lazy"></button>`).join("")}</div></div></section>`;
+}
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}${catalog.business.characterNames?.length ? '<a href="#characters">Characters</a>' : ""}<button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${characterFeature()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>${showMore ? "More Shows" : "Fast Order"}</h2></div><p>Mix a little magic with a lot of joy.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
     .filter(
       (p) =>
         showMore ||
@@ -467,7 +481,7 @@ function renderPublic() {
       .map(showCard)
       .join("") ||
     '<p class="muted">New adult magic options are being prepared. Explore our shows or contact us to plan your event.</p>'
-  }</div></section>${catalog.business.characterNames?.length ? `<section id="characters" class="section"><div class="section-heading"><div><span class="eyebrow">A very special guest</span><h2>Characters</h2></div><p>A whole cast of happy surprises, changing with the seasons.</p></div><div class="cards"><article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Meet your surprise guest</span><h3>Choose your character</h3><p>Explore the current cast and find a favourite for your celebration.</p><button id="choose-character" class="outline">Meet the characters →</button></div></article></div></section>` : ""}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  }</div></section><section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${catalog.business.whatsapp ? `<a href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${catalog.business.contactEmail ? `<a href="mailto:${e(catalog.business.contactEmail)}">${e(catalog.business.contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${catalog.business.whatsapp ? `<a class="whatsapp-button" href="https://wa.me/${e(catalog.business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   renderBox();
   on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
@@ -525,7 +539,26 @@ function enquiryLinks(name: string) {
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
+  const serviceType = /decoration|balloon decor/i.test(name)
+    ? "Event styling · by request"
+    : /carnival games?/i.test(name)
+      ? "Games & activities · by request"
+      : /children.?s workshops?|kids.? workshops?/i.test(name)
+        ? "Hands-on activities · by request"
+        : "Guest entertainment · by request";
+  const specialDescription = /carnival games?/i.test(name)
+    ? "Playful game stations for parties and family days. Tell us your space, age group and guest count, and we'll plan the right mix."
+    : /children.?s workshops?|kids.? workshops?/i.test(name)
+      ? "Hands-on activities for curious kids, from creative art to playful science. We'll shape the session around their ages and your event."
+      : /decoration|balloon decor/i.test(name)
+        ? "Balloon backdrops and themed setups that make your celebration feel unmistakably yours. Share your colors, theme and venue."
+      : /live music/i.test(name)
+        ? "Bring energy through live performers and colorful walk-around parades. We'll match the lineup to your celebration and venue."
+      : "Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.";
   const icon = ([
+    [/carnival games?/i, "🎯"],
+    [/children.?s workshops?|kids.? workshops?/i, "🧪"],
+    [/decoration|balloon decor/i, "🎈"],
     [/face paint|glitter/i, "🎨"],
     [/balloon/i, "🎈"],
     [/theatre|character|mime/i, "🎭"],
@@ -541,18 +574,25 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   const photos = guestPhotos(name);
+  const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
+  const isDecoration = /decoration|balloon decor/i.test(name);
+  const intro = isDecoration
+    ? "Tell us your theme, colors, date and venue. We will plan the setup and confirm the design and price with you."
+    : isActivity
+      ? "Tell us the ages, guest count, date and venue. We will confirm the activities, setup and price for your event."
+      : `Ask us about ${name} for your event. We will check the performer, availability, venue needs and price before confirming anything.`;
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
-      ? `<section><h3>Past event photos</h3><p class="show-demo-note">These photos show past performances. We will confirm the performer, setup and availability for your date.</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
+      ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
 }
 function chooseCharacter() {
