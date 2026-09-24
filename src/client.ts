@@ -465,7 +465,7 @@ function characterFeature() {
   const chooser = catalog.business.characterNames?.length
     ? 'id="choose-character"'
     : 'data-enquiry-details="Characters"';
-  return `<section id="characters" class="section character-section"><div class="section-heading"><div><span class="eyebrow">Meet our own characters</span><h2>Characters for unforgettable visits.</h2></div><p>Pick a favourite from the costumes we actually have. We confirm availability for your date.</p></div><div class="character-feature"><div class="character-feature-copy"><span class="eyebrow">A special guest, a big smile</span><h3>Meet the cast</h3><p>From cuddly bears and rabbits to larger-than-life gorillas, explore the real costumes ready to make an entrance at your celebration.</p><button type="button" ${chooser}>Explore the characters ↗</button><small>Four real costume photos · visits by request</small></div><div class="character-feature-grid">${characterPhotos.map((photo) => `<button type="button" class="character-feature-photo" data-enquiry-details="Characters" aria-label="See ${e(photo.caption)}"><img src="${e(photo.url)}" alt="" loading="lazy"></button>`).join("")}</div></div></section>`;
+  return `<section id="characters" class="character-section"><div class="character-feature"><div class="character-feature-copy"><span class="eyebrow">Our own costumes · by request</span><h2>Characters</h2><p>Rabbits, bears and gorillas for a memorable visit. Explore the real costumes we have.</p><button type="button" ${chooser}>Explore characters ↗</button></div><div class="character-feature-grid">${characterPhotos.map((photo) => `<button type="button" class="character-feature-photo" data-enquiry-details="Characters" aria-label="See ${e(photo.caption)}"><img src="${e(photo.url)}" alt="" loading="lazy"></button>`).join("")}</div></div></section>`;
 }
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
@@ -491,18 +491,18 @@ function renderPublic() {
     document.querySelector(".site-nav a[href='#characters']")?.before(offersLink);
   }
   const moments = [
-    ["/portfolio/sam-magic-live-2.jpg", "Magic with Sam"],
-    ["/portfolio/sam-science-1.jpg", "Science show"],
-    ["/portfolio/characters-rabbits.jpg", "Character costumes"],
-    ["/portfolio/decoration/dinosaur-birthday.jpg", "Birthday decoration"],
-    ["/portfolio/presentation/carnival-games.jpg", "Carnival games"],
-    ["/portfolio/characters-panda-bear.jpg", "Panda and bear characters"],
+    ["/portfolio/sam-magic-live-2.jpg", "Magic with Sam", "show", "magic"],
+    ["/portfolio/sam-science-1.jpg", "Science show", "show", "science"],
+    ["/portfolio/characters-rabbits.jpg", "Character costumes", "enquiry", "Characters"],
+    ["/portfolio/decoration/dinosaur-birthday.jpg", "Birthday decoration", "enquiry", "Decoration"],
+    ["/portfolio/presentation/carnival-games.jpg", "Carnival games", "enquiry", "Carnival Games"],
+    ["/portfolio/characters-panda-bear.jpg", "Panda and bear characters", "enquiry", "Characters"],
   ];
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
-  const tiles = moments.map(([url, label]) => `<figure><img src="${url}" alt="${label}" loading="lazy"><figcaption>${label}</figcaption></figure>`).join("");
-  strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles}</div><div class="moments-set" aria-hidden="true">${tiles.replaceAll(/alt="[^"]*"/g, 'alt=""')}</div></div>`;
+  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => `<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${e(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
+  strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
   document.querySelector(".ribbon")?.after(strip);
   renderBox();
   on(app, "#referral-account", "click", () => customerAccount());
