@@ -284,6 +284,7 @@ const characterPhotos = [
   { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda and polar bear characters" },
 ];
 const guestPhotoGroups = [
+  { match: /face paint|glitter/i, photos: [["face-painting-1", "Butterfly face painting"], ["face-painting-2", "Tiger face painting"]] },
   { match: /dance show|dance performance/i, photos: [["dance", "Dance performance"]] },
   { match: /dog show/i, photos: [["dog-1", "Dog show obstacle act"], ["dog-2", "Dog show hoop act"], ["dog-3", "Dog show performer"]] },
   { match: /acrobat/i, photos: [["acrobat", "Acrobatic performance"]] },
