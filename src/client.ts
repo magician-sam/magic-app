@@ -175,6 +175,27 @@ function formValues(data: FormData, fields: Field[]): Record<string, unknown> {
     ]),
   );
 }
+async function resizedPhoto(file: File): Promise<Blob> {
+  if (file.size > 20_000_000) throw new Error("Choose a photo under 20 MB.");
+  const localUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = localUrl;
+    await image.decode();
+    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Unable to prepare this photo.");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const photo = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!photo || photo.size > 3_000_000) throw new Error("This photo is too large after resizing.");
+    return photo;
+  } finally {
+    URL.revokeObjectURL(localUrl);
+  }
+}
 function choices(
   name: string,
   values: { id: string; name: string }[],
@@ -236,26 +257,42 @@ function bundleDetails(p: Package) {
   return `<p class="bundle-includes"><strong>Included:</strong> ${e(names)}</p>${separate > p.price ? `<p class="bundle-saving">Separately ${money(separate)} · <strong>Save ${money(separate - p.price)}</strong></p>` : ""}`;
 }
 const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
-  magic: [
-    { url: "/demo/magic-1.jpg", caption: "Magic stage · sample illustration", approved: true },
-    { url: "/demo/magic-2.jpg", caption: "Magical moments · sample illustration", approved: true },
-  ],
-  science: [
-    { url: "/demo/science-1.jpg", caption: "Science show · sample illustration", approved: true },
-    { url: "/demo/science-2.jpg", caption: "Wonder lab · sample illustration", approved: true },
-  ],
   bubbles: [
     { url: "/demo/bubbles-1.jpg", caption: "Bubble show · sample illustration", approved: true },
     { url: "/demo/bubbles-2.jpg", caption: "Giant bubbles · sample illustration", approved: true },
   ],
 };
+const portfolioShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
+  magic: [
+    { url: "/portfolio/sam-magic-live-1.jpg", caption: "Sam · magician portrait", approved: true },
+    { url: "/portfolio/sam-magic-live-2.jpg", caption: "Sam performing magic", approved: true },
+  ],
+  science: [
+    { url: "/portfolio/sam-science-1.jpg", caption: "Science show setup", approved: true },
+    { url: "/portfolio/sam-science-2.jpg", caption: "Colorful science experiments", approved: true },
+    { url: "/portfolio/sam-science-3.jpg", caption: "Science demonstration setup", approved: true },
+  ],
+};
+const characterPhotos = [
+  { url: "/portfolio/characters-rabbits.jpg", caption: "Red and grey rabbit characters" },
+  { url: "/portfolio/characters-teddy.jpg", caption: "Teddy bear character" },
+  { url: "/portfolio/characters-gorillas.jpg", caption: "Black and grey gorilla characters" },
+  { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda and polar bear characters" },
+];
+function characterGallery() {
+  return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${characterPhotos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
+}
 function showPhotos(p: Package) {
   const approved = (p.gallery ?? []).filter((photo) => photo.approved);
-  return approved.length ? approved : demoShowPhotos[p.id] ?? [];
+  const hidden = new Set(p.hiddenPhotoUrls ?? []);
+  const portfolio = (portfolioShowPhotos[p.id] ?? []).filter((photo) => !hidden.has(photo.url));
+  if (portfolio.length) return [...portfolio, ...approved.filter((photo) => !portfolio.some((saved) => saved.url === photo.url))].slice(0, 12);
+  if (approved.length) return approved;
+  return (demoShowPhotos[p.id] ?? []).filter((photo) => !hidden.has(photo.url));
 }
 function showCard(p: Package) {
   const photos = showPhotos(p);
-  const cover = photos[0];
+  const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
   return `<article class="show-card"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${p.previewVideo ? " · Short video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & details</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
@@ -280,6 +317,10 @@ function moreShowNames() {
   const names = [...(catalog.business.otherShowNames ?? [])];
   for (const [name, match] of [
     ["Animation", /animation/i],
+    ["Face Painting & Glitter", /face paint|glitter/i],
+    ["Balloon Twisting", /balloon twist/i],
+    ["Kids Theatre", /kids theatre|children.s theatre/i],
+    ["Dance Show", /dance show|dance performance/i],
     ["Dog Show", /dog/i],
     ["Acrobat", /acrobat/i],
     ["Juggling", /juggl/i],
@@ -287,6 +328,13 @@ function moreShowNames() {
     ["BMX Show", /bmx/i],
     ["Clown", /clown/i],
     ["Breakdance", /breakdance/i],
+    ["Aerial Show", /aerial/i],
+    ["Fire Show", /fire show/i],
+    ["LED Robots", /led robot/i],
+    ["Live Music", /live music/i],
+    ["Caricaturist", /caricatur/i],
+    ["Mime", /^mime$/i],
+    ["Human Statues", /human statue/i],
     ["Football Show", /football|soccer/i],
     ["Characters", /character/i],
   ] as const) {
@@ -407,31 +455,29 @@ function enquiryLinks(name: string) {
       : '<p class="muted">Enquiry details coming soon.</p>';
 }
 function enquiryCard(name: string) {
-  const icon = /animation/i.test(name)
-    ? "🎉"
-    : /dog/i.test(name)
-      ? "🐶"
-      : /character/i.test(name)
-        ? "🎭"
-      : /bmx/i.test(name)
-        ? "🚲"
-        : /clown/i.test(name)
-          ? "🤡"
-          : /juggl/i.test(name)
-            ? "🤹"
-            : /dance/i.test(name)
-              ? "♫"
-              : /stilt/i.test(name)
-                ? "🎪"
-                : /football|soccer/i.test(name)
-                  ? "⚽"
-                  : "✦";
-  return `<article class="show-card"><button type="button" class="show-art other" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}"><span class="art-icon" aria-hidden="true">${icon}</span><span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p><button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  const characters = /character/i.test(name);
+  const icon = ([
+    [/face paint|glitter/i, "🎨"],
+    [/balloon/i, "🎈"],
+    [/theatre|character|mime/i, "🎭"],
+    [/dog/i, "🐶"],
+    [/bmx/i, "🚲"],
+    [/clown/i, "🤡"],
+    [/juggl/i, "🤹"],
+    [/dance/i, "♫"],
+    [/stilt|acrobat|aerial/i, "🎪"],
+    [/football|soccer/i, "⚽"],
+    [/fire/i, "🔥"],
+    [/music/i, "🎵"],
+    [/robot/i, "🤖"],
+    [/animation/i, "🎉"],
+  ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
+  return `<article class="show-card"><button type="button" class="show-art other${characters ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${characters ? `<img class="show-cover" src="${characterPhotos[0].url}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${characters ? '<p class="show-media-note">4 real character photos</p>' : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p><p class="show-media-empty">Photos and videos for this show are coming soon.</p><div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p>${/character/i.test(name) ? characterGallery() : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>'}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
 }
 function chooseCharacter() {
@@ -448,7 +494,7 @@ function chooseCharacter() {
           required: true,
         },
       ],
-      "<p>Our cast changes with the seasons. Pick your favourite to ask about details and availability.</p>",
+      `<p>Our cast changes with the seasons. Pick your favourite to ask about details and availability.</p>${characterGallery()}`,
       "Choose this character",
     ),
   );
@@ -2458,6 +2504,26 @@ function editRecord(kind: string, key: string, duplicate = false) {
       ),
     );
   }
+  if (kind === "packages")
+    fields.push(
+      f("coverPhotoNumber", "Main photo number", "number", {
+        value: item.coverPhotoNumber ?? 1,
+        min: 1,
+        max: 12,
+        help: "Choose which gallery photo appears on the outside card: 1 is the first photo, 2 is the second. Add or remove gallery photos above, then save.",
+      }),
+    );
+  const builtInPhotos = kind === "packages"
+    ? portfolioShowPhotos[String(item.id ?? key)] ?? demoShowPhotos[String(item.id ?? key)] ?? []
+    : [];
+  const builtInPhotoEditor = builtInPhotos.length
+    ? `<fieldset class="built-in-photos"><legend>Photos already included</legend><p>Hide a photo you do not want to show. The main photo number above chooses the outside picture from the visible gallery.</p><div class="built-in-photo-grid">${builtInPhotos.map((photo) => `<label><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span><input type="checkbox" name="hiddenPhotoUrls" value="${e(photo.url)}" ${(item.hiddenPhotoUrls as string[] | undefined)?.includes(photo.url) ? "checked" : ""}> Hide this photo</span></label>`).join("")}</div></fieldset>`
+    : "";
+  const photoUploadEditor = kind === "packages"
+    ? state!.uploadsEnabled
+      ? '<div class="photo-upload"><label for="photo-upload">Add photos from your device</label><input id="photo-upload" type="file" accept="image/*" multiple><small>Photos resize automatically. After uploading, check publication permission and save this show.</small><p id="photo-upload-status" role="status"></p></div>'
+      : '<p class="muted">Adding photos from your device is being prepared. You can add HTTPS photo links above now.</p>'
+    : "";
   openDialog(
     `${key === "new" || duplicate ? "Add" : "Edit"} ${kind === "customers" ? "customer" : kind === "packages" ? "package" : kind === "performers" ? "performer" : kind === "blocks" ? "availability block" : kind === "referrals" ? "referral" : "follow-up"}`,
     formBody(
@@ -2489,14 +2555,41 @@ function editRecord(kind: string, key: string, duplicate = false) {
               ),
               (item.bundleIds as string[]) ?? [],
               "Included shows — choose at least two for a bundle; leave empty for a single show",
-            )
+            ) + builtInPhotoEditor + photoUploadEditor
           : "",
     ),
   );
+  on(modal, "#photo-upload", "change", async (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    const status = modal.querySelector<HTMLElement>("#photo-upload-status")!;
+    const gallery = modal.querySelector<HTMLTextAreaElement>("#f-gallery")!;
+    input.disabled = true;
+    try {
+      for (const [position, file] of files.entries()) {
+        status.textContent = `Preparing photo ${position + 1} of ${files.length}…`;
+        const photo = await resizedPhoto(file);
+        const response = await fetch("/api/manage/upload-photo", {
+          method: "POST",
+          headers: { "Content-Type": "image/jpeg" },
+          body: photo,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Photo upload failed.");
+        const caption = file.name.replace(/\.[^.]+$/, "").replace(/[|\r\n]/g, " ").slice(0, 100) || "Show photo";
+        gallery.value += `${gallery.value.trim() ? "\n" : ""}${result.url} | ${caption}`;
+      }
+      status.textContent = `${files.length} photo${files.length === 1 ? "" : "s"} ready. Save changes to publish.`;
+      input.value = "";
+    } finally {
+      input.disabled = false;
+    }
+  });
   submit(modal.querySelector("form")!, async (data) => {
     const value = formValues(data, fields);
     if (kind === "packages") {
       value.bundleIds = selected(data, "bundleIds");
+      value.hiddenPhotoUrls = selected(data, "hiddenPhotoUrls");
       if (currentView === "offers" && (value.bundleIds as string[]).length < 2)
         throw new Error("Choose at least two shows for your bundle.");
     }
@@ -3784,3 +3877,4 @@ async function start() {
 start().catch((error) => {
   app.innerHTML = `<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });
+

@@ -34,6 +34,8 @@ export interface Package {
     price: number;
   }[];
   gallery?: GalleryPhoto[];
+  coverPhotoNumber?: number;
+  hiddenPhotoUrls?: string[];
   id: string;
   name: string;
   fastOrder?: boolean;
@@ -201,6 +203,7 @@ export interface Referral {
   note: string;
 }
 export interface Dashboard {
+  uploadsEnabled?: boolean;
   business: Business;
   user: User;
   packages: Package[];
@@ -232,3 +235,4 @@ export interface Catalog {
     | "photo"
   >[];
 }
+

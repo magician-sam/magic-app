@@ -235,7 +235,7 @@ test("gallery publication requires valid approved images and remains business sc
     403,
   );
   assert.equal(
-    (await request(path, "PUT", { ...original, gallery })).status,
+    (await request(path, "PUT", { ...original, gallery, coverPhotoNumber: 2, hiddenPhotoUrls: ["/portfolio/sam-magic-1.jpg"] })).status,
     200,
   );
   assert.deepEqual(
@@ -244,6 +244,9 @@ test("gallery publication requires valid approved images and remains business sc
     ).gallery,
     gallery,
   );
+  const published = (await request("/public/test", "GET", undefined, null)).data.packages.find((p) => p.id === "magic");
+  assert.equal(published.coverPhotoNumber, 2);
+  assert.deepEqual(published.hiddenPhotoUrls, ["/portfolio/sam-magic-1.jpg"]);
   assert.equal(
     (await store.get(other.id, "packages", "magic")).gallery,
     undefined,
@@ -256,6 +259,32 @@ test("gallery publication requires valid approved images and remains business sc
     (await store.get(business.id, "packages", "magic")).gallery,
     [],
   );
+});
+
+test("photo upload requires owner login and an attached photo store", async () => {
+  const previous = process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  try {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const send = async (auth) => {
+      const response = await fetch(origin + "/api/manage/upload-photo", {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "image/jpeg",
+          ...(auth ? { cookie: auth } : {}),
+        },
+        body: jpeg,
+      });
+      return response.status;
+    };
+    assert.equal(await send(null), 401);
+    assert.equal(await send(performerCookie), 403);
+    assert.equal(await send(cookie), 503);
+  } finally {
+    if (previous === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = previous;
+  }
 });
 
 test("bundles retain booking snapshots and reject overlapping shows in requests and quotes", async () => {
@@ -1368,3 +1397,4 @@ test("private per-show staffing plans preserve money and prevent access or stale
     ),
   );
 });
+

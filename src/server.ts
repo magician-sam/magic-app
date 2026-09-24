@@ -24,7 +24,9 @@ import {
   xXssProtection,
 } from "helmet";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { put } from "@vercel/blob";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { Store, id } from "./store.js";
@@ -706,6 +708,33 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       next(error);
     }
   });
+  app.post(
+    "/api/manage/upload-photo",
+    express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: "3mb" }),
+    async (request, res) => {
+      const req = request as Authed;
+      canManage(req);
+      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+      requireThat(blobToken, "Photo uploads are not connected yet.", 503);
+      const bytes = req.body;
+      requireThat(Buffer.isBuffer(bytes) && bytes.length > 0, "Choose an image to upload.");
+      const mime = req.headers["content-type"]?.split(";")[0]?.toLowerCase();
+      const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "";
+      const valid = ext === "jpg"
+        ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+        : ext === "png"
+          ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+          : ext === "webp" && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
+      requireThat(valid, "Use a JPEG, PNG or WebP image.");
+      const uploaded = await put(
+        `${req.business.id}/shows/${randomUUID()}.${ext}`,
+        bytes,
+        { access: "public", contentType: mime, token: blobToken },
+      );
+      await store.audit(req.business.id, req.user.email, "photo.uploaded", uploaded.url, null, { bytes: bytes.length });
+      res.status(201).json({ url: uploaded.url });
+    },
+  );
   app.get("/api/manage/reward-settings", async (req, res) => {
     canManage(req);
     res.json(await rewardSettings(store, req.business.id));
@@ -855,6 +884,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const result: Record<string, unknown> = {
       business: req.business,
       user: req.user,
+      uploadsEnabled: !!process.env.BLOB_READ_WRITE_TOKEN,
     };
     await Promise.all(
       kinds.map(async (kind) => {
@@ -2211,3 +2241,4 @@ if (
 export default process.env.VERCEL
   ? createApp(storeFromEnvironment(), applicationOrigin())
   : undefined;
+

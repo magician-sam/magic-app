@@ -104,6 +104,8 @@ export const packageSchema = z
   .object({
     name: short.min(2),
     gallery: gallerySchema.optional(),
+    coverPhotoNumber: z.number().int().min(1).max(12).optional(),
+    hiddenPhotoUrls: z.array(z.string().regex(/^\/(portfolio|demo)\/[a-z0-9-]+\.jpg$/)).max(20).optional(),
     bundleIds: z.array(short.min(1)).max(12).optional(),
     bundleBreakMinutes: z.number().int().min(0).max(60).optional(),
     fastOrder: z.boolean().optional(),
@@ -325,3 +327,4 @@ export function totals(booking: Booking, money: MoneyEntry[]) {
 }
 export const normalizePhone = (value: string) =>
   value.replace(/\D/g, "").replace(/^00/, "");
+
