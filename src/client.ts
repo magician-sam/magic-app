@@ -256,12 +256,7 @@ function bundleDetails(p: Package) {
   const names = (p.bundleSnapshot ?? []).map((show) => show.name).join(" + ");
   return `<p class="bundle-includes"><strong>Included:</strong> ${e(names)}</p>${separate > p.price ? `<p class="bundle-saving">Separately ${money(separate)} · <strong>Save ${money(separate - p.price)}</strong></p>` : ""}`;
 }
-const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
-  bubbles: [
-    { url: "/demo/bubbles-1.jpg", caption: "Bubble show · sample illustration", approved: true },
-    { url: "/demo/bubbles-2.jpg", caption: "Giant bubbles · sample illustration", approved: true },
-  ],
-};
+const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {};
 const portfolioShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
   magic: [
     { url: "/portfolio/sam-magic-live-1.jpg", caption: "Sam · magician portrait", approved: true },
@@ -275,6 +270,10 @@ const portfolioShowPhotos: Record<string, { url: string; caption: string; approv
     { url: "/portfolio/sam-science-2.jpg", caption: "Colorful science experiments", approved: true },
     { url: "/portfolio/sam-science-3.jpg", caption: "Science demonstration setup", approved: true },
     { url: "/portfolio/guest/science-portfolio.jpg", caption: "Science experiment from the event portfolio", approved: true },
+    { url: "/portfolio/presentation/science-show.jpg", caption: "Live science demonstration", approved: true },
+  ],
+  bubbles: [
+    { url: "/portfolio/presentation/bubble-show.jpg", caption: "Giant bubble show with children", approved: true },
   ],
 };
 const characterPhotos = [
@@ -284,28 +283,34 @@ const characterPhotos = [
   { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda and polar bear characters" },
 ];
 const guestPhotoGroups = [
+  { match: /animation/i, photos: [["../presentation/kids-animation", "Children enjoying an activity session"]] },
   { match: /face paint|glitter/i, photos: [["face-painting-1", "Butterfly face painting"], ["face-painting-2", "Tiger face painting"]] },
   { match: /dance show|dance performance/i, photos: [["dance", "Dance performance"]] },
   { match: /dog show/i, photos: [["dog-1", "Dog show obstacle act"], ["dog-2", "Dog show hoop act"], ["dog-3", "Dog show performer"]] },
   { match: /acrobat/i, photos: [["acrobat", "Acrobatic performance"]] },
-  { match: /juggl/i, photos: [["juggling-1", "Juggler on stage"], ["juggling-2", "Juggling act"], ["juggling-3", "Juggler and unicycle"]] },
-  { match: /stilt/i, photos: [["stilt-walker", "Stilt walkers in costume"]] },
-  { match: /bmx/i, photos: [["bmx-1", "BMX stunt show"], ["bmx-2", "BMX stage performance"]] },
+  { match: /juggl/i, photos: [["juggling-1", "Juggler on stage"], ["juggling-2", "Juggling act"], ["juggling-3", "Juggler and unicycle"], ["../presentation/juggling-show", "Colorful juggling performance"]] },
+  { match: /stilt/i, photos: [["stilt-walker", "Stilt walkers in costume"], ["../presentation/stilt-walker", "Stilt walker at an outdoor event"]] },
+  { match: /bmx/i, photos: [["bmx-1", "BMX stunt show"], ["bmx-2", "BMX stage performance"], ["../presentation/bmx-show", "BMX stunt at a children's event"]] },
   { match: /clown/i, photos: [["clown-1", "Clown performance"], ["clown-2", "Clown character close-up"]] },
   { match: /breakdance/i, photos: [["breakdance", "Breakdance performers"]] },
   { match: /aerial/i, photos: [["aerial", "Aerial ring act"], ["aerial-hair", "Hair-suspension aerial act"]] },
   { match: /fire show/i, photos: [["fire-show", "Fire performance"]] },
-  { match: /led robot|robot show/i, photos: [["led-robots", "LED robot performers"]] },
+  { match: /led robot|robot show/i, photos: [["led-robots", "LED robot performers"], ["../presentation/led-robots", "LED performers on stage"]] },
   { match: /live music|violin/i, photos: [["live-music", "Live violin performance"]] },
   { match: /caricatur/i, photos: [["caricaturist", "Caricaturist drawing at an event"]] },
   { match: /human statue/i, photos: [["human-statues", "Human statue performer"]] },
   { match: /football|soccer/i, photos: [["football", "Football-themed entertainment"]] },
-  { match: /chair balance/i, photos: [["chair-balance", "Chair balance act"]] },
+  { match: /chair balance/i, photos: [["chair-balance", "Chair balance act"], ["../presentation/chair-balance", "Outdoor chair balance performance"]] },
   { match: /circus parade/i, photos: [["circus-parade", "Circus parade"]] },
 ] as const;
 function guestPhotos(name: string) {
   const group = guestPhotoGroups.find((entry) => entry.match.test(name));
-  return group?.photos.map(([file, caption]) => ({ url: `/portfolio/guest/${file}.jpg`, caption })) ?? [];
+  return group?.photos.map(([file, caption]) => ({
+    url: file.startsWith("../presentation/")
+      ? `/portfolio/presentation/${file.slice("../presentation/".length)}.jpg`
+      : `/portfolio/guest/${file}.jpg`,
+    caption,
+  })) ?? [];
 }
 function characterGallery() {
   return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${characterPhotos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
