@@ -279,12 +279,18 @@ function showDetails(p: Package) {
 function moreShowNames() {
   const names = [...(catalog.business.otherShowNames ?? [])];
   for (const [name, match] of [
+    ["Animation", /animation/i],
     ["Dog Show", /dog/i],
+    ["Acrobat", /acrobat/i],
     ["Juggling", /juggl/i],
     ["Stilt Walker", /stilt/i],
     ["BMX Show", /bmx/i],
+    ["Clown", /clown/i],
+    ["Breakdance", /breakdance/i],
     ["Football Show", /football|soccer/i],
+    ["Characters", /character/i],
   ] as const) {
+    if (name === "Characters" && catalog.business.characterNames?.length) continue;
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }
   return names;
@@ -405,6 +411,8 @@ function enquiryCard(name: string) {
     ? "🎉"
     : /dog/i.test(name)
       ? "🐶"
+      : /character/i.test(name)
+        ? "🎭"
       : /bmx/i.test(name)
         ? "🚲"
         : /clown/i.test(name)
