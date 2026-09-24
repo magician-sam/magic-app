@@ -113,6 +113,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "https:", "data:"],
+        mediaSrc: ["'self'", "https:"],
         connectSrc: ["'self'"],
         frameSrc: ["'none'"],
         formAction: ["'self'"],
@@ -2210,4 +2211,3 @@ if (
 export default process.env.VERCEL
   ? createApp(storeFromEnvironment(), applicationOrigin())
   : undefined;
-

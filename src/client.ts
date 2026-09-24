@@ -235,8 +235,59 @@ function bundleDetails(p: Package) {
   const names = (p.bundleSnapshot ?? []).map((show) => show.name).join(" + ");
   return `<p class="bundle-includes"><strong>Included:</strong> ${e(names)}</p>${separate > p.price ? `<p class="bundle-saving">Separately ${money(separate)} · <strong>Save ${money(separate - p.price)}</strong></p>` : ""}`;
 }
+const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
+  magic: [
+    { url: "/demo/magic-1.jpg", caption: "Magic stage · sample illustration", approved: true },
+    { url: "/demo/magic-2.jpg", caption: "Magical moments · sample illustration", approved: true },
+  ],
+  science: [
+    { url: "/demo/science-1.jpg", caption: "Science show · sample illustration", approved: true },
+    { url: "/demo/science-2.jpg", caption: "Wonder lab · sample illustration", approved: true },
+  ],
+  bubbles: [
+    { url: "/demo/bubbles-1.jpg", caption: "Bubble show · sample illustration", approved: true },
+    { url: "/demo/bubbles-2.jpg", caption: "Giant bubbles · sample illustration", approved: true },
+  ],
+};
+function showPhotos(p: Package) {
+  const approved = (p.gallery ?? []).filter((photo) => photo.approved);
+  return approved.length ? approved : demoShowPhotos[p.id] ?? [];
+}
 function showCard(p: Package) {
-  return `<article class="show-card"><div class="show-art ${e(p.category)}" aria-hidden="true"><span class="art-icon">${categoryIcon[p.category] ?? "★"}</span></div><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3>${e(p.name)}</h3><p>${e(p.description)}</p>${p.previewVideo ? `<p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch a quick preview ↗</a></p>` : ""}${photoGallery(p.gallery)}${bundleDetails(p)}<div class="show-meta">${e(price(p))}</div><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  const photos = showPhotos(p);
+  const cover = photos[0];
+  const photoCount = photos.length;
+  const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
+  return `<article class="show-card"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${p.previewVideo ? " · Short video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & details</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+}
+function showDetails(p: Package) {
+  const photos = showPhotos(p);
+  const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
+  const preview = p.previewVideo
+    ? /\.(mp4|webm)$/i.test(new URL(p.previewVideo).pathname)
+      ? `<video controls playsinline preload="metadata" src="${e(p.previewVideo)}" aria-label="Short preview of ${e(p.name)}"></video><p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Open video in browser ↗</a></p>`
+      : `<a class="button outline" href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch the short preview ↗</a>`
+    : "";
+  openDialog(
+    p.name,
+    `<div class="show-detail"><p class="eyebrow">${e(p.category)} · ${p.duration} minutes</p><p>${e(p.description)}</p>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${preview ? `<section><h3>Short video</h3>${preview}</section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+  );
+  on(modal, "#detail-add", "click", () => {
+    if (togglePackage(p.id)) modal.close();
+  });
+}
+function moreShowNames() {
+  const names = [...(catalog.business.otherShowNames ?? [])];
+  for (const [name, match] of [
+    ["Dog Show", /dog/i],
+    ["Juggling", /juggl/i],
+    ["Stilt Walker", /stilt/i],
+    ["BMX Show", /bmx/i],
+    ["Football Show", /football|soccer/i],
+  ] as const) {
+    if (!names.some((existing) => match.test(existing))) names.push(name);
+  }
+  return names;
 }
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -250,6 +301,36 @@ function renderBox() {
   });
   on(node, "#request", "click", () => requestForm());
 }
+function togglePackage(key: string) {
+  const added = catalog.packages.find((p) => p.id === key);
+  if (!added) return false;
+  const included = added.bundleIds?.length ? added.bundleIds : [key];
+  if (
+    !basket.includes(key) &&
+    catalog.packages
+      .filter((p) => basket.includes(p.id))
+      .some((p) =>
+        (p.bundleIds?.length ? p.bundleIds : [p.id]).some((id) =>
+          included.includes(id),
+        ),
+      )
+  ) {
+    notify(
+      "This show is already included in your event box. Remove the overlapping show or bundle first.",
+    );
+    return false;
+  }
+  basket = basket.includes(key)
+    ? basket.filter((x) => x !== key)
+    : [...basket, key];
+  renderPublic();
+  notify(
+    basket.includes(key)
+      ? "A little more wonder in your event box."
+      : "Show removed from your event box.",
+  );
+  return true;
+}
 let showMore = false;
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
@@ -262,7 +343,7 @@ function renderPublic() {
     .map(showCard)
     .join(
       "",
-    )}${showMore ? (catalog.business.otherShowNames ?? []).map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
+    )}${showMore ? moreShowNames().map(enquiryCard).join("") : ""}<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">🎭</span></div><div class="show-body"><span class="eyebrow">Even more possibilities</span><h3>${showMore ? "Back to Fast Order" : "More Shows"}</h3><p>Explore the full cast of celebrations. New shows appear here when the business adds them.</p><button class="outline" id="more-shows">${showMore ? "See quick choices" : "Explore all shows →"}</button></div></article></div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section>${
     catalog.packages.some((p) => p.bundleIds?.length)
       ? `<section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Your favourite shows, together in one offer.</p></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
@@ -279,39 +360,22 @@ function renderPublic() {
   renderBox();
   on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
+  on(app, "[data-show-details]", "click", (ev) => {
+    const key = (ev.currentTarget as HTMLElement).dataset.showDetails;
+    const show = catalog.packages.find((p) => p.id === key);
+    if (show) showDetails(show);
+  });
+  on(app, "[data-enquiry-details]", "click", (ev) => {
+    const name = (ev.currentTarget as HTMLElement).dataset.enquiryDetails;
+    if (name) enquiryDetails(name);
+  });
   on(app, "#more-shows", "click", () => {
     showMore = !showMore;
     renderPublic();
     document.querySelector("#shows")?.scrollIntoView();
   });
   on(app, "[data-add]", "click", (ev) => {
-    const key = (ev.currentTarget as HTMLElement).dataset.add!;
-    const added = catalog.packages.find((p) => p.id === key)!;
-    const included = added.bundleIds?.length ? added.bundleIds : [key];
-    if (
-      !basket.includes(key) &&
-      catalog.packages
-        .filter((p) => basket.includes(p.id))
-        .some((p) =>
-          (p.bundleIds?.length ? p.bundleIds : [p.id]).some((id) =>
-            included.includes(id),
-          ),
-        )
-    ) {
-      notify(
-        "This show is already included in your event box. Remove the overlapping show or bundle first.",
-      );
-      return;
-    }
-    basket = basket.includes(key)
-      ? basket.filter((x) => x !== key)
-      : [...basket, key];
-    renderPublic();
-    notify(
-      basket.includes(key)
-        ? "A little more wonder in your event box."
-        : "Show removed from your event box.",
-    );
+    togglePackage((ev.currentTarget as HTMLElement).dataset.add!);
   });
   on(app, "[data-performer]", "click", (ev) => {
     const key = (ev.currentTarget as HTMLElement).dataset.performer!;
@@ -349,8 +413,18 @@ function enquiryCard(name: string) {
             ? "🤹"
             : /dance/i.test(name)
               ? "♫"
-              : "✦";
-  return `<article class="show-card"><div class="show-art other" aria-hidden="true"><span class="art-icon">${icon}</span></div><div class="show-body"><span class="eyebrow">More ways to celebrate</span><h3>${e(name)}</h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${enquiryLinks(name)}</div></article>`;
+              : /stilt/i.test(name)
+                ? "🎪"
+                : /football|soccer/i.test(name)
+                  ? "⚽"
+                  : "✦";
+  return `<article class="show-card"><button type="button" class="show-art other" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}"><span class="art-icon" aria-hidden="true">${icon}</span><span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p><button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+}
+function enquiryDetails(name: string) {
+  openDialog(
+    name,
+    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p><p class="show-media-empty">Photos and videos for this show are coming soon.</p><div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+  );
 }
 function chooseCharacter() {
   const names = catalog.business.characterNames ?? [];
@@ -3702,4 +3776,3 @@ async function start() {
 start().catch((error) => {
   app.innerHTML = `<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });
-
