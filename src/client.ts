@@ -266,11 +266,15 @@ const portfolioShowPhotos: Record<string, { url: string; caption: string; approv
   magic: [
     { url: "/portfolio/sam-magic-live-1.jpg", caption: "Sam · magician portrait", approved: true },
     { url: "/portfolio/sam-magic-live-2.jpg", caption: "Sam performing magic", approved: true },
+    { url: "/portfolio/sam-magic-1.jpg", caption: "Sam on stage", approved: true },
+    { url: "/portfolio/sam-magic-2.jpg", caption: "Sam's magic show", approved: true },
+    { url: "/portfolio/sam-magic-3.jpg", caption: "Magic performance with Sam", approved: true },
   ],
   science: [
     { url: "/portfolio/sam-science-1.jpg", caption: "Science show setup", approved: true },
     { url: "/portfolio/sam-science-2.jpg", caption: "Colorful science experiments", approved: true },
     { url: "/portfolio/sam-science-3.jpg", caption: "Science demonstration setup", approved: true },
+    { url: "/portfolio/guest/science-portfolio.jpg", caption: "Science experiment from the event portfolio", approved: true },
   ],
 };
 const characterPhotos = [
@@ -279,6 +283,29 @@ const characterPhotos = [
   { url: "/portfolio/characters-gorillas.jpg", caption: "Black and grey gorilla characters" },
   { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda and polar bear characters" },
 ];
+const guestPhotoGroups = [
+  { match: /dance show|dance performance/i, photos: [["dance", "Dance performance"]] },
+  { match: /dog show/i, photos: [["dog-1", "Dog show obstacle act"], ["dog-2", "Dog show hoop act"], ["dog-3", "Dog show performer"]] },
+  { match: /acrobat/i, photos: [["acrobat", "Acrobatic performance"]] },
+  { match: /juggl/i, photos: [["juggling-1", "Juggler on stage"], ["juggling-2", "Juggling act"], ["juggling-3", "Juggler and unicycle"]] },
+  { match: /stilt/i, photos: [["stilt-walker", "Stilt walkers in costume"]] },
+  { match: /bmx/i, photos: [["bmx-1", "BMX stunt show"], ["bmx-2", "BMX stage performance"]] },
+  { match: /clown/i, photos: [["clown-1", "Clown performance"], ["clown-2", "Clown character close-up"]] },
+  { match: /breakdance/i, photos: [["breakdance", "Breakdance performers"]] },
+  { match: /aerial/i, photos: [["aerial", "Aerial ring act"]] },
+  { match: /fire show/i, photos: [["fire-show", "Fire performance"]] },
+  { match: /led robot|robot show/i, photos: [["led-robots", "LED robot performers"]] },
+  { match: /live music|violin/i, photos: [["live-music", "Live violin performance"]] },
+  { match: /caricatur/i, photos: [["caricaturist", "Caricaturist drawing at an event"]] },
+  { match: /human statue/i, photos: [["human-statues", "Human statue performer"]] },
+  { match: /football|soccer/i, photos: [["football", "Football-themed entertainment"]] },
+  { match: /chair balance/i, photos: [["chair-balance", "Chair balance act"]] },
+  { match: /circus parade/i, photos: [["circus-parade", "Circus parade"]] },
+] as const;
+function guestPhotos(name: string) {
+  const group = guestPhotoGroups.find((entry) => entry.match.test(name));
+  return group?.photos.map(([file, caption]) => ({ url: `/portfolio/guest/${file}.jpg`, caption })) ?? [];
+}
 function characterGallery() {
   return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${characterPhotos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
 }
@@ -290,24 +317,43 @@ function showPhotos(p: Package) {
   if (approved.length) return approved;
   return (demoShowPhotos[p.id] ?? []).filter((photo) => !hidden.has(photo.url));
 }
+function showVideos(p: Package) {
+  return [...new Set([...(p.previewVideos ?? []), ...(p.previewVideo ? [p.previewVideo] : [])])].filter(Boolean);
+}
+function videoTile(link: string, showName: string, index: number) {
+  const parsed = new URL(link);
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  const youtubeId = host === "youtu.be"
+    ? parsed.pathname.split("/")[1]
+    : host === "youtube.com" || host === "m.youtube.com"
+      ? parsed.pathname === "/watch" ? parsed.searchParams.get("v") : parsed.pathname.match(/^\/(?:shorts|embed)\/([^/]+)/)?.[1]
+      : null;
+  const embed = youtubeId && /^[\w-]{11}$/.test(youtubeId)
+    ? `https://www.youtube-nocookie.com/embed/${youtubeId}`
+    : host === "vimeo.com" && /^\/\d+$/.test(parsed.pathname)
+      ? `https://player.vimeo.com/video${parsed.pathname}`
+      : "";
+  const player = /\.(mp4|webm)$/i.test(parsed.pathname)
+    ? `<video controls playsinline preload="metadata" src="${e(link)}" aria-label="${e(showName)} video ${index + 1}"></video>`
+    : embed
+      ? `<iframe src="${e(embed)}" title="${e(showName)} video ${index + 1}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+      : `<div class="show-video-link"><span aria-hidden="true">▶</span><a href="${e(link)}" target="_blank" rel="noopener noreferrer">Watch video ${index + 1} ↗</a></div>`;
+  return `<figure class="show-video-tile">${player}<figcaption>Video ${index + 1}</figcaption></figure>`;
+}
 function showCard(p: Package) {
   const photos = showPhotos(p);
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return `<article class="show-card"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${p.previewVideo ? " · Short video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & details</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function showDetails(p: Package) {
   const photos = showPhotos(p);
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  const preview = p.previewVideo
-    ? /\.(mp4|webm)$/i.test(new URL(p.previewVideo).pathname)
-      ? `<video controls playsinline preload="metadata" src="${e(p.previewVideo)}" aria-label="Short preview of ${e(p.name)}"></video><p><a href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Open video in browser ↗</a></p>`
-      : `<a class="button outline" href="${e(p.previewVideo)}" target="_blank" rel="noopener noreferrer">Watch the short preview ↗</a>`
-    : "";
+  const videos = showVideos(p);
   openDialog(
     p.name,
-    `<div class="show-detail"><p class="eyebrow">${e(p.category)} · ${p.duration} minutes</p><p>${e(p.description)}</p>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${preview ? `<section><h3>Short video</h3>${preview}</section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${e(p.category)} · ${p.duration} minutes</p><p>${e(p.description)}</p>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, p.name, index)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
   );
   on(modal, "#detail-add", "click", () => {
     if (togglePackage(p.id)) modal.close();
@@ -336,6 +382,8 @@ function moreShowNames() {
     ["Mime", /^mime$/i],
     ["Human Statues", /human statue/i],
     ["Football Show", /football|soccer/i],
+    ["Chair Balance", /chair balance/i],
+    ["Circus Parade", /circus parade/i],
     ["Characters", /character/i],
   ] as const) {
     if (name === "Characters" && catalog.business.characterNames?.length) continue;
@@ -470,6 +518,7 @@ function enquiryLinks(name: string) {
 }
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
+  const photos = characters ? characterPhotos : guestPhotos(name);
   const icon = ([
     [/face paint|glitter/i, "🎨"],
     [/balloon/i, "🎈"],
@@ -486,12 +535,18 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${characters ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${characters ? `<img class="show-cover" src="${characterPhotos[0].url}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${characters ? '<p class="show-media-note">4 real character photos</p>' : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">Guest entertainment · by request</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>Tell us about your event. Timing, venue needs, availability and price are agreed in your quote.</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
+  const photos = guestPhotos(name);
+  const gallery = /character/i.test(name)
+    ? characterGallery()
+    : photos.length
+      ? `<section><h3>Past event photos</h3><p class="show-demo-note">These photos show past performances. We will confirm the performer, setup and availability for your date.</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
+      : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p>${/character/i.test(name) ? characterGallery() : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>'}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">Guest entertainment · by request</p><p>Ask us about ${e(name)} for your event. We will check the performer, availability, venue needs and price before confirming anything.</p>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
 }
 function chooseCharacter() {
@@ -2348,8 +2403,10 @@ function editRecord(kind: string, key: string, duplicate = false) {
         value: item.category ?? "magic",
       }),
       f("description", "Description", "textarea", { wide: true }),
-      f("previewVideo", "Short show preview link", "url", {
-        help: "Use an approved HTTPS video page. A 15–20 second clip is ideal. Leave blank to remove.",
+      f("previewVideos", "Show videos", "textarea", {
+        wide: true,
+        value: ((item.previewVideos as string[] | undefined) ?? (item.previewVideo ? [String(item.previewVideo)] : [])).join("\n"),
+        help: "One approved HTTPS video link per line, up to 6. MP4, WebM, YouTube and Vimeo play beside the photos. Other links open in a new tab. Remove a line to remove a video.",
       }),
       f("checkoutExtra", "Offer as an optional checkout extra", "checkbox"),
       f("duration", "Show duration (minutes)", "number", {
@@ -2604,6 +2661,8 @@ function editRecord(kind: string, key: string, duplicate = false) {
     if (kind === "packages") {
       value.bundleIds = selected(data, "bundleIds");
       value.hiddenPhotoUrls = selected(data, "hiddenPhotoUrls");
+      value.previewVideos = String(value.previewVideos ?? "").split("\n").map((link) => link.trim()).filter(Boolean);
+      value.previewVideo = "";
       if (currentView === "offers" && (value.bundleIds as string[]).length < 2)
         throw new Error("Choose at least two shows for your bundle.");
     }

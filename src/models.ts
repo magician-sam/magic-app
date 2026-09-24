@@ -42,6 +42,7 @@ export interface Package {
   adultShow?: boolean;
   checkoutExtra?: boolean;
   previewVideo?: string;
+  previewVideos?: string[];
   category: string;
   description: string;
   duration: number;

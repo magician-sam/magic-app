@@ -1810,6 +1810,14 @@ button.show-art:hover { transform: none; }
 .show-search span { color: #655b70; font-size: 13px; }
 .show-card[hidden] { display: none; }
 .show-detail video { display: block; width: 100%; max-height: 430px; border-radius: 15px; background: #251a36; }
+.show-video-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.show-video-tile { margin: 0; min-width: 0; }
+.show-video-tile video, .show-video-tile iframe, .show-video-link { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 15px; background: #251a36; }
+.show-video-tile iframe { min-height: 220px; }
+.show-video-tile figcaption { padding: 7px 2px; font-size: 13px; color: var(--muted); }
+.show-video-link { display: grid; place-content: center; gap: 8px; text-align: center; color: #fff; }
+.show-video-link span { font-size: 32px; }
+.show-video-link a { color: #fff; font-weight: 700; }
 .show-media-empty { padding: 16px; border: 1px dashed #cbbad9; border-radius: 14px; color: var(--muted); }
 .show-demo-note { display: inline-block; margin: 0 0 14px; padding: 7px 11px; border-radius: 9px; background: #fff1d9; color: #6a481a; font-size: 13px; font-weight: 700; }
 .built-in-photos { margin-top: 18px; }

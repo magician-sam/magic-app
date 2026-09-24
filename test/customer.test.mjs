@@ -68,10 +68,12 @@ test("customer accounts isolate staff, businesses and other families; profile an
         checkoutExtra: true,
         fastOrder: false,
         previewVideo: "https://example.test/approved-preview",
+        previewVideos: ["https://example.test/science.mp4", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
       },
       staff.cookie,
     );
     assert.equal(extra.status, 200);
+    assert.equal(extra.data.previewVideos?.length, 2);
     assert.equal(
       (
         await request(
@@ -81,6 +83,10 @@ test("customer accounts isolate staff, businesses and other families; profile an
           staff.cookie,
         )
       ).status,
+      400,
+    );
+    assert.equal(
+      (await request("/manage/packages/new", "PUT", { ...basePackage, previewVideos: ["javascript:alert(1)"] }, staff.cookie)).status,
       400,
     );
     const event = {
@@ -421,3 +427,4 @@ test("reward progress counts fully paid completed events and reverses after refu
     store.db.close();
   }
 });
+

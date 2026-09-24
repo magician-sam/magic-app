@@ -117,7 +117,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         imgSrc: ["'self'", "https:", "data:"],
         mediaSrc: ["'self'", "https:"],
         connectSrc: ["'self'"],
-        frameSrc: ["'none'"],
+        frameSrc: ["https://www.youtube-nocookie.com", "https://player.vimeo.com"],
         formAction: ["'self'"],
         upgradeInsecureRequests: origin.startsWith("https:") ? [] : null,
       },
