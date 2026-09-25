@@ -107,16 +107,20 @@ function on(
 function openDialog(title: string, content: string) {
   modal.innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${e(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
   modal.querySelector(".close")!.addEventListener("click", () => modal.close());
-  modal.querySelectorAll<HTMLButtonElement>("[data-toggle-password]").forEach((button) => button.addEventListener("click", () => {
-    const input = button.parentElement?.querySelector<HTMLInputElement>("input");
-    if (!input) return;
-    input.type = input.type === "password" ? "text" : "password";
-    button.textContent = input.type === "password" ? "Show" : "Hide";
-    button.setAttribute("aria-label", `${input.type === "password" ? "Show" : "Hide"} password`);
-  }));
   if (!modal.open) modal.showModal();
   modal.scrollTop = 0;
 }
+document.addEventListener("click", (event) => {
+  const button = (event.target as Element).closest<HTMLButtonElement>("[data-toggle-password]");
+  if (!button) return;
+  const input = button.parentElement?.querySelector<HTMLInputElement>("input");
+  if (!input) return;
+  input.type = input.type === "password" ? "text" : "password";
+  const label = input.type === "password" ? "Show" : "Hide";
+  button.textContent = label;
+  button.setAttribute("aria-label", `${label} password`);
+  button.setAttribute("aria-pressed", String(input.type === "text"));
+});
 function submit(
   form: HTMLFormElement,
   handler: (data: FormData) => Promise<void>,
@@ -165,7 +169,7 @@ function field(f: Field) {
         ? `<select ${attrs}>${f.options?.map((o) => `<option value="${e(o.value)}" ${String(value) === o.value ? "selected" : ""}>${e(o.label)}</option>`).join("")}</select>`
         : `<input type="${e(f.type ?? "text")}" autocomplete="${e(f.autocomplete ?? "off")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
   if (f.type === "password")
-    return `<div class="field ${f.wide ? "wide" : ""}"><label for="f-${e(f.key)}">${e(f.label)}</label><span class="password-control">${input}<button type="button" data-toggle-password aria-label="Show password">Show</button></span>${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</div>`;
+    return `<div class="field ${f.wide ? "wide" : ""}"><label for="f-${e(f.key)}">${e(f.label)}</label><span class="password-control">${input}<button type="button" data-toggle-password aria-label="Show password" aria-pressed="false">Show</button></span>${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</div>`;
   return `<label class="field ${f.wide ? "wide" : ""} ${f.key === "referralCode" ? "referral-field" : ""}" for="f-${e(f.key)}">${e(f.label)}${input}${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</label>`;
 }
 const options = (values: string[]) =>
@@ -654,7 +658,7 @@ function enquiryDetails(name: string) {
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
-      ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
+      ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="eager"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
