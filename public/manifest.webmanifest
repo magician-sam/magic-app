@@ -4,7 +4,7 @@
   "short_name": "Magic by Sam",
   "description": "Explore shows and request a magical celebration with Magic by Sam.",
   "start_url": "/b/magic-by-sam",
-  "scope": "/b/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#fffaf4",
   "theme_color": "#38265e",
@@ -14,3 +14,4 @@
     { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
+

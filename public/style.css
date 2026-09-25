@@ -949,6 +949,7 @@ fieldset .check {
 dialog {
   width: min(780px, calc(100% - 30px));
   max-height: 90vh;
+  overflow-y: auto;
   border: 0;
   border-radius: 23px;
   padding: 30px;
@@ -961,11 +962,18 @@ dialog::backdrop {
   backdrop-filter: blur(4px);
 }
 .dialog-heading {
+  position: sticky;
+  z-index: 5;
+  top: 0;
   display: flex;
   justify-content: space-between;
   align-items: start;
   gap: 20px;
-  margin-bottom: 20px;
+  margin: -30px -30px 20px;
+  padding: 18px 30px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 23px 23px 0 0;
+  background: #fffdf8;
 }
 .dialog-heading h2 {
   font-size: 30px;
@@ -1523,6 +1531,10 @@ details summary {
   dialog {
     padding: 22px;
   }
+  .dialog-heading {
+    margin: -22px -22px 16px;
+    padding: 12px 22px;
+  }
   .dialog-heading h2 {
     font-size: 26px;
   }
@@ -1803,17 +1815,6 @@ button.show-art:hover { transform: none; }
 .show-detail-gallery img { width: 100%; height: 230px; object-fit: contain; border-radius: 15px; background: #f4eff8; }
 .show-detail-gallery figcaption { padding: 7px 2px; font-size: 13px; overflow-wrap: anywhere; }
 .character-section { scroll-margin-top: 90px; margin: 28px 0; }
-.character-feature { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 22px; align-items: center; padding: 18px 22px; border: 1px solid #e4d8f2; border-radius: 22px; background: #f7f0ff; color: var(--ink); }
-.character-feature-copy { display: grid; justify-items: start; gap: 7px; }
-.character-feature-copy .eyebrow { color: #70459a; }
-.character-feature-copy h2 { margin: 0; font: normal clamp(27px, 3vw, 36px)/1.08 Georgia, serif; }
-.character-feature-copy p { margin: 0; max-width: 52ch; line-height: 1.4; color: #635772; }
-.character-feature-copy button { margin-top: 5px; padding: 9px 15px; font-size: 14px; }
-.character-feature-grid { display: grid; grid-template-columns: repeat(4, 76px); gap: 7px; }
-.character-feature-photo { display: block; padding: 0; min-height: 0; overflow: hidden; border: 2px solid #ffffff; border-radius: 13px; aspect-ratio: 1; background: #f4eff8; }
-.character-feature-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
-.character-feature-photo:hover img { transform: scale(1.05); }
-@media (max-width: 700px) { .character-feature { grid-template-columns: 1fr; padding: 16px; } .character-feature-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .show-search { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px; border-radius: 18px; background: #f1eafb; }
 .show-search label { font-weight: 700; color: var(--deep); }
 .show-search input { flex: 1 1 210px; min-width: 0; margin: 0; }
@@ -1842,8 +1843,10 @@ button.show-art:hover { transform: none; }
 .photo-upload small { display: block; margin-top: 8px; color: var(--muted); }
 .photo-upload [role="status"] { margin-bottom: 0; }
 .show-detail-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 22px; }
-.show-detail-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.show-detail-footer { position: sticky; z-index: 4; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 24px -30px -30px; padding: 12px 30px 22px; border-top: 1px solid var(--line); background: #fffdf8; box-shadow: 0 -8px 24px #271b4514; }
 .show-detail-footer strong { font-size: 18px; }
+dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0; margin: 16px -30px -30px; padding: 12px 30px 22px; background: #fffdf8; box-shadow: 0 -8px 24px #271b4514; }
+@media (max-width: 600px) { .show-detail-footer, dialog:has(#f-character) .form-actions { margin-right: -22px; margin-left: -22px; margin-bottom: -22px; padding: 10px 22px 16px; } }
 .bundle-includes { padding: .75rem; border-radius: 12px; background: #f5f0ff; }
 .bundle-saving { color: #276343; }
 #offers { scroll-margin-top: 2rem; }

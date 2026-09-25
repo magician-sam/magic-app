@@ -373,7 +373,7 @@ function showDetails(p: Package) {
   });
 }
 function moreShowNames() {
-  const names = [...(catalog.business.otherShowNames ?? [])].filter((name) => !/character/i.test(name));
+  const names = ["Characters", ...(catalog.business.otherShowNames ?? []).filter((name) => !/character/i.test(name))];
   for (const [name, match] of [
     ["Animation", /animation/i],
     ["Carnival Games", /carnival games?/i],
@@ -402,7 +402,6 @@ function moreShowNames() {
     ["Circus Parade", /circus parade/i],
     ["Characters", /character/i],
   ] as const) {
-    if (name === "Characters") continue;
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }
   return names;
@@ -461,15 +460,9 @@ function togglePackage(key: string) {
 function samProfile() {
   return `<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Magic, curious science and bubbles are the shows Sam brings to your celebration. Explore the photos, build your event box, and tell us what kind of day you are planning.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
 }
-function characterFeature() {
-  const chooser = catalog.business.characterNames?.length
-    ? 'id="choose-character"'
-    : 'data-enquiry-details="Characters"';
-  return `<section id="characters" class="character-section"><div class="character-feature"><div class="character-feature-copy"><span class="eyebrow">Our own costumes · by request</span><h2>Characters</h2><p>Rabbits, bears and gorillas for a memorable visit. Explore the real costumes we have.</p><button type="button" ${chooser}>Explore characters ↗</button></div><div class="character-feature-grid">${characterPhotos.map((photo) => `<button type="button" class="character-feature-photo" data-enquiry-details="Characters" aria-label="See ${e(photo.caption)}"><img src="${e(photo.url)}" alt="" loading="lazy"></button>`).join("")}</div></div></section>`;
-}
 function renderPublic() {
   document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${characterFeature()}${referralPromo()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Find your favourite, then open the photos.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${referralPromo()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Find your favourite, then open the photos.</p></div><div class="builder-layout"><div class="cards">${catalog.packages
     .filter((p) => !p.bundleIds?.length)
     .map(showCard)
     .join(
@@ -613,7 +606,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   const photos = guestPhotos(name);
@@ -649,9 +642,9 @@ function chooseCharacter() {
           required: true,
         },
       ],
-      `<p>Pick a character you love. We’ll check the costume and your date.</p>`,
+      `<p>Pick a character you love. We’ll check the costume and your date.</p>${characterGallery()}`,
       "Ask about this character →",
-    ) + characterGallery(),
+    ),
   );
   submit(modal.querySelector("form")!, async (data) => {
     const name = String(data.get("character"));
