@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#38265e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Magic by Sam" />
+    <meta name="description" content="Add Magic by Sam to your phone's home screen." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Get Magic by Sam on your phone</title>
+    <link rel="stylesheet" href="/install.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <a class="back" href="/b/magic-by-sam">← Back to the shows</a>
+      <div class="hero">
+        <img class="icon" src="/icons/icon-192.png" width="88" height="88" alt="Magic by Sam app icon" />
+        <div><div class="eyebrow">A little magic, one tap away</div><h1>Magic on your phone.</h1></div>
+      </div>
+      <p class="lead">Add Magic by Sam to your home screen. Open your shows and account from one easy icon.</p>
+      <div class="actions">
+        <button class="button" id="install-now" type="button" hidden>Install Magic by Sam</button>
+        <a class="button secondary" href="/b/magic-by-sam">Open Magic by Sam ↗</a>
+      </div>
+      <p class="status" id="install-status" role="status" aria-live="polite"></p>
+      <div class="steps">
+        <section class="card" id="android-steps">
+          <h2>Android</h2>
+          <ol><li>Open this page in <strong>Chrome</strong>.</li><li>Tap Chrome’s <strong>three-dot menu</strong> and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li><li>Tap <strong>Install</strong> or <strong>Add</strong>.</li></ol>
+        </section>
+        <section class="card" id="iphone-steps">
+          <h2>iPhone</h2>
+          <ol><li>Open this page in <strong>Safari</strong>.</li><li>Tap <strong>Share</strong> (the square with an up arrow).</li><li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li></ol>
+        </section>
+      </div>
+      <p class="note">If you opened this link inside WhatsApp, use its menu to open it in Chrome or Safari first. The app needs internet for bookings and account details. No APK download or “install unknown apps” setting is needed.</p>
+    </main>
+    <script defer src="/install.js"></script>
+  </body>
+</html>

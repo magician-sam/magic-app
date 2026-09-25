@@ -1964,6 +1964,9 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
 
 /* Let the mobile entrance show the real performances as prominently as desktop. */
 .mobile-hero-photos { display: none; }
+.install-link { display: inline-flex; align-items: center; margin-top: 12px; padding: 10px 14px; border: 1px solid #a58ab9; border-radius: 999px; background: #f7eefb; color: #38265e; font-size: 13px; font-weight: 800; text-decoration: none; }
+.install-link:hover { background: #eadcf3; }
+.install-link:focus-visible { outline: 3px solid #bd6d19; outline-offset: 3px; }
 @media (max-width: 700px) {
   .site-header { gap: 9px; }
   .brand { min-width: 0; font-size: clamp(15px, 4vw, 19px); line-height: 1.1; }

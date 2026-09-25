@@ -67,6 +67,12 @@ Browser runner limitations and the separately verified interactive browser journ
 
 The website is deployed at https://magic-app-gray.vercel.app with a separate Turso production database. See [VERCEL.md](docs/VERCEL.md) for production checks still required.
 
+## Install on a phone
+
+Open `https://magic-app-gray.vercel.app/install.html` on the phone. On Android, use Chrome's menu → Install app or Add to Home screen. On iPhone, use Safari's Share → Add to Home Screen. This uses the HTTPS website and its existing home-screen icon; it does not require installing an APK or allowing unknown apps. The app remains online-only.
+
+The old `android-v0.1.0` GitHub debug APK is withdrawn from recommendation after a phone reported a Play Protect harmful-app warning. Do not bypass that warning. A future native Android release needs a stable release signing key, device testing and normal Play review before it is recommended to customers.
+
 ## Windows app
 
 The `desktop/` folder builds an online Windows app that opens the same live Magic App, including future website photo and content changes. It starts at `/manage`; public pages are available inside the app. It needs internet access and does not provide offline editing or automatic binary updates. Links to other websites require confirmation and open in the default browser. The installer is unsigned, so Windows may show a publisher warning.
