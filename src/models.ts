@@ -109,6 +109,9 @@ export interface Quote {
 }
 export interface Booking {
   customAnswers?: CustomAnswer[];
+  giftDetails?: { recipientName: string; message: string; flexibleDate: boolean };
+  surpriseDetails?: { guestName: string; secret: string; proposal: boolean; howWeMet: string; specialMoment: string };
+  certificate?: { starName: string; role: "magician" | "scientist" };
   id: string;
   customerId: string;
   name: string;
@@ -171,6 +174,9 @@ export interface Review {
   engagement: number;
   communication: number;
   text: string;
+  bestReaction?: string;
+  personalMoment?: string;
+  rememberedDetail?: string;
   privateFeedback: string;
   photo: string;
   photoConsent: boolean;
@@ -245,7 +251,9 @@ export interface Catalog {
     | "engagement"
     | "communication"
     | "text"
+    | "bestReaction"
+    | "personalMoment"
+    | "rememberedDetail"
     | "photo"
   >[];
 }
-

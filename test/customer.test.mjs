@@ -428,3 +428,48 @@ test("reward progress counts fully paid completed events and reverses after refu
   }
 });
 
+test("gift requests keep surprise details private and save a confirmed-event certificate", async () => {
+  const store = new Store(":memory:");
+  const business = await store.createBusiness("Gift test", "gift-test");
+  const password = "Gift-test-password-42!";
+  await createUser(store, business.id, "owner-gift@example.test", password, "Owner");
+  await createUser(store, business.id, "assistant-gift@example.test", password, "Assistant", "assistant");
+  const origin = "http://localhost:43227";
+  const server = createApp(store, origin).listen(43227, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  const request = async (path, method = "GET", body, cookie = "", eventToken = "") => {
+    const response = await fetch(origin + "/api" + path, {
+      method,
+      headers: { origin, "content-type": "application/json", cookie, "x-event-token": eventToken },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: response.status, data: await response.json(), cookie: response.headers.get("set-cookie")?.split(";")[0] };
+  };
+  try {
+    const customer = await request("/customer/gift-test/register", "POST", { name: "Gift buyer", phone: "+96170111222", password });
+    assert.equal(customer.status, 201);
+    const booking = await request("/public/gift-test/requests", "POST", { event: {
+      name: "A surprise", date: "2030-10-01", time: "14:00", location: "Family venue", occasion: "Birthday",
+      audience: 20, age: 8, indoor: true, power: true, space: 30, packageIds: ["magic"],
+      giftDetails: { recipientName: "Maya", message: "Your magical day awaits!", flexibleDate: true },
+      surpriseDetails: { guestName: "Maya", secret: "She loves blue butterflies", proposal: false, howWeMet: "", specialMoment: "Bring her onstage" },
+    } }, customer.cookie);
+    assert.equal(booking.status, 201);
+    const eventToken = booking.data.path.split("#")[1];
+    const privateEvent = await request("/event", "GET", undefined, "", eventToken);
+    assert.equal(privateEvent.data.booking.giftDetails.recipientName, "Maya");
+    assert.equal(privateEvent.data.booking.surpriseDetails, undefined);
+    const assistant = await request("/login", "POST", { email: "assistant-gift@example.test", password });
+    const assistantState = await request("/manage/state", "GET", undefined, assistant.cookie);
+    assert.equal(assistantState.data.bookings[0].surpriseDetails, undefined);
+    assert.equal((await request("/event/certificate", "POST", { starName: "Maya", role: "magician" }, "", eventToken)).status, 409);
+    const saved = await store.get(business.id, "bookings", booking.data.id);
+    await store.put(business.id, "bookings", { ...saved, status: "confirmed" });
+    assert.equal((await request("/event/certificate", "POST", { starName: "Maya", role: "magician" }, "", eventToken)).status, 200);
+    const confirmed = await request("/event", "GET", undefined, "", eventToken);
+    assert.equal(confirmed.data.booking.certificate.starName, "Maya");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    store.db.close();
+  }
+});

@@ -76,6 +76,8 @@ export const eventSchema = z.object({
   space: z.number().min(1).max(100000),
   source: short.default("direct"),
   notes: z.string().max(5000).default(""),
+  giftDetails: z.object({ recipientName: short.min(1), message: z.string().max(500), flexibleDate: z.boolean() }).optional(),
+  surpriseDetails: z.object({ guestName: z.string().max(80), secret: z.string().max(1000), proposal: z.boolean(), howWeMet: z.string().max(500), specialMoment: z.string().max(500) }).optional(),
   packageIds: z.array(short.min(1)).min(1).max(12),
   performerIds: z.array(short).max(20).default([]),
 });
@@ -328,4 +330,3 @@ export function totals(booking: Booking, money: MoneyEntry[]) {
 }
 export const normalizePhone = (value: string) =>
   value.replace(/\D/g, "").replace(/^00/, "");
-

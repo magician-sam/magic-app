@@ -338,6 +338,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         engagement: r.engagement,
         communication: r.communication,
         text: r.text,
+        bestReaction: r.bestReaction ?? "",
+        personalMoment: r.personalMoment ?? "",
+        rememberedDetail: r.rememberedDetail ?? "",
         photo: r.photoConsent ? r.photo : "",
       }));
     res.json({
@@ -519,6 +522,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         packageIds,
         performerIds,
         revision,
+        giftDetails: booking.giftDetails,
+        certificate: booking.certificate,
         customAnswers: booking.customAnswers ?? [],
       },
       packages,
@@ -535,7 +540,18 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       reviewed: (await store.all<Review>(business.id, "reviews"))
         .filter((r) => r.bookingId === id)
         .map((r) => r.performerId),
+      startsAt: DateTime.fromISO(`${booking.date}T${booking.time}`, { zone: business.timezone }).toUTC().toISO(),
     });
+  });
+  writes.post("/api/event/certificate", async (req, res) => {
+    const { business, booking } = await eventAccess(req);
+    requireThat(["confirmed", "completed"].includes(booking.status), "Certificates are available after the event is confirmed.", 409);
+    const certificate = z.object({ starName: short.min(1).max(80), role: z.enum(["magician", "scientist"]) }).parse(req.body);
+    await store.transaction(async () => {
+      await store.put(business.id, "bookings", { ...booking, certificate, updatedAt: new Date().toISOString() });
+      await store.audit(business.id, "customer", "certificate.saved", booking.id, booking.certificate ?? null, certificate);
+    });
+    res.json({ certificate });
   });
   writes.post("/api/event/accept", async (req, res) => {
     const { business, booking } = await eventAccess(req);
@@ -649,6 +665,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         engagement: star,
         communication: star,
         text: z.string().max(3000),
+        bestReaction: z.string().max(500).default(""),
+        personalMoment: z.string().max(500).default(""),
+        rememberedDetail: z.string().max(500).default(""),
         privateFeedback: z.string().max(3000),
         photo: url,
         photoConsent: z.boolean(),
@@ -917,6 +936,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     result.enquiries = req.user.role === "performer"
       ? []
       : await store.all<ServiceEnquiry>(bid, "enquiries");
+    if (req.user.role === "assistant")
+      result.bookings = (result.bookings as Booking[]).map((booking) => ({ ...booking, surpriseDetails: undefined }));
     if (req.user.role === "performer") {
       const assigned = (await store.all<Booking>(bid, "bookings")).filter((b) =>
         b.performerIds.includes(req.user.performerId ?? ""),
@@ -927,6 +948,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         acceptedQuoteId: "",
         customerId: "",
         notes: "",
+        surpriseDetails: undefined,
         backupPerformerIds: [],
       }));
       for (const k of [
@@ -2285,4 +2307,3 @@ if (
 export default process.env.VERCEL
   ? createApp(storeFromEnvironment(), applicationOrigin())
   : undefined;
-
