@@ -870,111 +870,89 @@ async function requestForm() {
   });
 }
 function helpChoose() {
-  const fields: Field[] = [
-    {
-      key: "occasion",
-      label: "What are we celebrating?",
-      type: "select",
-      options: options([
-        "Birthday",
-        "School event",
-        "Family celebration",
-        "Private party",
-        "Corporate event",
-        "Date night",
-        "Just because",
-      ]),
-    },
-    {
-      key: "guests",
-      label: "How many guests?",
-      type: "number",
-      value: 20,
-      min: 1,
-      max: 10000,
-      required: true,
-    },
-    {
-      key: "feeling",
-      label: "What feeling would you like?",
-      type: "select",
-      options: options(["Make everyone laugh", "Leave everyone speechless", "Create a personal moment", "A high-energy party"]),
-    },
-    {
-      key: "space",
-      label: "Approximate space for performers (m²)",
-      type: "number",
-      value: 20,
-      min: 1,
-      required: true,
-    },
-    {
-      key: "budget",
-      label: "Optional package budget (USD)",
-      type: "number",
-      min: 0,
-      step: "0.01",
-    },
-    { key: "indoor", label: "Indoor venue", type: "checkbox", value: true },
-    {
-      key: "power",
-      label: "Electricity available",
-      type: "checkbox",
-      value: true,
-    },
+  const occasions = [
+    ["🎂", "Birthday"], ["💍", "Wedding"], ["🎉", "Private party"],
+    ["🏢", "Corporate event"], ["🏫", "School event"], ["✨", "Just because"],
   ];
-  openDialog(
-    "Choose your kind of wonder",
-    formBody(
-      fields,
-      '<p class="privacy">We’ll suggest a few ideas. You can still explore every show and build your own event.</p>',
-      "Show me ideas →",
-    ),
-  );
-  submit(modal.querySelector("form")!, async (data) => {
-    const budget = Number(data.get("budget")) * 100;
-    const matches = catalog.packages.filter(
-      (p) =>
-        (!p.indoorOnly || data.has("indoor")) &&
-        (!p.needsPower || data.has("power")) &&
-        Number(data.get("space")) >= p.minSpace &&
-        (!budget || p.priceMode === "quote" || p.price <= budget),
-    );
-    const occasion = String(data.get("occasion"));
-    const feeling = String(data.get("feeling"));
+  const guestGroups = [["👨‍👩‍👧", "1–20"], ["🥳", "21–50"], ["🎪", "More than 50"]];
+  const feelings = [
+    ["😂", "Make everyone laugh"], ["😮", "Leave everyone speechless"],
+    ["❤️", "Create a personal moment"], ["🔥", "A high-energy party"],
+  ];
+  const answers = { occasion: "", guests: "", feeling: "" };
+  const steps = [
+    { title: "What are you celebrating?", choices: occasions, key: "occasion" },
+    { title: "How many guests?", choices: guestGroups, key: "guests" },
+    { title: "What feeling do you want?", choices: feelings, key: "feeling" },
+  ] as const;
+  const showResults = () => {
+    const category = (p: Package) => p.category.toLowerCase();
     const score = (p: Package) =>
-      Number(occasion === "School event" && p.category.toLowerCase() === "science") * 3 +
-      Number(["Date night", "Corporate event", "Private party"].includes(occasion) && !!p.adultShow) * 3 +
-      Number(feeling === "Leave everyone speechless" && p.category.toLowerCase() === "magic") * 2 +
-      Number(feeling === "Create a personal moment" && p.category.toLowerCase() === "magic") * 2 +
-      Number(feeling === "Make everyone laugh" && p.category.toLowerCase() === "magic") +
-      Number(feeling === "A high-energy party" && p.category.toLowerCase() === "science");
-    matches.sort((a, b) => score(b) - score(a));
-    const guestSuggestions = feeling === "A high-energy party"
+      Number(answers.occasion === "School event" && category(p) === "science") * 5 +
+      Number(["Wedding", "Private party", "Corporate event"].includes(answers.occasion) && !!p.adultShow) * 3 +
+      Number(answers.occasion === "Birthday" && category(p) === "bubbles") * 2 +
+      Number(answers.feeling === "Make everyone laugh" && ["bubbles", "magic"].includes(category(p))) * 3 +
+      Number(answers.feeling === "Leave everyone speechless" && ["magic", "science"].includes(category(p))) * 3 +
+      Number(answers.feeling === "Create a personal moment" && category(p) === "magic") * 3 +
+      Number(answers.feeling === "A high-energy party" && category(p) === "science") * 3;
+    const ranked = catalog.packages
+      .filter((p) => !p.bundleIds?.length && !p.checkoutExtra)
+      .sort((a, b) => score(b) - score(a));
+    const featured: Package[] = [];
+    for (const p of ranked) {
+      if (featured.length === 3) break;
+      if (!featured.some((chosen) => category(chosen) === category(p))) featured.push(p);
+    }
+    for (const p of ranked) {
+      if (featured.length === 3) break;
+      if (!featured.includes(p)) featured.push(p);
+    }
+    const ideas = answers.occasion === "School event"
+      ? ["Juggling", "Clown", "Balloon Twisting", "Children's Workshops"]
+      : answers.feeling === "A high-energy party"
       ? ["BMX Show", "Juggling", "Live Music & Parades", "LED Dancing Suits"]
-      : feeling === "Make everyone laugh"
+      : answers.feeling === "Make everyone laugh"
         ? ["Clown", "Juggling", "Balloon Twisting", "Characters"]
-        : feeling === "Create a personal moment"
-          ? ["Close-up Magic", "Caricaturist", "Characters", "Decoration"]
+        : answers.feeling === "Create a personal moment"
+          ? ["Close-up Magic", "Caricaturist", "Decoration", "Characters"]
           : ["Close-up Magic", "Aerial Show", "Fire Show", "Juggling"];
+    const availableIdeas = moreShowNames();
     openDialog(
-      "Ideas made for your day",
-      matches.length
-        ? `<p class="hint">For ${e(occasion.toLowerCase())} with ${e(String(data.get("guests")))} guests · ${e(feeling.toLowerCase())}.</p>${matches.map((p) => `<div class="row"><div><h3>${e(p.name)}</h3><p>${p.duration} minutes · ${e(price(p))}</p></div><button data-recommend="${p.id}" class="small">Add to event box</button></div>`).join("")}<h3>More ideas to explore</h3>${guestSuggestions.map((name) => `<button type="button" class="outline small idea-button" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}<p class="privacy">We will check each performer, venue and price before confirming your event.</p>`
-        : empty(
-            "Let’s tailor something for you",
-            "No published show matches all those details. Try another venue setup or contact us using the links on the website.",
-          ),
+      "A few ideas for your day",
+      `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
+        const photo = showPhotos(p)[0];
+        return `<article class="chooser-result">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(p.name)}</h3><small>${p.duration} min · ${e(price(p))}</small><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button></div></article>`;
+      }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? `<h3>Something extra?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => `<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
     on(modal, "[data-recommend]", "click", (ev) => {
       const key = (ev.currentTarget as HTMLElement).dataset.recommend!;
-      if (!basket.includes(key)) basket.push(key);
-      renderPublic();
-      modal.close();
-      notify("Added to your event box.");
+      if (togglePackage(key)) modal.close();
     });
     on(modal, "[data-guest-idea]", "click", (ev) => enquiryDetails((ev.currentTarget as HTMLElement).dataset.guestIdea!));
-  });
+    on(modal, "#chooser-restart", "click", () => showStep(0));
+    on(modal, "#chooser-all", "click", () => {
+      modal.close();
+      document.querySelector("#shows")?.scrollIntoView({ behavior: "smooth" });
+    });
+  };
+  const showStep = (index: number) => {
+    const step = steps[index];
+    openDialog(
+      "Find your kind of wow",
+      `<div class="chooser"><p class="chooser-progress">${index + 1} of 3</p><div class="chooser-progress-track"><span class="step-${index + 1}"></span></div><h3>${e(step.title)}</h3><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option" data-chooser-choice="${e(label)}"><span aria-hidden="true">${icon}</span>${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
+    );
+    on(modal, "[data-chooser-choice]", "click", (ev) => {
+      answers[step.key] = (ev.currentTarget as HTMLElement).dataset.chooserChoice!;
+      if (index === 2) showResults();
+      else showStep(index + 1);
+    });
+    on(modal, "#chooser-back", "click", () => showStep(index - 1));
+    on(modal, "#chooser-all", "click", () => {
+      modal.close();
+      document.querySelector("#shows")?.scrollIntoView({ behavior: "smooth" });
+    });
+  };
+  showStep(0);
 }
 
 function customerAuth(orderAfter = false, register = true) {

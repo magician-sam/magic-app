@@ -90,16 +90,18 @@ test("mobile event builder fits viewport and help chooser adds a suitable show",
   await expect(
     page.getByLabel("Main audience age", { exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Find my shows" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Birthday" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "21–50" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Make everyone laugh" }).click();
   await expect(
     page
       .locator("#modal")
       .getByRole("heading", { name: "Bubbles & daydreams" }),
   ).toBeVisible();
   await page
-    .locator("#modal .row")
+    .locator("#modal .chooser-result")
     .filter({ hasText: "Bubbles & daydreams" })
-    .getByRole("button", { name: "Add to event box" })
+    .getByRole("button", { name: "Add to my event" })
     .click();
   await expect(page.locator("#event-box")).toContainText("Bubbles & daydreams");
   expect(
