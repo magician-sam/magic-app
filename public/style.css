@@ -2128,3 +2128,9 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
 .chooser-progress-track .step-4 { width: 80%; }
 .chooser-progress-track .step-5 { width: 100%; }
 .recommendation-reason { font-size: 13px; line-height: 1.45; color: #59496a; }
+.adult-magic-feature { display: grid; grid-template-columns: minmax(230px, 38%) 1fr; gap: clamp(22px, 4vw, 55px); align-items: center; padding: 28px; border-radius: 28px; background: #f3ebf7; }
+.adult-magic-feature > img { width: 100%; height: 330px; object-fit: cover; object-position: center 30%; border-radius: 20px; }
+.adult-magic-feature h2 { margin: 10px 0 16px; }
+.adult-magic-feature p { max-width: 52ch; line-height: 1.6; color: #483859; }
+.adult-magic-feature .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+@media (max-width: 700px) { .adult-magic-feature { grid-template-columns: 1fr; padding: 18px; } .adult-magic-feature > img { height: 245px; } .adult-magic-feature .actions > * { flex: 1 1 100%; } }

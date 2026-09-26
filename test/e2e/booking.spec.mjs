@@ -21,7 +21,11 @@ test("show details keep the first line and close button visible", async ({ page 
 test("customer request, owner quote, customer acceptance and owner confirmation", async ({
   browser,
 }) => {
-  const eventName = `Browser celebration ${Date.now()}`;
+  const runId = Date.now();
+  const eventName = `Browser celebration ${runId}`;
+  const eventDate = new Date(runId + (60 + (runId % 3000)) * 86400000)
+    .toISOString()
+    .slice(0, 10);
   const customer = await browser.newContext();
   const page = await customer.newPage();
   const errors = [];
@@ -42,7 +46,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await page
     .getByLabel("Event name", { exact: true })
     .fill(eventName);
-  await page.getByLabel("Event date", { exact: true }).fill("2027-07-10");
+  await page.getByLabel("Event date", { exact: true }).fill(eventDate);
   await page.getByLabel(/Show start time/).fill("14:00");
   await page.getByLabel("Venue / location").fill("Browser test venue");
   await page.getByRole("button", { name: "Send my event request" }).click();
@@ -88,6 +92,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await expect(page.locator(".event-page > .badge")).toHaveText("Accepted");
   await admin.getByRole("button", { name: "Close dialog" }).click();
   await admin.reload();
+  await admin.getByRole("button", { name: "Events & requests", exact: true }).click();
   await admin.locator(".row").filter({ hasText: eventName }).getByRole("button", { name: "Open event" }).click();
   await admin
     .getByRole("button", { name: "Confirm booking", exact: true })
