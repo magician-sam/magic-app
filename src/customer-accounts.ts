@@ -8,6 +8,7 @@ import type { Booking, Customer } from "./models.js";
 import { customerRewards, type CustomerExtras } from "./rewards.js";
 import { rewardView, type RewardAward } from "./reward-ledger.js";
 import { tokenWallet } from "./tokens.js";
+import { referralCodeFor, resolveReferral } from "./referral-codes.js";
 
 export function customerAccounts(
   app: Express,
@@ -72,15 +73,9 @@ export function customerAccounts(
         referralCode: z.string().max(64).default(""),
       })
       .parse(req.body);
-    const referrer = input.referralCode
-      ? await store.db
-          .prepare(
-            "SELECT customer_id FROM customer_accounts WHERE business_id=? AND id=?",
-          )
-          .get(b.id, input.referralCode)
-      : undefined;
+    const referrerId = await resolveReferral(store, b.id, input.referralCode);
     requireThat(
-      !input.referralCode || referrer,
+      referrerId !== null,
       "Referral code not found for this business.",
     );
     const password = await passwordHash(input.password);
@@ -105,7 +100,7 @@ export function customerAccounts(
       await store.put<CustomerExtras>(b.id, "customerExtras", {
         id: customerId,
         childrenAges: [],
-        referredBy: referrer ? String(referrer.customer_id) : "",
+        referredBy: referrerId,
       });
       await store.db
         .prepare(
@@ -162,7 +157,7 @@ export function customerAccounts(
     requireThat(c, "Customer record unavailable", 404);
     res.json({
       username: account.username,
-      referralCode: account.id,
+      referralCode: await referralCodeFor(store, b.id, account.id),
       rewards: {
         ...(await customerRewards(store, b.id, c)),
         tokens: await tokenWallet(store, b.id, c.id),
@@ -342,4 +337,3 @@ export function customerAccounts(
   });
   return session;
 }
-

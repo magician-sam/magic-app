@@ -1,4 +1,23 @@
 import { test, expect } from "@playwright/test";
+test("show details keep the first line and close button visible", async ({ page }) => {
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 820 });
+    await page.goto("/");
+    await page.locator('[data-enquiry-details="Animation"]').first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Animation" })).toBeVisible();
+    const positions = await dialog.evaluate((node) => ({
+      headingBottom: node.querySelector(".dialog-heading").getBoundingClientRect().bottom,
+      firstLineTop: node.querySelector(".show-detail .eyebrow").getBoundingClientRect().top,
+      headingHeight: node.querySelector(".dialog-heading").getBoundingClientRect().height,
+    }));
+    expect(positions.firstLineTop).toBeGreaterThanOrEqual(positions.headingBottom);
+    expect(positions.headingHeight).toBeLessThan(75);
+    await dialog.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+    await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeInViewport();
+    await dialog.getByRole("button", { name: "Close dialog" }).click();
+  }
+});
 test("customer request, owner quote, customer acceptance and owner confirmation", async ({
   browser,
 }) => {
@@ -7,7 +26,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Make room/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Make your day/ })).toBeVisible();
   await page.locator('#shows [data-add="magic"]').click();
   await page.getByRole("button", { name: "Request my event" }).click();
   await page
@@ -15,9 +34,9 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
     .fill("Browser test family");
   await page.getByLabel("Phone / WhatsApp").fill("+96170011223");
   await page.getByLabel("Choose a password").fill("Customer-browser-test-42!");
-  await page
-    .getByRole("button", { name: "Create my customer account" })
-    .click();
+  await expect(page.getByText("Your 1 chosen show is still in your event box.")).toBeVisible();
+  await page.getByRole("button", { name: "Create account & continue" }).click();
+  await expect(page.getByText("Still in your event box: A little hocus pocus")).toBeVisible();
   await page
     .getByLabel("Event name", { exact: true })
     .fill("Browser test celebration");

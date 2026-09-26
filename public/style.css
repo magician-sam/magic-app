@@ -1025,7 +1025,7 @@ dialog {
   scroll-padding-top: 100px;
   border: 0;
   border-radius: 23px;
-  padding: 30px;
+  padding: 0 30px 30px;
   color: var(--ink);
   box-shadow: 0 30px 100px #271b4540;
   background: #fffdf8;
@@ -1040,19 +1040,19 @@ dialog::backdrop {
   top: 0;
   display: flex;
   justify-content: space-between;
-  align-items: start;
+  align-items: center;
   gap: 20px;
-  margin: -30px -30px 20px;
-  padding: 18px 30px;
+  margin: 0 -30px 14px;
+  padding: 10px 30px;
   border-bottom: 1px solid var(--line);
   border-radius: 23px 23px 0 0;
   background: #fffdf8;
 }
 .field { scroll-margin-top: 108px; }
 .dialog-heading h2 { line-height: 1.12; }
-.dialog-heading + form { padding-top: 24px; }
+.dialog-heading + form { padding-top: 8px; }
 .dialog-heading h2 {
-  font-size: 30px;
+  font-size: 25px;
   margin: 0;
 }
 .dialog-heading .close {
@@ -1890,7 +1890,9 @@ button.show-art:hover { transform: none; }
 .show-body button.show-title:hover { color: var(--purple); transform: none; }
 .show-body .show-media-note { min-height: 0; margin: 10px 0; color: var(--purple); font-weight: 700; }
 .show-body button[data-show-details].outline { margin-bottom: 8px; }
+.show-detail { display: flow-root; padding-top: 8px; }
 .show-detail > p { line-height: 1.65; }
+.show-detail > p:first-child { margin-top: 0; }
 .show-detail section { margin: 24px 0; }
 .show-detail h3 { font: normal 23px Georgia, serif; margin-bottom: 12px; }
 .show-detail-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 14px; }
@@ -1991,6 +1993,34 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
 
 /* Let the mobile entrance show the real performances as prominently as desktop. */
 .mobile-hero-photos { display: none; }
+.hero-gallery { min-width: 0; height: 440px; display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 8px; position: relative; padding: 8px; padding-bottom: 34px; border-radius: 90px 90px 24px 24px; background: #e9dcf2; overflow: hidden; box-shadow: 0 14px 0 #e8dcf0; }
+.hero-gallery img { width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 15px; }
+.hero-gallery img:first-child { grid-row: span 2; object-position: center 35%; }
+.hero-gallery span { position: absolute; left: 20px; bottom: 8px; color: #352247; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.catalog-list { min-width: 0; }
+.catalog-list .show-search { margin-bottom: 24px; }
+.show-group { margin: 0 0 32px; scroll-margin-top: 80px; }
+.show-group h3 { margin: 0 0 14px; font: normal clamp(26px, 3vw, 34px)/1.1 Georgia, serif; color: #352247; }
+.show-group[hidden] { display: none; }
+.show-jump { display: flex; flex-wrap: wrap; gap: 9px; margin: 0 0 18px; }
+.show-jump a { display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 999px; background: #f0e8f8; color: #352247; font-weight: 800; font-size: 13px; text-decoration: none; }
+.show-jump a:hover { background: #e3d2f2; }
+.show-jump a:focus-visible { outline: 3px solid #bd6d19; outline-offset: 2px; }
+.show-proof { display: flex; align-items: center; gap: 14px; max-width: 760px; margin: 0 0 24px; padding: 9px 15px 9px 9px; background: #f2eaf7; border-radius: 18px; }
+.show-proof img { width: 74px; height: 74px; border-radius: 12px; object-fit: cover; }
+.show-proof div { display: grid; gap: 4px; }
+.show-proof strong { color: #352247; }
+.show-proof span { color: #554761; font-size: 13px; line-height: 1.4; }
+.bundle-ideas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.bundle-idea { display: grid; align-content: start; gap: 10px; padding: 22px; border: 1px solid #dfd2e8; border-radius: 20px; background: #fffdf7; }
+.bundle-idea h3 { margin: 0; font: normal 26px/1.1 Georgia, serif; }
+.bundle-idea p { margin: 0; line-height: 1.45; }
+.bundle-idea small { color: #63536e; }
+.bundle-idea button { margin-top: auto; }
+.referral-code-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.referral-code-line strong { font: 800 20px/1.2 ui-monospace, monospace; letter-spacing: .08em; padding: 7px 10px; border-radius: 8px; background: #f0e8f8; }
+.signup-progress { display: grid; gap: 4px; margin: 0 0 18px; padding: 13px 15px; border-radius: 14px; background: #f0e8f8; color: #352247; line-height: 1.4; }
+.signup-progress span { font-size: 13px; }
 .install-link { display: inline-flex; align-items: center; margin-top: 12px; padding: 10px 14px; border: 1px solid #a58ab9; border-radius: 999px; background: #f7eefb; color: #38265e; font-size: 13px; font-weight: 800; text-decoration: none; }
 .install-link:hover { background: #eadcf3; }
 .install-link:focus-visible { outline: 3px solid #bd6d19; outline-offset: 3px; }
@@ -2009,6 +2039,7 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
   .hero .actions .button, .hero .actions button { flex: 1 1 150px; min-height: 48px; text-align: center; }
   .hero .micro { color: #584b62; font-size: 12px; }
   .hero .stage { display: none; }
+  .hero-gallery { display: none; }
   .mobile-hero-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; position: relative; padding: 7px; padding-bottom: 32px; border-radius: 18px; background: #e9dcf2; overflow: hidden; }
   .mobile-hero-photos img { width: 100%; height: clamp(145px, 43vw, 245px); object-fit: cover; border-radius: 12px; }
   .mobile-hero-photos img:nth-child(2) { transform: translateY(10px); }
@@ -2024,10 +2055,15 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
   .token-ladder b { font-size: 15px; }
   .token-ladder b small { display: none; }
   .token-ladder strong { font-size: 10px; line-height: 1.15; text-align: center; }
-  dialog { width: calc(100% - 16px); max-height: calc(100dvh - 16px); padding: 22px; scroll-padding-top: 88px; }
-  .dialog-heading { margin: -22px -22px 20px; padding: 14px 22px; align-items: center; }
-  .dialog-heading h2 { font-size: clamp(23px, 6vw, 30px); }
+  dialog { width: calc(100% - 16px); max-height: calc(100dvh - 16px); padding: 0 22px 22px; scroll-padding-top: 64px; }
+  .dialog-heading { margin: 0 -22px 12px; padding: 8px 22px; align-items: center; }
+  .dialog-heading h2 { font-size: clamp(21px, 5vw, 25px); }
   .field { scroll-margin-top: 90px; }
   .field input, .field select, .field textarea { font-size: 16px; }
+  .bundle-ideas { grid-template-columns: 1fr; }
+  .show-jump { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .show-jump a { flex: none; font-size: 12px; }
+  .show-proof { align-items: flex-start; }
+  .show-proof img { width: 64px; height: 64px; }
   .form-actions button[type=submit] { width: 100%; min-height: 49px; }
 }

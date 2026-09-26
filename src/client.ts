@@ -474,17 +474,39 @@ function togglePackage(key: string) {
 function samProfile() {
   return `<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Sam is a magician and a member of the International Magicians Society. He personally performs the Magic, Science and Bubbles shows, bringing guests into the fun and making each celebration feel like its own story.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
 }
+function guestCatalogGroups() {
+  const names = moreShowNames();
+  const party = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Decoration", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
+  const groups = [
+    { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
+    { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name)) },
+  ];
+  return groups.map((group) => `<section class="show-group" id="${group.id}"><h3>${group.title}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
+}
+function bundleIdeas() {
+  const byCategory = (name: string) => catalog.packages.find((p) => p.active && !p.bundleIds?.length && p.category.toLowerCase() === name);
+  const magic = byCategory("magic"), science = byCategory("science"), bubbles = byCategory("bubbles");
+  return [
+    { title: "Magic & bubbles", note: "Two favourites for a joyful birthday.", shows: [magic, bubbles] },
+    { title: "Magic & science", note: "Wonder and discovery in one event.", shows: [magic, science] },
+    { title: "Science & bubbles", note: "Hands-on curiosity meets big smiles.", shows: [science, bubbles] },
+  ].filter((idea) => idea.shows.every(Boolean)).map((idea) => `<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${idea.title}</h3><p>${idea.note}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
+}
 function renderPublic() {
-  document.title = `${catalog.business.name} · Make room for wonder`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Small moments. Big memories.</div><h1>Make room<br>for a little<br><em>wonder.</em></h1><p>${e(catalog.business.intro)}</p><div class="actions"><a class="button" href="#shows">Let’s build your event <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Birthdays, school days & just-because days.</div><a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="stage" role="img" aria-label="A playful illustrated theatre with a magician’s hat, wand, stars and bubbles"><span class="big-star">✦</span><span class="tiny-star">✧</span><span class="tiny-star second">✦</span><div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div><div class="wand"></div><div class="hat"></div><span class="stage-caption">LET THE HAPPY HAPPEN</span><span class="floating-ticket">One event.<br>So many possibilities.</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div>${referralPromo()}<section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Find your favourite, then open the photos.</p></div><div class="builder-layout"><div class="cards"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div>${catalog.packages
+  document.title = `${catalog.business.name} · Live shows for your celebration`;
+  const defaultIntro = "A little wonder. A lot of happy memories. Magic, science and bubbles, brought together for your celebration.";
+  const heroIntro = catalog.business.intro === defaultIntro
+    ? "Magic, science, bubbles and characters for birthdays, schools and special events."
+    : catalog.business.intro;
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Real shows. Real smiles.</div><h1>Make your day<br><em>magical.</em></h1><p>${e(heroIntro)}</p><div class="actions"><a class="button" href="#shows">See the shows <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Choose your favourites. Request a personal quote.</div><a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="hero-gallery" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at a celebration" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Magic by Sam · Live moments</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Choose a show. We’ll check the details with you.</p></div><nav class="show-jump" aria-label="Browse show groups"><a href="#sam-shows">Sam’s shows</a><a href="#party-shows">Characters & party fun</a><a href="#special-acts">Special acts</a></nav><div class="show-proof"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam performing at a real event" loading="lazy"><div><strong>Meet Sam on stage.</strong><span>Sam personally performs the Magic, Science and Bubbles shows. Explore real event photos on each card.</span></div></div><div class="builder-layout"><div class="catalog-list"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div><section class="show-group" id="sam-shows"><h3>Sam’s signature shows</h3><div class="cards">${catalog.packages
     .filter((p) => !p.bundleIds?.length)
     .map(showCard)
     .join(
       "",
-    )}${moreShowNames().map(enquiryCard).join("")}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Choose a ready-made offer, or pick two or more shows and ask us for a bundle discount.</p></div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Your favourite shows, together.</strong><p>Add shows to your event box and tick “Ask for a bundle discount.” We’ll send you a personal proposal.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
+    )}</div></section>${guestCatalogGroups()}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Pick a pair of shows below, or make your own mix. We’ll send a personal quote.</p></div><div class="bundle-ideas">${bundleIdeas()}</div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Your favourite shows, together.</strong><p>Add two or more shows to your event box and ask for a bundle discount.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
-          .join("")}</div></section><section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
+          .join("")}</div></section>${referralPromo()}<section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
     catalog.packages
       .filter((p) => p.adultShow ?? p.category.toLowerCase() === "magic")
       .map(showCard)
@@ -550,14 +572,25 @@ function renderPublic() {
   });
   on(app, "#find-show", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim().toLocaleLowerCase();
-    const cards = [...app.querySelectorAll<HTMLElement>("[data-guest-name]")];
+    const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card")];
     let found = 0;
     for (const card of cards) {
-      card.hidden = !card.dataset.guestName?.includes(query);
+      card.hidden = !card.textContent?.toLocaleLowerCase().includes(query);
       if (!card.hidden) found++;
     }
+    app.querySelectorAll<HTMLElement>("#shows .show-group").forEach((group) => {
+      group.hidden = !group.querySelector(".show-card:not([hidden])");
+    });
     const count = app.querySelector("#show-search-count");
-    if (count) count.textContent = query ? `${found} guest show${found === 1 ? "" : "s"} found` : "";
+    if (count) count.textContent = query ? `${found} show${found === 1 ? "" : "s"} found` : "";
+  });
+  on(app, "[data-bundle-idea]", "click", (ev) => {
+    const keys = (ev.currentTarget as HTMLElement).dataset.bundleIdea!.split(",");
+    basket = [...new Set([...basket, ...keys])];
+    requestBundleDiscount = true;
+    renderPublic();
+    document.querySelector("#event-box")?.scrollIntoView({ behavior: "smooth" });
+    notify("Both shows are in your event box. Bundle discount requested.");
   });
   on(app, "[data-add]", "click", (ev) => {
     togglePackage((ev.currentTarget as HTMLElement).dataset.add!);
@@ -624,7 +657,24 @@ function enquiryCard(name: string) {
         ? "Balloon backdrops and themed setups, made for your day."
       : /live music/i.test(name)
         ? "Live performers and colorful parades for your event."
-      : "See photos. Ask us about availability and price.";
+      : ([
+          [/character/i, "Favourite costumes make a big entrance."],
+          [/animation/i, "Lively party activities that keep guests involved."],
+          [/face paint|glitter/i, "Colourful looks for your party guests."],
+          [/balloon twist/i, "Playful balloon creations for the celebration."],
+          [/clown/i, "Big laughs and cheerful party moments."],
+          [/juggl/i, "Fast-moving tricks and colourful props."],
+          [/bmx/i, "Bicycle tricks for a high-energy moment."],
+          [/stilt/i, "A towering welcome guests will notice."],
+          [/led dancing/i, "Glowing costumes bring energy to the party."],
+          [/dog show/i, "A playful performance for animal-loving guests."],
+          [/aerial|acrobat|chair balance/i, "A standout act for a memorable moment."],
+          [/football/i, "Football-themed entertainment for your event."],
+          [/fire show/i, "A dramatic act for suitable venues."],
+          [/caricatur/i, "A personal keepsake made at the event."],
+          [/mime|human statue/i, "Visual entertainment that surprises your guests."],
+          [/circus parade/i, "A lively entrance full of colour and movement."],
+        ] as const).find(([match]) => match.test(name))?.[1] ?? "Ask us what this act could bring to your day.";
   const icon = ([
     [/carnival games?/i, "🎯"],
     [/children.?s workshops?|kids.? workshops?/i, "🧪"],
@@ -819,8 +869,8 @@ async function requestForm() {
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
   const giftExtras = `<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
   openDialog(
-    "Let’s make a happy day.",
-    formBody(
+    "Tell us about your event",
+    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}</span></p>` + formBody(
       [
         ...fields,
         ...questions.map((f) => ({
@@ -968,16 +1018,16 @@ function customerAuth(orderAfter = false, register = true) {
         },
         {
           key: "referralCode",
-          label: "Referral code (optional)",
+          label: "Friend’s 10-character code (optional)",
           value: new URLSearchParams(location.search).get("ref") ?? "",
         },
         {
           key: "username",
-          label: "Your username",
+          label: "Your sign-in name",
           value: `guest-${crypto.randomUUID().slice(0, 8)}`,
           autocomplete: "username",
           required: true,
-          help: "We picked one for you. Keep it or choose your own.",
+          help: "We picked one for you. Save it for signing in later, or choose your own.",
         },
         {
           key: "password",
@@ -1002,11 +1052,11 @@ function customerAuth(orderAfter = false, register = true) {
         },
       ];
   openDialog(
-    register ? "Your next happy memory starts here" : "Welcome back to the fun",
-    formBody(
+    register ? (orderAfter ? "Your shows are saved" : "Your next happy memory starts here") : "Welcome back to the fun",
+    (register && orderAfter ? `<p class="signup-progress"><strong>1 of 2 · Create your account</strong><span>Your ${basket.length} chosen show${basket.length === 1 ? " is" : "s are"} still in your event box. Next, tell us about your day.</span></p>` : "") + formBody(
       fields,
-      '<p class="privacy">Your account shows only your own events. Email and children’s details are optional. Phone verification is not connected yet; keep your username and password safe.</p>',
-      register ? "Create my customer account" : "Sign in",
+      '<p class="privacy">Your account shows only your own events. Keep your sign-in name and password safe. Phone verification is not connected yet.</p>',
+      register ? (orderAfter ? "Create account & continue →" : "Create my customer account") : (orderAfter ? "Sign in & continue →" : "Sign in"),
     ) +
       '<button class="link" id="switch-customer-auth">' +
       (register
@@ -1034,7 +1084,10 @@ function customerAuth(orderAfter = false, register = true) {
       notify(
         `Your username is ${result.username}. Save it or change it in My account.`,
       );
-    if (orderAfter) await requestForm();
+    if (orderAfter) {
+      notify("Account ready. Your chosen shows are still in the box.");
+      await requestForm();
+    }
     else await customerAccount();
   });
 }
@@ -1354,9 +1407,9 @@ async function customerAccount() {
             "</div>",
         )
         .join("") || "<p>No rewards issued yet.</p>") +
-      "<p>Your referral code: <strong>" +
+      "<p class=\"referral-code-line\">Your referral code: <strong>" +
       e(account.referralCode) +
-      '</strong></p><p><a href="' +
+      '</strong> <button type="button" class="outline small" id="copy-referral-code">Copy code</button></p><p><a href="' +
       e(invitationLink) +
       '">Open my invitation link ↗</a> <button type="button" class="outline small" id="copy-referral-link">Copy invitation link</button></p>' +
       account.bookings.filter((b) => b.status === "confirmed").map((b) => `<div class="account-milestone"><strong>✦ ${e(b.name)} is confirmed!</strong><span>Your countdown and assistant certificate are ready.</span><button type="button" class="small" data-customer-event="${e(b.id)}">Open my event ↗</button></div>`).join("") +
@@ -1393,6 +1446,10 @@ async function customerAccount() {
   on(modal, "#copy-referral-link", "click", async () => {
     await navigator.clipboard.writeText(invitationLink);
     notify("Invitation link copied. Paste it into WhatsApp to invite a friend.");
+  });
+  on(modal, "#copy-referral-code", "click", async () => {
+    await navigator.clipboard.writeText(account.referralCode);
+    notify("Short referral code copied.");
   });
   on(modal, "[data-announcement]", "click", (event) => {
     const entry = event.currentTarget as HTMLElement;

@@ -22,6 +22,9 @@ export class Store {
         id TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id),
         customer_id TEXT NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL,
         UNIQUE(business_id, username));
+      CREATE TABLE IF NOT EXISTS referral_codes (
+        code TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id),
+        account_id TEXT UNIQUE NOT NULL REFERENCES customer_accounts(id));
       CREATE TABLE IF NOT EXISTS customer_sessions (
         hash TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES customer_accounts(id), expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS customer_resets (
