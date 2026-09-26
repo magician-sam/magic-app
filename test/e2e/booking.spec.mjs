@@ -21,6 +21,7 @@ test("show details keep the first line and close button visible", async ({ page 
 test("customer request, owner quote, customer acceptance and owner confirmation", async ({
   browser,
 }) => {
+  const eventName = `Browser celebration ${Date.now()}`;
   const customer = await browser.newContext();
   const page = await customer.newPage();
   const errors = [];
@@ -33,21 +34,22 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
     .getByLabel("Your name", { exact: true })
     .fill("Browser test family");
   await page.getByLabel("Phone / WhatsApp").fill("+96170011223");
+  await page.getByLabel("Your sign-in name").fill(`browser_${Date.now()}`);
   await page.getByLabel("Choose a password").fill("Customer-browser-test-42!");
   await expect(page.getByText("Your 1 chosen show is still in your event box.")).toBeVisible();
   await page.getByRole("button", { name: "Create account & continue" }).click();
   await expect(page.getByText("Still in your event box: A little hocus pocus")).toBeVisible();
   await page
     .getByLabel("Event name", { exact: true })
-    .fill("Browser test celebration");
+    .fill(eventName);
   await page.getByLabel("Event date", { exact: true }).fill("2027-07-10");
   await page.getByLabel(/Show start time/).fill("14:00");
   await page.getByLabel("Venue / location").fill("Browser test venue");
   await page.getByRole("button", { name: "Send my event request" }).click();
   await expect(
-    page.getByRole("heading", { name: "Browser test celebration" }),
+    page.getByRole("heading", { name: eventName }),
   ).toBeVisible();
-  const eventUrl = page.url();
+
   const staff = await browser.newContext();
   const admin = await staff.newPage();
   await admin.goto("/manage");
@@ -59,7 +61,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await admin
     .getByRole("button", { name: "Events & requests", exact: true })
     .click();
-  await admin.getByRole("button", { name: "Open event" }).first().click();
+  await admin.locator(".row").filter({ hasText: eventName }).getByRole("button", { name: "Open event" }).click();
   await admin.getByRole("button", { name: "Edit event details" }).click();
   await admin
     .getByRole("group", { name: "Assigned performers" })
@@ -76,7 +78,8 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await admin
     .getByRole("button", { name: "Save proposal for customer" })
     .click();
-  await page.goto(eventUrl);
+  await expect(admin.locator('.booking-banner')).toContainText('Quoted', { ignoreCase: true });
+  await page.reload();
   await page
     .getByRole("button", { name: "Choose this option" })
     .first()
@@ -85,7 +88,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await expect(page.locator(".event-page > .badge")).toHaveText("Accepted");
   await admin.getByRole("button", { name: "Close dialog" }).click();
   await admin.reload();
-  await admin.getByRole("button", { name: "Open event" }).first().click();
+  await admin.locator(".row").filter({ hasText: eventName }).getByRole("button", { name: "Open event" }).click();
   await admin
     .getByRole("button", { name: "Confirm booking", exact: true })
     .click();
@@ -112,6 +115,8 @@ test("mobile event builder fits viewport and help chooser adds a suitable show",
   await page.getByRole("dialog").getByRole("button", { name: "Birthday" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "21–50" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Make everyone laugh" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Children 6–12" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Indoors", exact: true }).click();
   await expect(
     page
       .locator("#modal")
@@ -129,3 +134,4 @@ test("mobile event builder fits viewport and help chooser adds a suitable show",
     ),
   ).toBe(true);
 });
+

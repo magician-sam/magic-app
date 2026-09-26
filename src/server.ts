@@ -1,3 +1,4 @@
+import { guestServiceNames } from "./guest-services.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
 import { followups, generateFollowups } from "./followups.js";
@@ -407,8 +408,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const business = await businessBySlug(String(req.params.slug));
     const account = await customerSession(req, business.id);
     const input = z
-      .object({ event: eventSchema, customAnswers: z.unknown().optional() })
+      .object({ event: eventSchema.extend({ packageIds: z.array(short.min(1)).max(12), requestedServices: z.array(short.min(1)).max(30).default([]) }), customAnswers: z.unknown().optional() })
       .parse(req.body);
+    requireThat(input.event.packageIds.length + input.event.requestedServices.length > 0, "Choose at least one show.");
+    const services = guestServiceNames(business.otherShowNames);
+    requireThat(input.event.requestedServices.every((name) => services.includes(name)), "A selected guest act is unavailable.");
+    requireThat(new Set(input.event.requestedServices).size === input.event.requestedServices.length, "Choose each guest act once.");
     await validateSelection(
       business.id,
       input.event.packageIds,
@@ -523,6 +528,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         performerIds,
         revision,
         giftDetails: booking.giftDetails,
+        requestedServices: booking.requestedServices ?? [],
         certificate: booking.certificate,
         customAnswers: booking.customAnswers ?? [],
       },
@@ -1515,6 +1521,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     requireThat(req.user.role !== "performer", "Access denied", 403);
     const input = eventSchema
       .extend({
+        packageIds: z.array(short.min(1)).max(12),
         customerId: short.min(1).optional(),
         travel: z.number().int().min(0).max(1440),
         breakMinutes: z.number().int().min(0).max(120),
@@ -1546,6 +1553,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             !["completed", "cancelled"].includes(b.status),
             "Closed bookings retain their event history.",
           );
+          requireThat(input.packageIds.length > 0 || !!b.requestedServices?.length, "Choose at least one show.");
           const scheduleChanged =
             b.travel !== input.travel ||
             b.breakMinutes !== input.breakMinutes ||

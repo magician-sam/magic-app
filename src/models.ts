@@ -108,6 +108,7 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  requestedServices?: string[];
   customAnswers?: CustomAnswer[];
   giftDetails?: { recipientName: string; message: string; flexibleDate: boolean };
   surpriseDetails?: { guestName: string; secret: string; proposal: boolean; howWeMet: string; specialMoment: string };

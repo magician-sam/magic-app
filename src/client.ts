@@ -1,3 +1,4 @@
+import { guestServiceNames } from "./guest-services.js";
 import type { ActPlan } from "./act-plans.js";
 import type { FollowupSettings } from "./followups.js";
 import { reportPeriod } from "./reports.js";
@@ -63,6 +64,26 @@ let calendarMonth = "",
   calendarStatus = "all",
   calendarPerformer = "";
 let basket: string[] = [];
+let guestBasket: string[] = [];
+function selectionNames() { return [...basket.map((key) => catalog.packages.find((p) => p.id === key)?.name ?? ""), ...guestBasket]; }
+function saveEventBox() {
+  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
+}
+function restoreEventBox() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('event-box:' + catalog.business.slug) ?? '{}');
+    basket = Array.isArray(saved.basket) ? [...new Set<string>(saved.basket)].filter((id) => catalog.packages.some((p) => p.id === id)) : [];
+    guestBasket = Array.isArray(saved.guestBasket) ? [...new Set<string>(saved.guestBasket)].filter((name) => moreShowNames().includes(name)) : [];
+    selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
+    requestBundleDiscount = saved.requestBundleDiscount === true;
+  } catch { /* Ignore expired or invalid drafts. */ }
+}
+function toggleGuest(name: string) {
+  if (!moreShowNames().includes(name)) return;
+  guestBasket = guestBasket.includes(name) ? guestBasket.filter((item) => item !== name) : [...guestBasket, name];
+  renderPublic();
+  notify(guestBasket.includes(name) ? name + ' added to your event.' : name + ' removed.');
+}
 let requestBundleDiscount = false;
 let selectedPerformers: string[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
@@ -372,7 +393,7 @@ function showCard(p: Package) {
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(p.name)}</button></h3><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(p.name)}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)} · ${p.duration} minutes</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(!p.bundleIds?.length && ["magic", "science", "bubbles"].includes(p.category.toLowerCase()) ? ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[p.category.toLowerCase()] : p.name)}</button></h3><small class="show-subtitle">${e(p.name)}</small><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function showDetails(p: Package) {
   const photos = showPhotos(p);
@@ -380,51 +401,29 @@ function showDetails(p: Package) {
   const videos = showVideos(p);
   openDialog(
     p.name,
-    `<div class="show-detail"><p class="eyebrow">${e(p.category)} · ${p.duration} minutes</p><p>${e(p.description)}</p>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, p.name, index)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${e(p.category)} · ${p.duration} minutes</p><p>${e(p.description)}</p><ul class="show-facts"><li>${p.duration} minutes</li><li>Ages ${p.minAge}–${p.maxAge}</li><li>${p.indoorOnly ? "Indoor venue" : "Indoor or outdoor · venue check required"}</li><li>${p.minSpace} m² clear space</li>${p.needsPower ? "<li>Electricity needed</li>" : ""}</ul>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, p.name, index)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
   );
   on(modal, "#detail-add", "click", () => {
     if (togglePackage(p.id)) modal.close();
   });
 }
-function moreShowNames() {
-  const names = ["Characters", ...(catalog.business.otherShowNames ?? []).filter((name) => !/character/i.test(name)).map((name) => /^LED Robots$/i.test(name) ? "LED Dancing Suits" : name)];
-  for (const [name, match] of [
-    ["Animation", /animation/i],
-    ["Carnival Games", /carnival games?/i],
-    ["Children's Workshops", /children.?s workshops?|kids.? workshops?/i],
-    ["Decoration", /decoration|balloon decor/i],
-    ["Face Painting & Glitter", /face paint|glitter/i],
-    ["Close-up Magic", /close.up magic/i],
-    ["Balloon Twisting", /balloon twist/i],
-    ["Kids Theatre", /kids theatre|children.s theatre/i],
-    ["Dance Show", /dance show|dance performance/i],
-    ["Dog Show", /dog/i],
-    ["Acrobat", /acrobat/i],
-    ["Juggling", /juggl/i],
-    ["Stilt Walker", /stilt/i],
-    ["BMX Show", /bmx/i],
-    ["Clown", /clown/i],
-    ["Breakdance", /breakdance/i],
-    ["Aerial Show", /aerial/i],
-    ["Fire Show", /fire show/i],
-    ["LED Dancing Suits", /led (?:robot|dancing suit)/i],
-    ["Live Music & Parades", /live music/i],
-    ["Caricaturist", /caricatur/i],
-    ["Mime", /^mime$/i],
-    ["Human Statues", /human statue/i],
-    ["Football Show", /football|soccer/i],
-    ["Chair Balance", /chair balance/i],
-    ["Circus Parade", /circus parade/i],
-    ["Characters", /character/i],
-  ] as const) {
-    if (!names.some((existing) => match.test(existing))) names.push(name);
-  }
-  return names;
-}
+function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames); }
+
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
   const node = document.querySelector("#event-box")!;
-  node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${chosen.length ? chosen.map((p) => `<div class="box-item"><span>${e(p.name)}<br><small>${p.duration} min · ${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(p.name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}<div class="box-total"><span>Show time</span><strong>${chosen.reduce((n, p) => n + p.duration, 0)} min</strong></div>${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${chosen.length ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  const count = chosen.length + guestBasket.length;
+  node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${count ? chosen.map((p) => `<div class="box-item"><span>${e(p.name)}<br><small>${p.duration} min · ${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(p.name)}">×</button></div>`).join("") + guestBasket.map((name) => `<div class="box-item"><span>${e(name)}<br><small>Availability & price to confirm</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}<div class="box-total"><span>${guestBasket.length ? "Known show time" : "Show time"}</span><strong>${chosen.length ? `${chosen.reduce((n, p) => n + p.duration, 0)} min${guestBasket.length ? " + guest acts" : ""}` : "To be confirmed"}</strong></div>${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  document.querySelector('.mobile-event-bar')?.remove();
+  document.body.classList.toggle('has-event-selection', count > 0);
+  if (count) {
+    const bar = document.createElement('div');
+    bar.className = 'mobile-event-bar';
+    bar.innerHTML = '<a href="#event-box"><strong>Your event · ' + count + '</strong><small>Review your choices</small></a><button type="button">Continue →</button>';
+    bar.querySelector('button')!.addEventListener('click', () => requestForm());
+    app.append(bar);
+  }
+  on(node, '[data-remove-guest]', 'click', (ev) => toggleGuest((ev.currentTarget as HTMLElement).dataset.removeGuest!));
   if (chosen.length >= 2 || chosen.some((item) => item.bundleIds?.length)) {
     const label = document.createElement("label");
     label.className = "bundle-discount-request";
@@ -432,6 +431,7 @@ function renderBox() {
     node.querySelector("#request")?.before(label);
     on(label, "#ask-bundle-discount", "change", (event) => {
       requestBundleDiscount = (event.currentTarget as HTMLInputElement).checked;
+      saveEventBox();
     });
   }
   on(node, "[data-remove]", "click", (ev) => {
@@ -494,12 +494,14 @@ function bundleIdeas() {
   ].filter((idea) => idea.shows.every(Boolean)).map((idea) => `<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${idea.title}</h3><p>${idea.note}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
 }
 function renderPublic() {
+  saveEventBox();
   document.title = `${catalog.business.name} · Live shows for your celebration`;
   const defaultIntro = "A little wonder. A lot of happy memories. Magic, science and bubbles, brought together for your celebration.";
   const heroIntro = catalog.business.intro === defaultIntro
     ? "Magic, science, bubbles and characters for birthdays, schools and special events."
     : catalog.business.intro;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Real shows. Real smiles.</div><h1>Make your day<br><em>magical.</em></h1><p>${e(heroIntro)}</p><div class="actions"><a class="button" href="#shows">See the shows <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Choose your favourites. Request a personal quote.</div><a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="hero-gallery" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at a celebration" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Magic by Sam · Live moments</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Choose a show. We’ll check the details with you.</p></div><nav class="show-jump" aria-label="Browse show groups"><a href="#sam-shows">Sam’s shows</a><a href="#party-shows">Characters & party fun</a><a href="#special-acts">Special acts</a></nav><div class="show-proof"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam performing at a real event" loading="lazy"><div><strong>Meet Sam on stage.</strong><span>Sam personally performs the Magic, Science and Bubbles shows. Explore real event photos on each card.</span></div></div><div class="builder-layout"><div class="catalog-list"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div><section class="show-group" id="sam-shows"><h3>Sam’s signature shows</h3><div class="cards">${catalog.packages
+  const contactPhone = catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "");
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Real shows. Real smiles.</div><h1>Make your day<br><em>magical.</em></h1><p>${e(heroIntro)}</p><div class="actions"><a class="button" href="#shows">See the shows <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Choose your favourites. Request a personal quote.</div>${contactPhone ? `<a class="contact-link" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}" target="_blank" rel="noopener noreferrer">Questions? Chat with us on WhatsApp ↗</a>` : ""}<a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="hero-gallery" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at a celebration" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Magic by Sam · Live moments</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-1.jpg" alt="A science show in action" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">Pick your kind of extraordinary</span><h2>All the shows</h2></div><p>Choose a show. We’ll check the details with you.</p></div><nav class="show-jump" aria-label="Browse show groups"><a href="#sam-shows">Sam’s shows</a><a href="#party-shows">Characters & party fun</a><a href="#special-acts">Special acts</a></nav><div class="show-proof"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam performing at a real event" loading="lazy"><div><strong>Meet Sam on stage.</strong><span>Sam personally performs the Magic, Science and Bubbles shows. Explore real event photos on each card.</span></div></div><div class="builder-layout"><div class="catalog-list"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div><section class="show-group" id="sam-shows"><h3>Sam’s signature shows</h3><div class="cards">${catalog.packages
     .filter((p) => !p.bundleIds?.length)
     .map(showCard)
     .join(
@@ -507,7 +509,7 @@ function renderPublic() {
     )}</div></section>${guestCatalogGroups()}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Pick a pair of shows below, or make your own mix. We’ll send a personal quote.</p></div><div class="bundle-ideas">${bundleIdeas()}</div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Your favourite shows, together.</strong><p>Add two or more shows to your event box and ask for a bundle discount.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
-          .join("")}</div></section>${referralPromo()}<section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Adult Magic Shows</h2></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
+          .join("")}</div></section>${referralPromo()}<section id="adult-magic" class="section"><div class="section-heading"><div><span class="eyebrow">Wonder has no age limit</span><h2>Magic for grown-up celebrations</h2><p>Planning a wedding, private party or corporate event? Choose the magic show and tell us about your audience. We’ll agree the format with you. For mingling and table-side moments, explore Close-up Magic.</p></div><p>Bring a little surprise to your celebration. Pick a show and tell us what you have in mind.</p></div><div class="cards">${
     catalog.packages
       .filter((p) => p.adultShow ?? p.category.toLowerCase() === "magic")
       .map(showCard)
@@ -559,6 +561,12 @@ function renderPublic() {
       card.append(button);
     } else card.classList.add("expanded");
   });
+  const faq = document.createElement('section');
+  faq.className = 'event-faq';
+  faq.innerHTML = '<h2>Before your celebration</h2><details><summary>Is my date confirmed when I send a request?</summary><p>No. We check the date, venue and performers, then send your proposal. Your booking is confirmed separately after the agreed checks and deposit requirements.</p></details><details><summary>Can I combine different shows?</summary><p>Yes. Add Sam’s shows and guest acts to one event box. We’ll check the complete plan and quote for your selection.</p></details><details><summary>How is the price decided?</summary><p>We prepare a personal quote for the shows, event location and setup you need. No payment is collected when you send a request.</p></details><details><summary>What should I prepare at the venue?</summary><p>Each show has different space and power needs. You can see Sam’s show requirements in its details. We’ll confirm guest-act requirements with your proposal.</p></details>';
+  app.querySelector('main')?.append(faq);
+  const offers = app.querySelector('#offers');
+  if (offers) app.querySelector('#sam-shows')?.after(offers);
   on(app, "#referral-account", "click", () => customerAccount());
   on(app, "#choose-character", "click", () => chooseCharacter());
   on(app, "#customer-account", "click", () => customerAccount());
@@ -567,6 +575,7 @@ function renderPublic() {
     const show = catalog.packages.find((p) => p.id === key);
     if (show) showDetails(show);
   });
+  on(app, "[data-add-guest]", "click", (ev) => toggleGuest((ev.currentTarget as HTMLElement).dataset.addGuest!));
   on(app, "[data-enquiry-details]", "click", (ev) => {
     const name = (ev.currentTarget as HTMLElement).dataset.enquiryDetails;
     if (name) enquiryDetails(name);
@@ -612,34 +621,10 @@ function renderPublic() {
   );
 }
 function enquiryLinks(name: string) {
-  const business = catalog.business;
-  return `<button type="button" data-service-enquiry="${e(name)}">Ask about ${e(name)} ↗</button>${business.whatsapp
-    ? `<a class="button outline" href="https://wa.me/${e(business.whatsapp.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like to ask about " + name + " for my event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>`
-    : business.contactEmail
-      ? `<a class="button outline" href="mailto:${e(business.contactEmail)}?subject=${encodeURIComponent(name + " event enquiry")}">Email ↗</a>`
-      : ""}`;
+  return `<button type="button" data-service-enquiry="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box · remove" : "＋ Add to my event"}</button>`;
 }
-function serviceEnquiry(name: string) {
-  const fields: Field[] = [
-    { key: "name", label: "Your name", required: true, autocomplete: "name" },
-    { key: "phone", label: "Phone or WhatsApp number", type: "tel", required: true, autocomplete: "tel" },
-    { key: "date", label: "Event date (if known)", type: "date" },
-    { key: "location", label: "Area or venue (if known)" },
-    { key: "notes", label: "What would you like?", type: "textarea", wide: true },
-  ];
-  openDialog(
-    `Ask about ${name}`,
-    formBody(fields, `<p class="hint">Tell us a little about your event. We’ll contact you to check availability and price for <strong>${e(name)}</strong>.</p><p class="privacy">We use these details only to respond to your enquiry. Sending this form does not reserve a date.</p>`, "Send enquiry →"),
-  );
-  submit(modal.querySelector("form")!, async (data) => {
-    await api(`/public/${catalog.business.slug}/enquiries`, "POST", {
-      ...formValues(data, fields),
-      service: name,
-    });
-    openDialog("Thanks! We’ve got your enquiry.", `<p>We’ll contact you about <strong>${e(name)}</strong> using the number you provided.</p><button type="button" id="enquiry-done">Back to the shows</button>`);
-    on(modal, "#enquiry-done", "click", () => modal.close());
-  });
-}
+function serviceEnquiry(name: string) { toggleGuest(name); modal.close(); }
+
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
@@ -696,7 +681,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   const photos = guestPhotos(name);
@@ -743,6 +728,9 @@ function chooseCharacter() {
       throw new Error("Please choose a current character.");
     serviceEnquiry(name);
   });
+}
+function requestedServicesSummary(b: Booking) {
+  return b.requestedServices?.length ? `<section class="requested-services"><h3>Guest acts in your request</h3><p>${b.requestedServices.map(e).join(" · ")}</p><small>Requested preferences. The proposal will confirm the acts, performers, duration and price.</small></section>` : "";
 }
 function eventFields(b?: Partial<Booking>): Field[] {
   return [
@@ -853,6 +841,7 @@ function eventFields(b?: Partial<Booking>): Field[] {
   ];
 }
 async function requestForm() {
+  if (!basket.length && !guestBasket.length) { notify("Choose at least one show first."); return; }
   let account: {
     profile: { name: string; phone: string; email: string };
     rewards: { tokens: { balance: number } };
@@ -868,12 +857,12 @@ async function requestForm() {
     (p) => p.checkoutExtra && !basket.includes(p.id),
   );
   const fields = eventFields();
-  const magicOnly = basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
+  const magicOnly = !guestBasket.length && basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
   const giftExtras = `<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
   openDialog(
     "Tell us about your event",
-    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}</span></p>` + formBody(
+    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(e).join(" + ")}</span></p>` + formBody(
       [
         ...fields,
         ...questions.map((f) => ({
@@ -885,7 +874,7 @@ async function requestForm() {
           wide: f.type === "textarea",
         })),
       ],
-      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${p.duration} min · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}${giftExtras}${tokenChoices ? `<div class="token-request"><label for="request-tokens"><strong>Use my tokens on this magic show</strong></label><select id="request-tokens" name="requestTokens"><option value="0">Save my ${account.rewards.tokens.balance} tokens for later</option>${Array.from({ length: tokenChoices }, (_, index) => index + 1).map((cost) => `<option value="${cost}">${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}</option>`).join("")}</select><small>We’ll apply your choice to your proposal after checking the show details.</small></div>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${basket.map((key) => e(catalog.packages.find((p) => p.id === key)?.name)).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
+      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${p.duration} min · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}${giftExtras}${tokenChoices ? `<div class="token-request"><label for="request-tokens"><strong>Use my tokens on this magic show</strong></label><select id="request-tokens" name="requestTokens"><option value="0">Save my ${account.rewards.tokens.balance} tokens for later</option>${Array.from({ length: tokenChoices }, (_, index) => index + 1).map((cost) => `<option value="${cost}">${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}</option>`).join("")}</select><small>We’ll apply your choice to your proposal after checking the show details.</small></div>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${selectionNames().map(e).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and performers before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
       "Send my event request →",
     ),
   );
@@ -914,11 +903,13 @@ async function requestForm() {
           packageIds: [
             ...new Set([...basket, ...selected(data, "checkout-extra")]),
           ],
+          requestedServices: guestBasket,
           performerIds: selectedPerformers,
         },
       },
     );
     modal.close();
+    sessionStorage.removeItem("event-box:" + catalog.business.slug);
     location.href = result.path;
   });
 }
@@ -932,11 +923,13 @@ function helpChoose() {
     ["😂", "Make everyone laugh"], ["😮", "Leave everyone speechless"],
     ["❤️", "Create a personal moment"], ["🔥", "A high-energy party"],
   ];
-  const answers = { occasion: "", guests: "", feeling: "" };
+  const answers = { occasion: "", guests: "", feeling: "", audience: "", setting: "" };
   const steps = [
     { title: "What are you celebrating?", choices: occasions, key: "occasion" },
     { title: "How many guests?", choices: guestGroups, key: "guests" },
     { title: "What feeling do you want?", choices: feelings, key: "feeling" },
+    { title: "Who is the show for?", choices: [["", "Children under 6"], ["", "Children 6–12"], ["", "Teens and adults"], ["", "Mixed ages"]], key: "audience" },
+    { title: "Where will the fun happen?", choices: [["", "Indoors"], ["", "Outdoors"], ["", "Not decided yet"]], key: "setting" },
   ] as const;
   const showResults = () => {
     const category = (p: Package) => p.category.toLowerCase();
@@ -948,8 +941,9 @@ function helpChoose() {
       Number(answers.feeling === "Leave everyone speechless" && ["magic", "science"].includes(category(p))) * 3 +
       Number(answers.feeling === "Create a personal moment" && category(p) === "magic") * 3 +
       Number(answers.feeling === "A high-energy party" && category(p) === "science") * 3;
+    const audienceAge = answers.audience === "Children under 6" ? 4 : answers.audience === "Children 6–12" ? 9 : answers.audience === "Teens and adults" ? 18 : null;
     const ranked = catalog.packages
-      .filter((p) => !p.bundleIds?.length && !p.checkoutExtra)
+      .filter((p) => !p.bundleIds?.length && !p.checkoutExtra && (answers.setting !== "Outdoors" || !p.indoorOnly) && (audienceAge === null || (p.minAge <= audienceAge && p.maxAge >= audienceAge)))
       .sort((a, b) => score(b) - score(a));
     const featured: Package[] = [];
     for (const p of ranked) {
@@ -972,9 +966,9 @@ function helpChoose() {
     const availableIdeas = moreShowNames();
     openDialog(
       "A few ideas for your day",
-      `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
+      `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)} · ${e(answers.audience)} · ${e(answers.setting)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
-        return `<article class="chooser-result">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(p.name)}</h3><small>${p.duration} min · ${e(price(p))}</small><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button></div></article>`;
+        return `<article class="chooser-result">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(p.name)}</h3><small>${p.duration} min · ${e(price(p))}</small><p class="recommendation-reason">${e(p.category === "magic" ? "A shared moment of surprise for your celebration." : p.category === "science" ? "A chance for curious guests to discover something new." : "Playful visual moments for your guests.")} ${answers.setting === "Outdoors" ? "Listed for outdoor venues, subject to setup checks." : "Matched to your audience preference."}</p><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button></div></article>`;
       }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? `<h3>Something extra?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => `<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
     on(modal, "[data-recommend]", "click", (ev) => {
@@ -992,11 +986,11 @@ function helpChoose() {
     const step = steps[index];
     openDialog(
       "Find your kind of wow",
-      `<div class="chooser"><p class="chooser-progress">${index + 1} of 3</p><div class="chooser-progress-track"><span class="step-${index + 1}"></span></div><h3>${e(step.title)}</h3><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option" data-chooser-choice="${e(label)}"><span aria-hidden="true">${icon}</span>${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
+      `<div class="chooser"><p class="chooser-progress">${index + 1} of ${steps.length}</p><div class="chooser-progress-track"><span class="step-${index + 1}"></span></div><h3>${e(step.title)}</h3><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option" data-chooser-choice="${e(label)}"><span aria-hidden="true">${icon}</span>${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
     );
     on(modal, "[data-chooser-choice]", "click", (ev) => {
       answers[step.key] = (ev.currentTarget as HTMLElement).dataset.chooserChoice!;
-      if (index === 2) showResults();
+      if (index === steps.length - 1) showResults();
       else showStep(index + 1);
     });
     on(modal, "#chooser-back", "click", () => showStep(index - 1));
@@ -1027,10 +1021,10 @@ function customerAuth(orderAfter = false, register = true) {
         {
           key: "username",
           label: "Your sign-in name",
-          value: `guest-${crypto.randomUUID().slice(0, 8)}`,
+          value: "",
           autocomplete: "username",
           required: true,
-          help: "We picked one for you. Save it for signing in later, or choose your own.",
+          help: "Choose a memorable name, such as sam_wehbi. Use 3–40 letters, numbers, underscores or hyphens.",
         },
         {
           key: "password",
@@ -1056,7 +1050,7 @@ function customerAuth(orderAfter = false, register = true) {
       ];
   openDialog(
     register ? (orderAfter ? "Your shows are saved" : "Your next happy memory starts here") : "Welcome back to the fun",
-    (register && orderAfter ? `<p class="signup-progress"><strong>1 of 2 · Create your account</strong><span>Your ${basket.length} chosen show${basket.length === 1 ? " is" : "s are"} still in your event box. Next, tell us about your day.</span></p>` : "") + formBody(
+    (register && orderAfter ? `<p class="signup-progress"><strong>1 of 2 · Create your account</strong><span>Your ${basket.length + guestBasket.length} chosen show${basket.length + guestBasket.length === 1 ? " is" : "s are"} still in your event box. Next, tell us about your day.</span></p>` : "") + formBody(
       fields,
       '<p class="privacy">Your account shows only your own events. Keep your sign-in name and password safe. Phone verification is not connected yet.</p>',
       register ? (orderAfter ? "Create account & continue →" : "Create my customer account") : (orderAfter ? "Sign in & continue →" : "Sign in"),
@@ -1067,6 +1061,17 @@ function customerAuth(orderAfter = false, register = true) {
         : "New here? Create an account") +
       "</button>",
   );
+  if (register) {
+    const referral = modal.querySelector('.referral-field');
+    if (referral) {
+      const details = document.createElement('details'); details.className = 'referral-entry wide';
+      details.innerHTML = '<summary>Have a friend’s referral code? (optional)</summary>';
+      details.open = Boolean((referral.querySelector('input') as HTMLInputElement)?.value);
+      referral.before(details); details.append(referral);
+    }
+    const username = modal.querySelector<HTMLInputElement>('[name="username"]');
+    if (username) { username.pattern = '[a-zA-Z0-9][a-zA-Z0-9_-]{2,39}'; username.maxLength = 40; }
+  }
   if (!register) {
     const forgot = document.createElement("button");
     forgot.className = "link";
@@ -3208,7 +3213,7 @@ async function openBooking(key: string) {
   }>(`/manage/bookings/${b.id}/checks`);
   openDialog(
     b.name,
-    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div><div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div><section class="panel"><h3>Who’s on stage?</h3>${b.performerIds.map((p) => `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name)}</span>${badge(b.availability[p] ?? "pending")}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${p}" ${state!.user.role === "performer" && p !== state!.user.performerId ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`).join("") || '<p class="muted">Assign performers using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p>${state!.user.role !== "performer" ? '<button id="refer-event" class="small outline">＋ Track a referral</button>' : ""}</section>${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
+    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div>${requestedServicesSummary(b)}<div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div><section class="panel"><h3>Who’s on stage?</h3>${b.performerIds.map((p) => `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name)}</span>${badge(b.availability[p] ?? "pending")}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${p}" ${state!.user.role === "performer" && p !== state!.user.performerId ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`).join("") || '<p class="muted">Assign performers using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p>${state!.user.role !== "performer" ? '<button id="refer-event" class="small outline">＋ Track a referral</button>' : ""}</section>${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
       state!.user.role !== "performer"
         ? `<section class="panel"><h3>Referrals</h3>${
             state!.referrals
@@ -4057,7 +4062,7 @@ async function renderEvent() {
     cancelled:
       "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
-  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}<div class="progress">${[
+  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1>${badge(b.status)}<p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}${requestedServicesSummary(b)}<div class="progress">${[
     ["Request received", true],
     ["Proposal accepted", !!b.acceptedQuoteId],
     ["Booking confirmed", ["confirmed", "completed"].includes(b.status)],
@@ -4243,6 +4248,7 @@ async function start() {
     ? location.pathname.split("/")[2]
     : (await api<{ slug: string }>("/default-business")).slug;
   catalog = await api<Catalog>(`/public/${encodeURIComponent(slug)}`);
+  restoreEventBox();
   renderPublic();
   offerNotification();
   setInterval(() => { if (!document.hidden) offerNotification(); }, 60_000);

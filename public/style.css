@@ -14,6 +14,24 @@
   background: var(--paper);
   font-synthesis: none;
 }
+
+/* A clear event journey, with a compact control on small screens. */
+.mobile-event-bar { display: none; }
+.show-subtitle { display: block; color: #665773; margin: -4px 0 10px; }
+.show-search input { width: 100%; min-height: 46px; padding: 11px 14px; border: 1px solid #bcaaca; border-radius: 12px; background: #fff; color: #2e2343; }
+.show-search input:focus { outline: 3px solid #dfcbed; outline-offset: 2px; }
+.referral-entry { padding: 10px 0; }
+.referral-entry summary { cursor: pointer; color: #543587; font-weight: 700; }
+.referral-entry .field { margin-top: 12px; }
+.requested-services { padding: 18px; margin: 18px 0; border: 1px solid #d8c6e6; border-radius: 16px; background: #f5effa; }
+.requested-services h3 { margin: 0 0 8px; }
+.requested-services p { margin: 6px 0; }
+.show-facts { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.show-facts li { border-radius: 10px; padding: 9px 12px; background: #f1eafa; color: #38265e; font-size: 14px; }
+.event-faq { margin: 40px 0; padding: 24px; border: 1px solid #e7dfe9; border-radius: 22px; }
+.event-faq details { padding: 14px 0; border-bottom: 1px solid #e7dfe9; }
+.event-faq summary { font-weight: 700; cursor: pointer; }
+.event-faq p { line-height: 1.6; max-width: 65ch; }
 * {
   box-sizing: border-box;
 }
@@ -2067,3 +2085,46 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
   .show-proof img { width: 64px; height: 64px; }
   .form-actions button[type=submit] { width: 100%; min-height: 49px; }
 }
+
+/* Final responsive overrides keep browsing and booking controls separate. */
+.site-nav { gap: 14px; }
+.site-nav a[href='#characters'], .site-nav a[href='#how'], .site-nav a[href='#adult-magic'] { display: none; }
+.catalog-list #offers { margin: 28px 0 36px; padding: 22px; background: #f5eff9; border-radius: 22px; }
+.catalog-list #offers .section-heading { margin-bottom: 18px; }
+.catalog-list #offers .section-heading h2 { font-size: 32px; }
+.catalog-list #offers .section-heading p, .catalog-list #offers .bundle-invite { display: none; }
+.show-body .show-meta, .show-media-note { color: #5e506b; }
+@media (max-width: 700px) {
+  .has-event-selection { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .mobile-event-bar { position: fixed; z-index: 10; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom)); background: #fffaf5; border-top: 1px solid #d9cbe2; box-shadow: 0 -6px 24px #38265e14; }
+  .mobile-event-bar a { color: #38265e; text-decoration: none; min-width: 0; }
+  .mobile-event-bar strong, .mobile-event-bar small { display: block; }
+  .mobile-event-bar small { margin-top: 4px; font-size: 12px; }
+  .mobile-event-bar button { padding: 13px 20px; min-height: 46px; }
+  body:has(dialog[open]) .mobile-event-bar { visibility: hidden; }
+  .show-jump { flex-wrap: wrap; overflow: visible; gap: 7px; }
+  .show-jump a { padding: 10px 12px; }
+  .show-search { position: static; box-shadow: none; }
+  .show-card .show-body { padding: 16px; }
+  .show-card h3 { font-size: 25px; }
+  .show-card .show-body p { font-size: 14px; line-height: 1.45; }
+  .show-card .show-media-note { display: none; }
+  .show-art-label { display: none; }
+  .show-card .show-body button.outline, .show-card .show-body button.secondary { min-height: 44px; }
+  .catalog-list #offers { padding: 18px; }
+  .event-box { scroll-margin-bottom: 90px; }
+  .event-box .box-note { font-size: 13px; line-height: 1.5; }
+  .referral-entry summary { font-size: 14px; }
+  #notice { bottom: 92px; }
+}
+.contact-link { display: block; margin-top: 14px; color: #543587; font-size: 14px; font-weight: 700; }
+@media (max-width: 700px) {
+  .whatsapp-button { display: none; }
+  #adult-magic .section-heading p { display: block; font-size: 15px; }
+}
+.chooser-progress-track .step-1 { width: 20%; }
+.chooser-progress-track .step-2 { width: 40%; }
+.chooser-progress-track .step-3 { width: 60%; }
+.chooser-progress-track .step-4 { width: 80%; }
+.chooser-progress-track .step-5 { width: 100%; }
+.recommendation-reason { font-size: 13px; line-height: 1.45; color: #59496a; }
