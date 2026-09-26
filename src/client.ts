@@ -318,6 +318,7 @@ const guestPhotoGroups = [
   { match: /live music|violin/i, photos: [["live-music", "Live violin performance"], ["circus-parade", "Costumed parade performers"], ["../presentation/stilt-walker", "Stilt performer at an outdoor event"]] },
   { match: /caricatur/i, photos: [["caricaturist", "Caricaturist drawing at an event"]] },
   { match: /human statue/i, photos: [["human-statues", "Human statue performer"]] },
+  { match: /football|soccer/i, photos: [["football-balance-live", "Football balancing skills on the field"], ["football-stage-live", "Football freestyle performance in front of a crowd"]] },
   { match: /chair balance/i, photos: [["chair-balance", "Chair balance act"], ["../presentation/chair-balance", "Outdoor chair balance performance"]] },
   { match: /circus parade/i, photos: [["circus-parade", "Circus parade"]] },
 ] as const;
@@ -346,8 +347,8 @@ function showPhotos(p: Package) {
 function showVideos(p: Package) {
   return [...new Set([...(p.previewVideos ?? []), ...(p.previewVideo ? [p.previewVideo] : [])])].filter(Boolean);
 }
-function videoTile(link: string, showName: string, index: number) {
-  const parsed = new URL(link);
+function videoTile(link: string, showName: string, index: number, poster?: string) {
+  const parsed = new URL(link, location.origin);
   const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
   const youtubeId = host === "youtu.be"
     ? parsed.pathname.split("/")[1]
@@ -360,7 +361,7 @@ function videoTile(link: string, showName: string, index: number) {
       ? `https://player.vimeo.com/video${parsed.pathname}`
       : "";
   const player = /\.(mp4|webm)$/i.test(parsed.pathname)
-    ? `<video controls playsinline preload="metadata" src="${e(link)}" aria-label="${e(showName)} video ${index + 1}"></video>`
+    ? `<video controls playsinline preload="metadata" src="${e(link)}"${poster ? ` poster="${e(poster)}"` : ""} aria-label="${e(showName)} video ${index + 1}"></video>`
     : embed
       ? `<iframe src="${e(embed)}" title="${e(showName)} video ${index + 1}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
       : `<div class="show-video-link"><span aria-hidden="true">▶</span><a href="${e(link)}" target="_blank" rel="noopener noreferrer">Watch video ${index + 1} ↗</a></div>`;
@@ -642,6 +643,7 @@ function serviceEnquiry(name: string) {
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
+  const hasVideo = /football|soccer/i.test(name);
   const serviceType = /decoration|balloon decor/i.test(name)
     ? "Event styling · by request"
     : /carnival games?/i.test(name)
@@ -694,10 +696,11 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length ? `<p class="show-media-note">${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
+  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button></div></article>`;
 }
 function enquiryDetails(name: string) {
   const photos = guestPhotos(name);
+  const videos = /football|soccer/i.test(name) ? ["/portfolio/guest/football-show-live.mp4"] : [];
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
   const isDecoration = /decoration|balloon decor/i.test(name);
   const intro = isDecoration
@@ -712,7 +715,7 @@ function enquiryDetails(name: string) {
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${videos.length ? `<section><h3>See the football show</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, "/portfolio/guest/football-stage-live.jpg")).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
   on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
 }
