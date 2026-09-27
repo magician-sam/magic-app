@@ -307,6 +307,9 @@ test("photo upload requires owner login and an attached photo store", async () =
     assert.equal(await send(null), 401);
     assert.equal(await send(performerCookie), 403);
     assert.equal(await send(cookie), 503);
+    assert.equal((await request("/manage/upload-video", "POST", {}, null)).status, 401);
+    assert.equal((await request("/manage/upload-video", "POST", {}, performerCookie)).status, 403);
+    assert.equal((await request("/manage/upload-video", "POST", {})).status, 503);
   } finally {
     if (previous === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
     else process.env.BLOB_READ_WRITE_TOKEN = previous;

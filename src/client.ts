@@ -4,6 +4,7 @@ import type { FollowupSettings } from "./followups.js";
 import { reportPeriod } from "./reports.js";
 import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
+import { upload } from "@vercel/blob/client";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
 import type { RewardAward } from "./reward-ledger.js";
@@ -1872,7 +1873,7 @@ function renderCustomers(root: Element) {
       `${c.name} ${c.phone} ${c.email} ${c.kind}`.toLowerCase().includes(query),
     );
     root.querySelector("#customer-list")!.innerHTML = customers.length
-      ? `<section class="panel table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>History</th><th>Actions</th></tr></thead><tbody>${customers.map((c) => `<tr><td><b>${e(c.name)}</b><span class="sub">${e(c.children.map((ch) => ch.name).join(", "))}</span>${state!.customers.some((other) => other.id !== c.id && other.phone.replace(/\D/g, "") === c.phone.replace(/\D/g, "")) ? '<span class="badge">Possible duplicate</span>' : ""}</td><td>${e(c.phone)}<span class="sub">${e(c.email)}</span></td><td>${badge(c.kind)}${c.doNotContact ? '<span class="sub">Do not contact</span>' : ""}</td><td>${state!.bookings.filter((b) => b.customerId === c.id).length} events</td><td><div class="actions"><button class="small outline" data-customer-history="${c.id}">Contact history</button><button class="small outline" data-edit="customers:${c.id}">Edit</button><button class="small danger" data-delete="customers:${c.id}">Remove</button></div></td></tr>`).join("")}</tbody></table></section>`
+      ? `<section class="panel table-wrap"><table><thead><tr><th>Name</th><th>Contact</th><th>Type</th><th>History</th><th>Actions</th></tr></thead><tbody>${customers.map((c) => `<tr><td><b>${e(c.name)}</b><span class="sub">${e(c.children.map((ch) => ch.name).join(", "))}</span>${state!.customers.some((other) => other.id !== c.id && other.phone.replace(/\D/g, "") === c.phone.replace(/\D/g, "")) ? '<span class="badge">Possible duplicate</span>' : ""}</td><td>${e(c.phone)}<span class="sub">${e(c.email)}</span></td><td>${badge(c.kind)}${c.doNotContact ? '<span class="sub">Do not contact</span>' : ""}</td><td>${state!.bookings.filter((b) => b.customerId === c.id).length} events</td><td><div class="actions"><button class="small outline" data-customer-history="${c.id}">Contact history</button><button class="small outline" data-edit="customers:${c.id}">Edit</button><button class="small danger" data-delete="customers:${c.id}">Delete</button></div></td></tr>`).join("")}</tbody></table></section>`
       : empty(
           "Good relationships start here",
           "Add families, schools, organizations, event planners and venues.",
@@ -2109,6 +2110,43 @@ function wireAddedPhotoRemoval() {
     button.closest(".added-photo")?.remove();
   });
 }
+function videoUploadControl() {
+  return state!.uploadsEnabled
+    ? '<div class="photo-upload"><label for="media-video-upload">Add a video from your device</label><input id="media-video-upload" type="file" accept="video/mp4,video/webm,.mp4,.webm"><small>MP4 or WebM, up to 100 MB. The video uploads directly to secure media storage. Save media afterward to show it on the website.</small><p id="media-video-status" role="status"></p></div>'
+    : "";
+}
+function wireVideoUpload() {
+  on(modal, "#media-video-upload", "change", async (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const status = modal.querySelector<HTMLElement>("#media-video-status")!;
+    const videos = modal.querySelector<HTMLTextAreaElement>("#f-videos")!;
+    const links = videos.value.split("\n").filter((line) => line.trim());
+    const extension = file.name.toLowerCase().match(/\.(mp4|webm)$/)?.[1];
+    if (!extension || file.size > 100 * 1024 * 1024 || links.length >= 6) {
+      status.textContent = !extension ? "Choose an MP4 or WebM video." : file.size > 100 * 1024 * 1024 ? "Choose a video under 100 MB." : "This show already has six videos. Remove one before adding another.";
+      input.value = "";
+      return;
+    }
+    input.disabled = true;
+    try {
+      const pathname = `${state!.business.id}/show-videos/${crypto.randomUUID()}.${extension}`;
+      const result = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/manage/upload-video",
+        contentType: extension === "mp4" ? "video/mp4" : "video/webm",
+        multipart: file.size > 20 * 1024 * 1024,
+        onUploadProgress: ({ percentage }) => { status.textContent = `Uploading video… ${Math.round(percentage)}%`; },
+      });
+      videos.value += `${videos.value.trim() ? "\n" : ""}${result.url}`;
+      status.textContent = "Video ready. Save media to show it on the website.";
+      input.value = "";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Video upload failed.";
+    } finally { input.disabled = false; }
+  });
+}
 function editPackageMedia(id: string) {
   const show = state!.packages.find((item) => item.id === id);
   if (!show) return;
@@ -2122,8 +2160,9 @@ function editPackageMedia(id: string) {
   const includedPhotos = photos.length ? `<fieldset class="built-in-photos"><legend>Included photos</legend><p>Tick a photo to hide it from the site.</p><div class="built-in-photo-grid">${photos.map((photo) => `<label><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span><input type="checkbox" name="hiddenPhotoUrls" value="${e(photo.url)}" ${(show.hiddenPhotoUrls ?? []).includes(photo.url) ? "checked" : ""}> Hide this photo</span></label>`).join("")}</div></fieldset>` : "";
   const includedVideos = packageBuiltInVideos(show).map((url, index) => `<label class="check"><input type="checkbox" name="hiddenVideoUrls" value="${e(url)}" ${(show.hiddenVideoUrls ?? []).includes(url) ? "checked" : ""}> Hide included video ${index + 1}</label>`).join("");
   const upload = state!.uploadsEnabled ? '<div class="photo-upload"><label for="media-photo-upload">Add photos from your device</label><input id="media-photo-upload" type="file" accept="image/*" multiple><p id="media-photo-status" role="status"></p></div>' : '<p class="muted">Device upload is not connected yet. Add an HTTPS photo link above.</p>';
-  openDialog(`Photos & videos · ${publicShowName(show)}`, formBody(fields, addedPhotoControls(show.gallery ?? []) + includedPhotos + includedVideos + upload, "Save media"));
+  openDialog(`Photos & videos · ${publicShowName(show)}`, formBody(fields, addedPhotoControls(show.gallery ?? []) + includedPhotos + includedVideos + upload + videoUploadControl(), "Save media"));
   wireAddedPhotoRemoval();
+  wireVideoUpload();
   on(modal, "#media-photo-upload", "change", async (event) => {
     const input = event.currentTarget as HTMLInputElement;
     const files = [...(input.files ?? [])];
@@ -2173,8 +2212,9 @@ function editGuestGallery(name: string) {
   const included = builtIn.length ? `<fieldset class="built-in-photos"><legend>Photos already included</legend><p>Tick any photo to hide it from the public website.</p><div class="built-in-photo-grid">${builtIn.map((photo) => `<label><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span><input type="checkbox" name="hiddenPhotoUrls" value="${e(photo.url)}" ${saved.hiddenPhotoUrls.includes(photo.url) ? "checked" : ""}> Hide this photo</span></label>`).join("")}</div></fieldset>` : "";
   const includedVideos = guestBuiltInVideos(name).map((url) => `<label class="check"><input type="checkbox" name="hiddenVideoUrls" value="${e(url)}" ${(saved.hiddenVideoUrls ?? []).includes(url) ? "checked" : ""}> Hide included video</label>`).join("");
   const upload = state!.uploadsEnabled ? '<div class="photo-upload"><label for="guest-photo-upload">Add photos from your device</label><input id="guest-photo-upload" type="file" accept="image/*" multiple><small>Photos resize automatically. Save changes after uploading.</small><p id="guest-photo-upload-status" role="status"></p></div>' : '<p class="muted">Device upload is not connected yet. Add an HTTPS photo link above.</p>';
-  openDialog(`Photos & videos · ${name}`, formBody(fields, addedPhotoControls(saved.gallery) + included + includedVideos + upload));
+  openDialog(`Photos & videos · ${name}`, formBody(fields, addedPhotoControls(saved.gallery) + included + includedVideos + upload + videoUploadControl()));
   wireAddedPhotoRemoval();
+  wireVideoUpload();
   on(modal, "#guest-photo-upload", "change", async (event) => {
     const input = event.currentTarget as HTMLInputElement;
     const files = [...(input.files ?? [])];

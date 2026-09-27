@@ -29,6 +29,7 @@ import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { put } from "@vercel/blob";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { Store, id } from "./store.js";
@@ -120,7 +121,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "https:", "data:"],
         mediaSrc: ["'self'", "https:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://vercel.com", "https://*.blob.vercel-storage.com"],
         frameSrc: ["https://www.youtube-nocookie.com", "https://player.vimeo.com"],
         formAction: ["'self'"],
         upgradeInsecureRequests: origin.startsWith("https:") ? [] : null,
@@ -788,6 +789,29 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       res.status(201).json({ url: uploaded.url });
     },
   );
+  app.post("/api/manage/upload-video", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    requireThat(blobToken, "Video uploads are not connected yet.", 503);
+    const result = await handleUpload({
+      token: blobToken,
+      request: req,
+      body: req.body as HandleUploadBody,
+      onBeforeGenerateToken: async (pathname) => {
+        requireThat(
+          new RegExp(`^${req.business.id}/show-videos/[a-f0-9-]+\\.(mp4|webm)$`).test(pathname),
+          "Choose an MP4 or WebM video.",
+        );
+        return {
+          allowedContentTypes: ["video/mp4", "video/webm"],
+          maximumSizeInBytes: 100 * 1024 * 1024,
+          addRandomSuffix: true,
+        };
+      },
+    });
+    res.json(result);
+  });
   app.get("/api/manage/reward-settings", async (req, res) => {
     canManage(req);
     res.json(await rewardSettings(store, req.business.id));
