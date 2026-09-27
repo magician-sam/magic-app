@@ -806,7 +806,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         return {
           allowedContentTypes: ["video/mp4", "video/webm"],
           maximumSizeInBytes: 100 * 1024 * 1024,
-          addRandomSuffix: true,
+          addRandomSuffix: false,
         };
       },
     });

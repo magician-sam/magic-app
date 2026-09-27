@@ -2094,7 +2094,7 @@ function renderGuestPhotosAdmin(root: Element) {
     const videos = guestVideos(name).length;
     return `<article class="panel"><h3>${e(name)}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-guest-gallery="${e(name)}">Manage photos & videos ↗</button></article>`;
   }).join("");
-  root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Choose a show to add photos or video links, change the main picture, or hide media already included. Save to update the public website.</p></section><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
+  root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Choose a show to upload photos or videos, add links, change the main picture, or hide media already included. Save to update the public website.</p></section><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
   on(root, "[data-package-media]", "click", (event) => editPackageMedia((event.currentTarget as HTMLElement).dataset.packageMedia!));
   on(root, "[data-guest-gallery]", "click", (event) => editGuestGallery((event.currentTarget as HTMLElement).dataset.guestGallery!));
 }
@@ -2112,7 +2112,7 @@ function wireAddedPhotoRemoval() {
 }
 function videoUploadControl() {
   return state!.uploadsEnabled
-    ? '<div class="photo-upload"><label for="media-video-upload">Add a video from your device</label><input id="media-video-upload" type="file" accept="video/mp4,video/webm,.mp4,.webm"><small>MP4 or WebM, up to 100 MB. The video uploads directly to secure media storage. Save media afterward to show it on the website.</small><p id="media-video-status" role="status"></p></div>'
+    ? '<div class="photo-upload"><label for="media-video-upload">Add a video from your device</label><input id="media-video-upload" type="file" accept="video/mp4,video/webm,.mp4,.webm"><small>MP4 or WebM, up to 100 MB. The video uploads directly to media storage. Save media afterward to show it on the website.</small><p id="media-video-status" role="status"></p></div>'
     : "";
 }
 function wireVideoUpload() {
