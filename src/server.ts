@@ -1,4 +1,5 @@
 import { guestServiceNames } from "./guest-services.js";
+import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
 import { followups, generateFollowups } from "./followups.js";
@@ -95,6 +96,7 @@ declare module "express-serve-static-core" {
 
 type Authed = Request & { user: User; business: Business };
 const kinds = [
+  "guestGalleries",
   "packages",
   "performers",
   "customers",
@@ -346,6 +348,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }));
     res.json({
       business,
+      guestGalleries: await store.all(business.id, "guestGalleries"),
       packages: (await store.all<Package>(business.id, "packages")).filter(
         (p) => p.active,
       ),
@@ -522,6 +525,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         power,
         space,
         status,
+        paymentTerms: booking.paymentTerms,
+        declined: booking.declined,
         quotes,
         acceptedQuoteId,
         packageIds,
@@ -1046,6 +1051,22 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json(next);
   });
+  writes.put("/api/manage/guest-galleries/:name", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const name = String(req.params.name);
+    requireThat(guestServiceNames(req.business.otherShowNames).includes(name), "Show not found", 404);
+    const id = name.toLocaleLowerCase("en");
+    const input = z.object({
+      gallery: z.array(z.object({
+        url: z.url().refine((value) => value.startsWith("https://"), "Use an HTTPS image link"),
+        caption: short.min(1),
+        approved: z.literal(true),
+      })).max(30),
+      hiddenPhotoUrls: z.array(z.string().startsWith("/portfolio/")).max(30),
+    }).parse(req.body);
+    res.json(await writeRecord(req, "guestGalleries", { id, ...input }));
+  });
   writes.post("/api/manage/users", async (request, res) => {
     const req = request as Authed;
     canManage(req);
@@ -1293,6 +1314,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       next();
       return;
     }
+    const previousPackage = kind === "packages" && key !== "new" ? await owned<Package>(req.business.id, kind, key) : undefined;
     const recordId = key === "new" ? id() : key;
     if (key !== "new") await owned(req.business.id, kind, key);
     if (["packages", "performers", "referrals"].includes(kind)) canManage(req);
@@ -1389,14 +1411,15 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       value = v;
     }
     const saved = await writeRecord(req, kind, { ...value, id: recordId });
-    if (kind === "packages" && key === "new") {
-      const bundle = saved as Package;
-      if (bundle.active && bundle.bundleIds?.length) {
-        await store.put(req.business.id, "bundleAnnouncements", {
-          id: id(), packageId: bundle.id, title: bundle.name,
-          description: bundle.description.slice(0, 180),
-          at: new Date().toISOString(),
-        });
+    if (kind === "packages") {
+      const show = saved as Package;
+      const priceDrop = !!previousPackage && show.priceMode === "fixed" && previousPackage.priceMode === "fixed" && show.price < previousPackage.price;
+      const publicChange = !previousPackage || !previousPackage.active || show.name !== previousPackage.name || show.description !== previousPackage.description || priceDrop;
+      if (show.active && publicChange) {
+        const title = priceDrop ? `New discount · ${show.name}` : !previousPackage || !previousPackage.active ? `${show.bundleIds?.length ? "New bundle" : "New show"} · ${show.name}` : `Show update · ${show.name}`;
+        const description = show.description.slice(0, 180);
+        await store.put(req.business.id, "bundleAnnouncements", { id: id(), packageId: show.id, title, description, at: new Date().toISOString() });
+        await offerNotice(store, req.business, title, description, origin);
       }
     }
     res.json(saved);
@@ -1473,6 +1496,41 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     });
     res.json({ ok: true });
   });
+  writes.delete("/api/manage/bookings/:id/permanent", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const booking = await owned<Booking>(req.business.id, "bookings", String(req.params.id));
+    const input = z.object({ name: z.string() }).parse(req.body);
+    requireThat(booking.status === "cancelled", "Cancel the event before deleting it permanently.", 409);
+    requireThat(input.name === booking.name, "Enter the exact event name to confirm deletion.");
+    const linkedKinds = ["money", "referrals", "rewardAwards"];
+    for (const kind of linkedKinds) {
+      const records = await store.all<{ bookingId?: string; sourceEventIds?: string[] }>(req.business.id, kind);
+      requireThat(!records.some((record) => record.bookingId === booking.id || record.sourceEventIds?.includes(booking.id)), "This event has payment, referral or reward history. It cannot be permanently deleted from Backstage.", 409);
+    }
+    requireThat(!booking.quotes.some((quote) => quote.reward), "This event has reward history. It cannot be permanently deleted from Backstage.", 409);
+    await store.transaction(async () => {
+      const linked = ["reviews", "reminders", "contactHistory", "customerNotifications"];
+      const deletedIds = new Set([booking.id]);
+      for (const kind of linked) {
+        const records = await store.all<{ id: string; bookingId?: string }>(req.business.id, kind);
+        for (const record of records.filter((item) => item.bookingId === booking.id)) {
+          deletedIds.add(record.id);
+          await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind=? AND id=?").run(req.business.id, kind, record.id);
+        }
+      }
+      for (const noticeId of deletedIds)
+        await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='notificationDeliveries' AND id=?").run(req.business.id, noticeId);
+      await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='actPlans' AND id=?").run(req.business.id, booking.id);
+      await store.db.prepare("DELETE FROM links WHERE business_id=? AND booking_id=?").run(req.business.id, booking.id);
+      await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='bookings' AND id=?").run(req.business.id, booking.id);
+      const audits = await store.all<{ id: string; entityId: string }>(req.business.id, "audit");
+      for (const audit of audits.filter((item) => deletedIds.has(item.entityId)))
+        await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='audit' AND id=?").run(req.business.id, audit.id);
+      await store.audit(req.business.id, req.user.email, "booking.permanently-deleted", booking.id, null, null);
+    });
+    res.json({ ok: true });
+  });
   writes.post("/api/manage/bookings/:id/link", async (request, res) => {
     const req = request as Authed;
     requireThat(req.user.role !== "performer", "Access denied", 403);
@@ -1545,8 +1603,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ),
     );
     validEventDate(req.business, input, false);
-    res.json(
-      await editBooking(
+    const before = await owned<Booking>(req.business.id, "bookings", String(req.params.id));
+    const saved = await editBooking(
         req,
         async (b) => {
           requireThat(
@@ -1594,8 +1652,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           };
         },
         "details.updated-recheck-required",
-      ),
-    );
+      );
+    const delivery = await eventNotice(store, req.business, saved, "updated", origin);
+    res.json({ ...saved, delivery, priorStatus: before.status });
   });
   app.get("/api/manage/bookings/:id/act-plan", async (req, res) => {
     canManage(req);
@@ -1892,10 +1951,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .object({
         status: z.enum(["confirmed", "completed", "cancelled"]),
         reason: short.min(3),
+        declined: z.boolean().optional(),
       })
       .parse(req.body);
-    res.json(
-      await editBooking(
+    const saved = await editBooking(
         req,
         async (b) => {
           requireThat(
@@ -1930,11 +1989,6 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
               ),
             ];
             requireThat(!issues.length, issues.join(" "), 409);
-            const money = totals(b, await store.all(req.business.id, "money"));
-            requireThat(
-              money.paid >= money.deposit,
-              "The agreed deposit must be recorded first.",
-            );
             validEventDate(req.business, b);
             if (!b.checklist.length)
               b.checklist = selectedPackages(b, packages).flatMap((p) =>
@@ -1954,6 +2008,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             );
           }
           b.status = input.status;
+          if (input.status === "cancelled") b.declined = !!input.declined;
           await store.audit(
             req.business.id,
             req.user.email,
@@ -1965,8 +2020,64 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           return b;
         },
         input.status,
-      ),
-    );
+      );
+    const delivery = input.status === "completed" ? null : await eventNotice(store, req.business, saved, input.status === "cancelled" && input.declined ? "declined" : input.status, origin);
+    res.json({ ...saved, delivery });
+  });
+  writes.post("/api/manage/bookings/:id/accept", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const input = z.object({
+      revision: z.number().int().min(1),
+      agreedAmount: cents,
+      receivedAmount: cents,
+      paymentTerms: short.min(3),
+      reason: short.min(3),
+    }).parse(req.body);
+    const old = await owned<Booking>(req.business.id, "bookings", String(req.params.id));
+    requireThat(old.revision === input.revision, "This event changed. Refresh before accepting.", 409);
+    requireThat(!["confirmed", "completed", "cancelled"].includes(old.status), "This event is already closed or confirmed.", 409);
+    requireThat((old.packageIds.length === 0 || old.performerIds.length > 0) && old.performerIds.every((performerId) => old.availability[performerId] === "available"), "Confirm every assigned performer's availability first.", 409);
+    const packages = await store.all<Package>(req.business.id, "packages");
+    const issues = [
+      ...compatibility(old, selectedPackages(old, packages)),
+      ...conflicts(old, await store.all(req.business.id, "bookings"), packages, await store.all(req.business.id, "blocks"), req.business.timezone),
+    ];
+    requireThat(!issues.length, issues.join(" "), 409);
+    validEventDate(req.business, old);
+    const existingPaid = totals(old, await store.all(req.business.id, "money")).paid;
+    requireThat(existingPaid + input.receivedAmount <= input.agreedAmount, "Received payments cannot exceed the agreed total.", 409);
+    const next = structuredClone(old);
+    const selected = next.quotes.find((quote) => quote.id === next.acceptedQuoteId);
+    if (selected?.reward) requireThat(selected.amount === input.agreedAmount, "Edit the rewarded proposal before changing its amount.", 409);
+    if (!selected || selected.amount !== input.agreedAmount) {
+      const agreed: Quote = {
+        id: id(), name: "Agreed event plan", packageIds: next.packageIds,
+        amount: input.agreedAmount, deposit: input.receivedAmount,
+        notes: input.paymentTerms, packageSnapshot: next.packageSnapshot,
+      };
+      next.quotes.push(agreed);
+      next.acceptedQuoteId = agreed.id;
+    }
+    next.status = "confirmed";
+    next.paymentTerms = input.paymentTerms;
+    next.declined = false;
+    next.revision++;
+    next.updatedAt = new Date().toISOString();
+    if (!next.checklist.length) next.checklist = selectedPackages(next, packages).flatMap((show) => show.checklist.map((text) => ({ text, done: false })));
+    await store.transaction(async () => {
+      const latest = await owned<Booking>(req.business.id, "bookings", old.id);
+      requireThat(latest.revision === old.revision, "This event changed. Refresh before accepting.", 409);
+      await store.put(req.business.id, "bookings", next);
+      if (input.receivedAmount > 0) {
+        const payment = { id: id(), bookingId: old.id, kind: "payment" as const, amount: input.receivedAmount, category: "acceptance", note: input.paymentTerms, date: DateTime.now().setZone(req.business.timezone).toISODate()! };
+        await store.put(req.business.id, "money", payment);
+        await store.audit(req.business.id, req.user.email, "money.recorded", payment.id, null, payment);
+      }
+      await store.audit(req.business.id, req.user.email, "booking.accepted-and-confirmed", old.id, old, { ...next, reason: input.reason });
+    });
+    const delivery = await eventNotice(store, req.business, next, "confirmed", origin);
+    res.json({ booking: next, delivery });
   });
   app.get("/api/manage/bookings/:id/checks", async (request, res) => {
     const req = request as Authed;

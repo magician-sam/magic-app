@@ -19,7 +19,7 @@ test("phone guest selection survives reload and signup returns directly to event
   await page.getByRole('button', { name: 'Create account & continue' }).click();
   await expect(page.getByRole('heading', { name: 'Tell us about your event' })).toBeVisible();
   await expect(page.locator('.signup-progress')).toContainText('Football Show');
-  await expect(page.locator('.signup-progress')).toContainText('A little hocus pocus');
+  await expect(page.locator('.signup-progress')).toContainText('Magic Show');
   await page.getByLabel('Event name', { exact: true }).fill('Guest journey celebration');
   await page.getByLabel('Event date', { exact: true }).fill('2027-08-10');
   await page.getByLabel(/Show start time/).fill('15:00');

@@ -85,6 +85,8 @@ async function current(id) {
     (b) => b.id === id,
   );
 }
+
+
 async function action(id, verb, body) {
   const b = await current(id);
   return await request(`/manage/bookings/${id}/${verb}`, "POST", {
@@ -330,7 +332,7 @@ test("bundles retain booking snapshots and reject overlapping shows in requests 
   assert.equal(alerts[0].packageId, id);
   const accountAlerts = await request("/customer/test/me", "GET", undefined, customerCookie);
   assert.equal(accountAlerts.status, 200);
-  assert.equal(accountAlerts.data.announcements[0].title, body.name);
+  assert.deepEqual(accountAlerts.data.announcements, []);
   const catalog = (await request("/public/test", "GET", undefined, null)).data;
   const bundle = catalog.packages.find((p) => p.id === id);
   assert.equal(bundle.bundleSnapshot.length, 2);
@@ -433,7 +435,7 @@ test("repeat customer bookings reuse the authenticated profile", async () => {
   await newRequest();
   assert.equal((await store.all(business.id, "customers")).length, before);
 });
-test("full request → quote → acceptance → deposit → availability → confirmation flow", async () => {
+test("full request → quote → choice → availability → confirmation → payment flow", async () => {
   const info = await newRequest();
   assert.equal(
     (
@@ -471,7 +473,7 @@ test("full request → quote → acceptance → deposit → availability → con
         reason: "Test approval",
       })
     ).status,
-    400,
+    200,
   );
   assert.equal(
     (
@@ -485,15 +487,6 @@ test("full request → quote → acceptance → deposit → availability → con
       })
     ).status,
     201,
-  );
-  assert.equal(
-    (
-      await action(info.id, "status", {
-        status: "confirmed",
-        reason: "Deposit and availability checked",
-      })
-    ).status,
-    200,
   );
   assert.equal((await current(info.id)).status, "confirmed");
   assert.equal(
@@ -1425,5 +1418,78 @@ test("private per-show staffing plans preserve money and prevent access or stale
       (a) => a.action === "staffing-plan.updated",
     ),
   );
+});
+
+test("owner can manage guest-show photos without changing another business", async () => {
+  const path = "/manage/guest-galleries/Clown";
+  const body = {
+    gallery: [{ url: "https://example.com/clown-show.jpg", caption: "A real clown show", approved: true }],
+    hiddenPhotoUrls: ["/portfolio/guest/clown-1.jpg"],
+  };
+  assert.equal((await request(path, "PUT", body, assistant)).status, 403);
+  assert.equal((await request(path, "PUT", { ...body, gallery: [{ ...body.gallery[0], url: "http://example.com/clown.jpg" }] })).status, 400);
+  assert.equal((await request(path, "PUT", body)).status, 200);
+  const publicGallery = (await request("/public/test", "GET", undefined, null)).data.guestGalleries.find((item) => item.id === "clown");
+  assert.deepEqual(publicGallery.gallery, body.gallery);
+  assert.deepEqual(publicGallery.hiddenPhotoUrls, body.hiddenPhotoUrls);
+  assert.equal((await store.all(other.id, "guestGalleries")).length, 0);
+});
+
+test("acceptance confirms with zero or partial payment and creates customer updates", async () => {
+  await store.db.prepare("DELETE FROM rate_limits").run();
+  const info = await newRequest({ date: "2028-09-18" });
+  assert.equal((await action(info.id, "availability", { performerId: "sam", state: "available" })).status, 200);
+  const acceptance = await action(info.id, "accept", {
+    agreedAmount: 30000,
+    receivedAmount: 0,
+    paymentTerms: "Full amount after the event",
+    reason: "Sam and the family agreed",
+  });
+  assert.equal(acceptance.status, 200, JSON.stringify(acceptance.data));
+  assert.equal((await current(info.id)).status, "confirmed");
+  assert.equal((await current(info.id)).paymentTerms, "Full amount after the event");
+  assert.equal((await store.all(business.id, "money")).filter((item) => item.bookingId === info.id).length, 0);
+  const customerEvent = await request("/event", "GET", undefined, null, { "x-event-token": info.token });
+  assert.equal(customerEvent.data.booking.paymentTerms, "Full amount after the event");
+  assert.equal(customerEvent.data.totals.balance, 30000);
+  assert.equal((await request("/customer/test/me", "GET", undefined, customerCookie)).data.notifications[0].kind, "confirmed");
+  assert.equal((await action(info.id, "accept", { agreedAmount: 30000, receivedAmount: 0, paymentTerms: "After event", reason: "Duplicate" })).status, 409);
+
+  const second = await newRequest({ date: "2028-09-19" });
+  assert.equal((await action(second.id, "availability", { performerId: "sam", state: "available" })).status, 200);
+  assert.equal((await action(second.id, "accept", { agreedAmount: 40000, receivedAmount: 10000, paymentTerms: "Balance after the event", reason: "Date and performer checked" })).status, 200);
+  assert.equal((await store.all(business.id, "money")).find((item) => item.bookingId === second.id)?.amount, 10000);
+});
+
+test("cancelled event can be permanently removed unless it has financial history", async () => {
+  await store.db.prepare("DELETE FROM rate_limits").run();
+  const info = await newRequest({ date: "2028-11-01" });
+  assert.equal((await action(info.id, "status", { status: "cancelled", declined: true, reason: "Unable to attend" })).status, 200);
+  assert.equal((await request(`/manage/bookings/${info.id}/permanent`, "DELETE", { name: "Wrong name" })).status, 400);
+  assert.equal((await request(`/manage/bookings/${info.id}/permanent`, "DELETE", { name: "Integration celebration" }, assistant)).status, 403);
+  assert.equal((await request(`/manage/bookings/${info.id}/permanent`, "DELETE", { name: "Integration celebration" })).status, 200);
+  assert.equal(await store.get(business.id, "bookings", info.id), undefined);
+  assert.equal((await request("/event", "GET", undefined, null, { "x-event-token": info.token })).status, 404);
+  assert.ok(!(await request("/customer/test/me", "GET", undefined, customerCookie)).data.notifications.some((item) => item.bookingId === info.id));
+
+  const paid = await newRequest({ date: "2028-11-02" });
+  await store.put(business.id, "money", { id: "delete-guard-payment", bookingId: paid.id, kind: "payment", amount: 1000, category: "test", note: "test", date: "2026-09-27" });
+  assert.equal((await action(paid.id, "status", { status: "cancelled", reason: "Test cancellation" })).status, 200);
+  assert.equal((await request(`/manage/bookings/${paid.id}/permanent`, "DELETE", { name: "Integration celebration" })).status, 409);
+});
+
+test("a guest-only event can be confirmed without assigning a Sam show performer", async () => {
+  await store.db.prepare("DELETE FROM rate_limits").run();
+  const settings = await store.business(business.id);
+  assert.equal((await request("/manage/business", "PUT", { ...settings, otherShowNames: ["Animation"] })).status, 200);
+  const info = await newRequest({ date: "2028-12-15", packageIds: [], requestedServices: ["Animation"], performerIds: [] });
+  const accepted = await action(info.id, "accept", {
+    agreedAmount: 25000,
+    receivedAmount: 0,
+    paymentTerms: "Payment after the event",
+    reason: "Guest act and venue confirmed",
+  });
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal((await current(info.id)).status, "confirmed");
 });
 

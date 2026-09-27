@@ -1,5 +1,26 @@
 /* Self-hosted, open-licensed typefaces; local fallbacks keep the site readable. */
 @font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/outfit-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Young Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/young-serif-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Berkshire Swash";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/berkshire-swash-latin.woff2") format("woff2");
+}
+@font-face {
   font-family: "Nunito Sans";
   font-style: normal;
   font-weight: 200 1000;

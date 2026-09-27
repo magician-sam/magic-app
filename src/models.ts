@@ -74,6 +74,11 @@ export interface GalleryPhoto {
   caption: string;
   approved: true;
 }
+export interface GuestGallery {
+  id: string;
+  gallery: GalleryPhoto[];
+  hiddenPhotoUrls: string[];
+}
 export interface Customer {
   id: string;
   name: string;
@@ -108,6 +113,8 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  paymentTerms?: string;
+  declined?: boolean;
   requestedServices?: string[];
   customAnswers?: CustomAnswer[];
   giftDetails?: { recipientName: string; message: string; flexibleDate: boolean };
@@ -223,6 +230,7 @@ export interface ServiceEnquiry {
 }
 export interface Dashboard {
   uploadsEnabled?: boolean;
+  guestGalleries: GuestGallery[];
   business: Business;
   user: User;
   packages: Package[];
@@ -240,6 +248,7 @@ export interface Dashboard {
   visits: { source: string; count: number }[];
 }
 export interface Catalog {
+  guestGalleries?: GuestGallery[];
   customFields?: CustomField[];
   business: Business;
   packages: Package[];

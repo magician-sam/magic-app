@@ -9,6 +9,7 @@ import { customerRewards, type CustomerExtras } from "./rewards.js";
 import { rewardView, type RewardAward } from "./reward-ledger.js";
 import { tokenWallet } from "./tokens.js";
 import { referralCodeFor, resolveReferral } from "./referral-codes.js";
+import { deviceId, pushPublicKey, type CustomerNotice, type PushDevice } from "./notifications.js";
 
 export function customerAccounts(
   app: Express,
@@ -61,7 +62,7 @@ export function customerAccounts(
   writes.post("/api/customer/:slug/register", async (req, res) => {
     const b = await business(req);
     const input = customerSchema
-      .pick({ name: true, phone: true, email: true })
+      .pick({ name: true, phone: true, email: true, offersConsent: true })
       .extend({
         password: z.string().min(12).max(200),
         username: z
@@ -176,12 +177,18 @@ export function customerAccounts(
       announcements: (await store.all<{
         id: string; packageId: string; title: string; description: string; at: string;
       }>(b.id, "bundleAnnouncements"))
+        .filter(() => c.offersConsent)
         .filter((item) => item.at >= new Date(Date.now() - 30 * 86400_000).toISOString())
         .slice(-8).reverse(),
+      notifications: (await store.all<CustomerNotice>(b.id, "customerNotifications"))
+        .filter((item) => item.customerId === c.id)
+        .slice(-30).reverse(),
+      pushEnabled: !!pushPublicKey(),
       profile: {
         name: c.name,
         phone: c.phone,
         email: c.email,
+        offersConsent: c.offersConsent,
         phoneVerified: false,
         childrenAges:
           (await store.get<CustomerExtras>(b.id, "customerExtras", c.id))
@@ -194,8 +201,36 @@ export function customerAccounts(
           name: x.name,
           date: x.date,
           status: x.status,
+          declined: !!x.declined,
         })),
     });
+  });
+  app.get("/api/customer/:slug/push-key", async (req, res) => {
+    const b = await business(req);
+    await session(req, b.id);
+    res.json({ publicKey: pushPublicKey() });
+  });
+  writes.post("/api/customer/:slug/push-device", async (req, res) => {
+    const b = await business(req), account = await session(req, b.id);
+    requireThat(pushPublicKey(), "Phone notifications are not connected yet.", 503);
+    const input = z.object({
+      endpoint: z.url().refine((value) => value.startsWith("https://")),
+      keys: z.object({ p256dh: z.string().min(10).max(300), auth: z.string().min(8).max(200) }),
+    }).parse(req.body);
+    const device: PushDevice = { id: deviceId(input.endpoint), customerId: account.customerId, ...input };
+    const existing = await store.get<PushDevice>(b.id, "pushDevices", device.id);
+    requireThat(!existing || existing.customerId === account.customerId, "This phone is linked to another account. Remove its notifications first.", 409);
+    await store.put(b.id, "pushDevices", device);
+    res.json({ ok: true });
+  });
+  writes.delete("/api/customer/:slug/push-device", async (req, res) => {
+    const b = await business(req), account = await session(req, b.id);
+    const input = z.object({ endpoint: z.url() }).parse(req.body);
+    const key = deviceId(input.endpoint);
+    const device = await store.get<PushDevice>(b.id, "pushDevices", key);
+    if (device?.customerId === account.customerId)
+      await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='pushDevices' AND id=?").run(b.id, key);
+    res.json({ ok: true });
   });
   writes.put("/api/customer/:slug/profile", async (req, res) => {
     const b = await business(req),

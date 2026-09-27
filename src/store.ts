@@ -113,7 +113,7 @@ export class Store {
     const packages: Package[] = [
       {
         id: "magic",
-        name: "A little hocus pocus",
+        name: "The magic starts here",
         category: "magic",
         description:
           "Surprises, laughter and a chance to be part of the magic. A playful centrepiece for your celebration.",

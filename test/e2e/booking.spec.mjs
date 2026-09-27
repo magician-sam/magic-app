@@ -31,7 +31,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Make your day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Make your event/ })).toBeVisible();
   await page.locator('#shows [data-add="magic"]').click();
   await page.getByRole("button", { name: "Request my event" }).click();
   await page
@@ -42,7 +42,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await page.getByLabel("Choose a password").fill("Customer-browser-test-42!");
   await expect(page.getByText("Your 1 chosen show is still in your event box.")).toBeVisible();
   await page.getByRole("button", { name: "Create account & continue" }).click();
-  await expect(page.getByText("Still in your event box: A little hocus pocus")).toBeVisible();
+  await expect(page.getByText("Still in your event box: Magic Show")).toBeVisible();
   await page
     .getByLabel("Event name", { exact: true })
     .fill(eventName);
@@ -94,16 +94,16 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await admin.reload();
   await admin.getByRole("button", { name: "Events & requests", exact: true }).click();
   await admin.locator(".row").filter({ hasText: eventName }).getByRole("button", { name: "Open event" }).click();
-  await admin
-    .getByRole("button", { name: "Confirm booking", exact: true })
-    .click();
-  await admin
-    .getByLabel("Reason / confirmation note")
-    .fill("Browser verified availability and zero deposit");
-  await admin.getByRole("button", { name: "Check & confirm booking" }).click();
+  await admin.getByRole("button", { name: "Accept & confirm event" }).click();
+  await admin.getByLabel("Payment received now (USD)").fill("0");
+  await admin.getByLabel("Payment agreement").fill("Full amount after the show");
+  await admin.getByLabel("Internal confirmation note").fill("Browser verified date and availability");
+  await admin.getByRole("button", { name: "Accept, confirm & notify customer" }).click();
   await expect(admin.locator(".booking-banner .badge")).toHaveText("Confirmed");
   await page.reload();
   await expect(page.locator(".event-page > .badge")).toHaveText("Confirmed");
+  await expect(page.getByText("Payment agreement:")).toBeVisible();
+  await expect(page.getByText("Full amount after the show")).toBeVisible();
   expect(errors).toEqual([]);
   await customer.close();
   await staff.close();
