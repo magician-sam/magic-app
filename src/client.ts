@@ -841,6 +841,13 @@ function eventFields(b?: Partial<Booking>): Field[] {
 }
 async function requestForm() {
   if (!basket.length && !guestBasket.length) { notify("Choose at least one show first."); return; }
+  const continueButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#request, .mobile-event-bar button"));
+  const originalLabels = continueButtons.map((button) => button.innerHTML);
+  continueButtons.forEach((button) => {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.textContent = "Opening…";
+  });
   let account: {
     profile: { name: string; phone: string; email: string };
     rewards: { tokens: { balance: number } };
@@ -850,6 +857,12 @@ async function requestForm() {
   } catch {
     customerAuth(true);
     return;
+  } finally {
+    continueButtons.forEach((button, index) => {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.innerHTML = originalLabels[index];
+    });
   }
   const questions = (catalog.customFields ?? []).filter((f) => f.active);
   const extras = catalog.packages.filter(
