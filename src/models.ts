@@ -43,6 +43,7 @@ export interface Package {
   checkoutExtra?: boolean;
   previewVideo?: string;
   previewVideos?: string[];
+  hiddenVideoUrls?: string[];
   category: string;
   description: string;
   duration: number;
@@ -78,6 +79,8 @@ export interface GuestGallery {
   id: string;
   gallery: GalleryPhoto[];
   hiddenPhotoUrls: string[];
+  videos?: string[];
+  hiddenVideoUrls?: string[];
 }
 export interface Customer {
   id: string;

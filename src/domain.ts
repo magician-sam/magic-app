@@ -115,6 +115,7 @@ export const packageSchema = z
     checkoutExtra: z.boolean().optional(),
     previewVideo: url.optional(),
     previewVideos: z.array(url.refine((link) => link !== "", "Add a video link")).max(6).optional(),
+    hiddenVideoUrls: z.array(z.string().regex(/^\/portfolio\/[a-z0-9-]+\.mp4$/)).max(10).optional(),
     category: short.min(1).max(40),
     description: z.string().max(3000),
     duration: z.number().int().min(5).max(480),

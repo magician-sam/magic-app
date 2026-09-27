@@ -1963,6 +1963,9 @@ button.show-art:hover { transform: none; }
 .built-in-photo-grid label { display: grid; gap: 7px; align-content: start; cursor: pointer; font-size: 12px; }
 .built-in-photo-grid img { width: 100%; height: 130px; object-fit: cover; border-radius: 10px; background: #f4eff8; }
 .built-in-photo-grid label span { display: flex; align-items: center; gap: 6px; }
+.built-in-photo-grid .added-photo { display: grid; gap: 7px; align-content: start; min-width: 0; }
+.built-in-photo-grid .added-photo span { overflow-wrap: anywhere; font-size: 12px; }
+.built-in-photo-grid .added-photo button { justify-self: start; }
 .photo-upload { margin: 18px 0; padding: 16px; border: 1px dashed #bdacd2; border-radius: 14px; background: #fbf8ff; }
 .photo-upload label { display: block; margin-bottom: 8px; font-weight: 700; }
 .photo-upload input { display: block; max-width: 100%; }

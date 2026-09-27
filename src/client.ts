@@ -373,6 +373,14 @@ function guestPhotos(name: string) {
   const builtIn = guestBuiltInPhotos(name).filter((photo) => !hidden.has(photo.url));
   return [...builtIn, ...(saved?.gallery ?? []).filter((photo) => !builtIn.some((item) => item.url === photo.url))].slice(0, 30);
 }
+function guestBuiltInVideos(name: string) {
+  return /football|soccer/i.test(name) ? ["/portfolio/guest/football-show-live.mp4"] : [];
+}
+function guestVideos(name: string) {
+  const saved = (catalog?.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en"));
+  const hidden = new Set(saved?.hiddenVideoUrls ?? []);
+  return [...new Set([...guestBuiltInVideos(name).filter((url) => !hidden.has(url)), ...(saved?.videos ?? [])])].slice(0, 6);
+}
 function characterGallery() {
   return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${guestPhotos("Characters").map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
 }
@@ -385,8 +393,12 @@ function showPhotos(p: Package) {
   return (demoShowPhotos[p.id] ?? []).filter((photo) => !hidden.has(photo.url));
 }
 function showVideos(p: Package) {
-  const scienceVideos = p.id === "science" ? [1, 2, 3, 4].map((number) => `/portfolio/sam-science-live-${number}.mp4`) : [];
-  return [...new Set([...scienceVideos, ...(p.previewVideos ?? []), ...(p.previewVideo ? [p.previewVideo] : [])])].filter(Boolean);
+  const scienceVideos = packageBuiltInVideos(p);
+  const hidden = new Set(p.hiddenVideoUrls ?? []);
+  return [...new Set([...scienceVideos.filter((url) => !hidden.has(url)), ...(p.previewVideos ?? []), ...(p.previewVideo ? [p.previewVideo] : [])])].filter(Boolean);
+}
+function packageBuiltInVideos(p: Package) {
+  return p.id === "science" ? [1, 2, 3, 4].map((number) => `/portfolio/sam-science-live-${number}.mp4`) : [];
 }
 function videoTile(link: string, showName: string, index: number, poster?: string) {
   const parsed = new URL(link, location.origin);
@@ -648,7 +660,7 @@ function serviceEnquiry(name: string) { toggleGuest(name); modal.close(); }
 function enquiryCard(name: string) {
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
-  const hasVideo = /football|soccer/i.test(name);
+  const hasVideo = guestVideos(name).length > 0;
   const serviceType = /decoration|balloon decor/i.test(name)
     ? "Event styling · by request"
     : /carnival games?/i.test(name)
@@ -705,7 +717,7 @@ function enquiryCard(name: string) {
 }
 function enquiryDetails(name: string) {
   const photos = guestPhotos(name);
-  const videos = /football|soccer/i.test(name) ? ["/portfolio/guest/football-show-live.mp4"] : [];
+  const videos = guestVideos(name);
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
   const isDecoration = /decoration|balloon decor/i.test(name);
   const intro = isDecoration
@@ -720,7 +732,7 @@ function enquiryDetails(name: string) {
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${videos.length ? `<section><h3>See the football show</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, "/portfolio/guest/football-stage-live.jpg")).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
   on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
 }
@@ -1606,7 +1618,7 @@ const navItems = [
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
   ["packages", "✧", "Shows & packages"],
-  ["guest-photos", "▧", "More show photos"],
+  ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
   ["performers", "☆", "Performers"],
   ["money", "$", "Money & reports"],
@@ -2075,18 +2087,94 @@ function editContactEntry(customerId: string, entry?: ContactEntry) {
 
 function renderGuestPhotosAdmin(root: Element) {
   const names = guestServiceNames(state!.business.otherShowNames);
-  root.innerHTML = `<section class="panel"><h2>Photos for more shows</h2><p>Add your own photos or hide included ones. Open a show below, then save to update the public website.</p></section><div class="profile-grid">${names.map((name) => `<article class="panel"><h3>${e(name)}</h3><p>${guestBuiltInPhotos(name).length} included photo${guestBuiltInPhotos(name).length === 1 ? "" : "s"} · ${(state!.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en"))?.gallery.length ?? 0} added</p><button type="button" class="small outline" data-guest-gallery="${e(name)}">Manage photos ↗</button></article>`).join("")}</div>`;
+  const guestCards = names.map((name) => {
+    const saved = state!.guestGalleries?.find((entry) => entry.id === name.toLocaleLowerCase("en"));
+    const photos = guestBuiltInPhotos(name).filter((photo) => !saved?.hiddenPhotoUrls.includes(photo.url)).length + (saved?.gallery.length ?? 0);
+    const videos = guestVideos(name).length;
+    return `<article class="panel"><h3>${e(name)}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-guest-gallery="${e(name)}">Manage photos & videos ↗</button></article>`;
+  }).join("");
+  root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Choose a show to add photos or video links, change the main picture, or hide media already included. Save to update the public website.</p></section><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
+  on(root, "[data-package-media]", "click", (event) => editPackageMedia((event.currentTarget as HTMLElement).dataset.packageMedia!));
   on(root, "[data-guest-gallery]", "click", (event) => editGuestGallery((event.currentTarget as HTMLElement).dataset.guestGallery!));
 }
+function addedPhotoControls(photos: { url: string; caption: string }[]) {
+  if (!photos.length) return "";
+  return `<fieldset class="built-in-photos"><legend>Photos you added</legend><p>Use Remove photo to take an added picture off the website, then save.</p><div class="built-in-photo-grid">${photos.map((photo) => `<div class="added-photo"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span>${e(photo.caption)}</span><button type="button" class="small outline" data-remove-added-photo="${e(photo.url)}">Remove photo</button></div>`).join("")}</div></fieldset>`;
+}
+function wireAddedPhotoRemoval() {
+  on(modal, "[data-remove-added-photo]", "click", (event) => {
+    const button = event.currentTarget as HTMLElement;
+    const gallery = modal.querySelector<HTMLTextAreaElement>("#f-gallery")!;
+    gallery.value = gallery.value.split("\n").filter((line) => line.split("|")[0].trim() !== button.dataset.removeAddedPhoto).join("\n");
+    button.closest(".added-photo")?.remove();
+  });
+}
+function editPackageMedia(id: string) {
+  const show = state!.packages.find((item) => item.id === id);
+  if (!show) return;
+  const fields: Field[] = [
+    { key: "gallery", label: "Your added photos", type: "textarea", wide: true, value: (show.gallery ?? []).map((photo) => `${photo.url} | ${photo.caption}`).join("\n"), help: "One HTTPS image link | description per line. Remove a line to take that photo off the site." },
+    { key: "publishApproved", label: "I have permission to publish these photos", type: "checkbox", wide: true, value: !!show.gallery?.length },
+    { key: "coverPhotoNumber", label: "Main photo number", type: "number", min: 1, max: 12, value: show.coverPhotoNumber ?? 1, help: "The first visible photo is number 1." },
+    { key: "videos", label: "Your video links", type: "textarea", wide: true, value: (show.previewVideos ?? (show.previewVideo ? [show.previewVideo] : [])).join("\n"), help: "One HTTPS MP4, WebM, YouTube or Vimeo link per line. Remove a line to remove a video." },
+  ];
+  const photos = portfolioShowPhotos[id] ?? demoShowPhotos[id] ?? [];
+  const includedPhotos = photos.length ? `<fieldset class="built-in-photos"><legend>Included photos</legend><p>Tick a photo to hide it from the site.</p><div class="built-in-photo-grid">${photos.map((photo) => `<label><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span><input type="checkbox" name="hiddenPhotoUrls" value="${e(photo.url)}" ${(show.hiddenPhotoUrls ?? []).includes(photo.url) ? "checked" : ""}> Hide this photo</span></label>`).join("")}</div></fieldset>` : "";
+  const includedVideos = packageBuiltInVideos(show).map((url, index) => `<label class="check"><input type="checkbox" name="hiddenVideoUrls" value="${e(url)}" ${(show.hiddenVideoUrls ?? []).includes(url) ? "checked" : ""}> Hide included video ${index + 1}</label>`).join("");
+  const upload = state!.uploadsEnabled ? '<div class="photo-upload"><label for="media-photo-upload">Add photos from your device</label><input id="media-photo-upload" type="file" accept="image/*" multiple><p id="media-photo-status" role="status"></p></div>' : '<p class="muted">Device upload is not connected yet. Add an HTTPS photo link above.</p>';
+  openDialog(`Photos & videos · ${publicShowName(show)}`, formBody(fields, addedPhotoControls(show.gallery ?? []) + includedPhotos + includedVideos + upload, "Save media"));
+  wireAddedPhotoRemoval();
+  on(modal, "#media-photo-upload", "change", async (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const files = [...(input.files ?? [])];
+    const status = modal.querySelector<HTMLElement>("#media-photo-status")!;
+    const gallery = modal.querySelector<HTMLTextAreaElement>("#f-gallery")!;
+    input.disabled = true;
+    try {
+      for (const [index, file] of files.entries()) {
+        status.textContent = `Preparing photo ${index + 1} of ${files.length}…`;
+        const response = await fetch("/api/manage/upload-photo", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: await resizedPhoto(file) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Photo upload failed.");
+        const caption = file.name.replace(/\.[^.]+$/, "").replace(/[|\r\n]/g, " ").slice(0, 100) || "Show photo";
+        gallery.value += `${gallery.value.trim() ? "\n" : ""}${result.url} | ${caption}`;
+      }
+      status.textContent = `${files.length} photo${files.length === 1 ? "" : "s"} ready. Save media to publish.`;
+      input.value = "";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Unable to add photos.";
+    } finally { input.disabled = false; }
+  });
+  submit(modal.querySelector("form")!, async (data) => {
+    const gallery = String(data.get("gallery") ?? "").split("\n").filter((line) => line.trim()).map((line) => {
+      const separator = line.indexOf("|");
+      if (separator < 0) throw new Error("Each photo needs an HTTPS link followed by | and a description.");
+      return { url: line.slice(0, separator).trim(), caption: line.slice(separator + 1).trim(), approved: true as const };
+    });
+    if (gallery.length && data.get("publishApproved") !== "on") throw new Error("Confirm you have permission to publish these photos.");
+    await api(`/manage/packages/${encodeURIComponent(id)}`, "PUT", {
+      ...show, gallery, coverPhotoNumber: Number(data.get("coverPhotoNumber") ?? 1),
+      hiddenPhotoUrls: selected(data, "hiddenPhotoUrls"),
+      previewVideo: "", previewVideos: String(data.get("videos") ?? "").split("\n").map((url) => url.trim()).filter(Boolean),
+      hiddenVideoUrls: selected(data, "hiddenVideoUrls"),
+    });
+    modal.close();
+    await loadDashboard();
+    notify(`${publicShowName(show)} media updated.`);
+  });
+}
 function editGuestGallery(name: string) {
-  const saved: GuestGallery = (state!.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en")) ?? { id: name.toLocaleLowerCase("en"), gallery: [], hiddenPhotoUrls: [] };
+  const saved: GuestGallery = (state!.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en")) ?? { id: name.toLocaleLowerCase("en"), gallery: [], hiddenPhotoUrls: [], videos: [], hiddenVideoUrls: [] };
   const builtIn = guestBuiltInPhotos(name);
   const fields: Field[] = [
     { key: "gallery", label: "Your added photos", type: "textarea", wide: true, value: saved.gallery.map((photo) => `${photo.url} | ${photo.caption}`).join("\n"), help: "One HTTPS image link and description per line. Remove a line to take that photo off the site. The first visible photo appears on the show card." },
+    { key: "videos", label: "Your video links", type: "textarea", wide: true, value: (saved.videos ?? []).join("\n"), help: "One HTTPS video link per line. MP4, WebM, YouTube and Vimeo are supported. Remove a line to remove the video from the site." },
   ];
   const included = builtIn.length ? `<fieldset class="built-in-photos"><legend>Photos already included</legend><p>Tick any photo to hide it from the public website.</p><div class="built-in-photo-grid">${builtIn.map((photo) => `<label><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span><input type="checkbox" name="hiddenPhotoUrls" value="${e(photo.url)}" ${saved.hiddenPhotoUrls.includes(photo.url) ? "checked" : ""}> Hide this photo</span></label>`).join("")}</div></fieldset>` : "";
+  const includedVideos = guestBuiltInVideos(name).map((url) => `<label class="check"><input type="checkbox" name="hiddenVideoUrls" value="${e(url)}" ${(saved.hiddenVideoUrls ?? []).includes(url) ? "checked" : ""}> Hide included video</label>`).join("");
   const upload = state!.uploadsEnabled ? '<div class="photo-upload"><label for="guest-photo-upload">Add photos from your device</label><input id="guest-photo-upload" type="file" accept="image/*" multiple><small>Photos resize automatically. Save changes after uploading.</small><p id="guest-photo-upload-status" role="status"></p></div>' : '<p class="muted">Device upload is not connected yet. Add an HTTPS photo link above.</p>';
-  openDialog(`Photos · ${name}`, formBody(fields, included + upload));
+  openDialog(`Photos & videos · ${name}`, formBody(fields, addedPhotoControls(saved.gallery) + included + includedVideos + upload));
+  wireAddedPhotoRemoval();
   on(modal, "#guest-photo-upload", "change", async (event) => {
     const input = event.currentTarget as HTMLInputElement;
     const files = [...(input.files ?? [])];
@@ -2114,10 +2202,11 @@ function editGuestGallery(name: string) {
       if (separator < 0) throw new Error("Each photo needs an HTTPS link followed by | and a description.");
       return { url: line.slice(0, separator).trim(), caption: line.slice(separator + 1).trim(), approved: true as const };
     });
-    await api(`/manage/guest-galleries/${encodeURIComponent(name)}`, "PUT", { gallery, hiddenPhotoUrls: selected(data, "hiddenPhotoUrls") });
+    const videos = String(data.get("videos") ?? "").split("\n").map((link) => link.trim()).filter(Boolean);
+    await api(`/manage/guest-galleries/${encodeURIComponent(name)}`, "PUT", { gallery, videos, hiddenPhotoUrls: selected(data, "hiddenPhotoUrls"), hiddenVideoUrls: selected(data, "hiddenVideoUrls") });
     modal.close();
     await loadDashboard();
-    notify(`${name} photos updated.`);
+    notify(`${name} photos and videos updated.`);
   });
 }
 function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
@@ -3020,6 +3109,7 @@ function editRecord(kind: string, key: string, duplicate = false) {
     if (kind === "packages") {
       value.bundleIds = selected(data, "bundleIds");
       value.hiddenPhotoUrls = selected(data, "hiddenPhotoUrls");
+      value.hiddenVideoUrls = (item.hiddenVideoUrls as string[] | undefined) ?? [];
       value.previewVideos = String(value.previewVideos ?? "").split("\n").map((link) => link.trim()).filter(Boolean);
       value.previewVideo = "";
       if (currentView === "offers" && (value.bundleIds as string[]).length < 2)
@@ -3076,6 +3166,21 @@ function editRecord(kind: string, key: string, duplicate = false) {
   });
 }
 function confirmRemove(kind: string, key: string) {
+  if (kind === "customers") {
+    const customer = state!.customers.find((item) => item.id === key);
+    if (!customer) return;
+    openDialog(
+      `Delete ${customer.name}?`,
+      `<p>This permanently removes a customer with no event, contact, reward or referral history. If they have an unused account, it is also removed. Customers with history must be kept so event and payment records remain accurate.</p><form><label for="delete-customer-name">Type the customer's exact name to confirm</label><input id="delete-customer-name" name="name" autocomplete="off" required><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit" class="danger">Delete customer</button></div></form>`,
+    );
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/manage/customers/${key}`, "DELETE", { name: String(data.get("name") ?? "") });
+      modal.close();
+      await loadDashboard();
+      notify("Customer deleted.");
+    });
+    return;
+  }
   openDialog(
     kind === "users" ? "Remove access?" : "Remove this record?",
     `<p>${["packages", "performers"].includes(kind) ? "This will archive the listing and remove it from the public website. Past event history stays intact. You can make it active again from Edit." : "Linked booking and payment history is protected. This action is recorded in the change history."}</p><form><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit" class="danger">${["packages", "performers"].includes(kind) ? "Archive listing" : "Remove"}</button></div></form>`,

@@ -260,7 +260,7 @@ test("gallery publication requires valid approved images and remains business sc
     403,
   );
   assert.equal(
-    (await request(path, "PUT", { ...original, gallery, coverPhotoNumber: 2, hiddenPhotoUrls: ["/portfolio/sam-magic-1.jpg"] })).status,
+    (await request(path, "PUT", { ...original, gallery, coverPhotoNumber: 2, hiddenPhotoUrls: ["/portfolio/sam-magic-1.jpg"], hiddenVideoUrls: ["/portfolio/sam-science-live-1.mp4"] })).status,
     200,
   );
   assert.deepEqual(
@@ -272,6 +272,7 @@ test("gallery publication requires valid approved images and remains business sc
   const published = (await request("/public/test", "GET", undefined, null)).data.packages.find((p) => p.id === "magic");
   assert.equal(published.coverPhotoNumber, 2);
   assert.deepEqual(published.hiddenPhotoUrls, ["/portfolio/sam-magic-1.jpg"]);
+  assert.deepEqual(published.hiddenVideoUrls, ["/portfolio/sam-science-live-1.mp4"]);
   assert.equal(
     (await store.get(other.id, "packages", "magic")).gallery,
     undefined,
@@ -1425,6 +1426,8 @@ test("owner can manage guest-show photos without changing another business", asy
   const body = {
     gallery: [{ url: "https://example.com/clown-show.jpg", caption: "A real clown show", approved: true }],
     hiddenPhotoUrls: ["/portfolio/guest/clown-1.jpg"],
+    videos: ["https://example.com/clown-show.mp4"],
+    hiddenVideoUrls: [],
   };
   assert.equal((await request(path, "PUT", body, assistant)).status, 403);
   assert.equal((await request(path, "PUT", { ...body, gallery: [{ ...body.gallery[0], url: "http://example.com/clown.jpg" }] })).status, 400);
@@ -1432,7 +1435,30 @@ test("owner can manage guest-show photos without changing another business", asy
   const publicGallery = (await request("/public/test", "GET", undefined, null)).data.guestGalleries.find((item) => item.id === "clown");
   assert.deepEqual(publicGallery.gallery, body.gallery);
   assert.deepEqual(publicGallery.hiddenPhotoUrls, body.hiddenPhotoUrls);
+  assert.deepEqual(publicGallery.videos, body.videos);
   assert.equal((await store.all(other.id, "guestGalleries")).length, 0);
+});
+
+test("Backstage can delete an unused customer account but protects event history", async () => {
+  const created = await request("/customer/test/register", "POST", {
+    name: "Unused customer for removal",
+    phone: "+96170123456",
+    password,
+  }, null);
+  assert.equal(created.status, 201);
+  const customer = (await store.all(business.id, "customers")).find((item) => item.name === "Unused customer for removal");
+  assert.ok(customer);
+  assert.equal((await request(`/manage/customers/${customer.id}`, "DELETE", { name: "Wrong name" })).status, 400);
+  assert.equal((await request(`/manage/customers/${customer.id}`, "DELETE", { name: customer.name })).status, 200);
+  assert.equal(await store.get(business.id, "customers", customer.id), undefined);
+  assert.equal(await store.db.prepare("SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?").get(business.id, customer.id), undefined);
+  assert.equal(await store.get(business.id, "customerExtras", customer.id), undefined);
+
+  const booking = await newRequest({ date: "2028-11-13" });
+  const linked = (await store.all(business.id, "bookings")).find((item) => item.id === booking.id);
+  const historical = await store.get(business.id, "customers", linked.customerId);
+  assert.equal((await request(`/manage/customers/${historical.id}`, "DELETE", { name: historical.name })).status, 409);
+  assert.ok(await store.get(business.id, "customers", historical.id));
 });
 
 test("acceptance confirms with zero or partial payment and creates customer updates", async () => {

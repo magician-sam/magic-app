@@ -1064,6 +1064,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         approved: z.literal(true),
       })).max(30),
       hiddenPhotoUrls: z.array(z.string().startsWith("/portfolio/")).max(30),
+      videos: z.array(z.url().refine((value) => value.startsWith("https://"), "Use an HTTPS video link")).max(6).default([]),
+      hiddenVideoUrls: z.array(z.string().regex(/^\/portfolio\/guest\/[a-z0-9-]+\.mp4$/)).max(10).default([]),
     }).parse(req.body);
     res.json(await writeRecord(req, "guestGalleries", { id, ...input }));
   });
@@ -1446,14 +1448,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       key,
     );
     const bookings = await store.all<Booking>(req.business.id, "bookings");
-    if (kind === "customers")
+    const account = kind === "customers" ? await store.db.prepare("SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?").get(req.business.id, key) : undefined;
+    if (kind === "customers") {
       requireThat(
-        !(await store.db
-          .prepare(
-            "SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?",
-          )
-          .get(req.business.id, key)) &&
-          !bookings.some((b) => b.customerId === key) &&
+        !bookings.some((b) => b.customerId === key) &&
           !(
             await store.all<{ customerId: string }>(
               req.business.id,
@@ -1468,10 +1466,14 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           ).some((a) => a.customerId === key) &&
           !(await store.all<Reminder>(req.business.id, "reminders")).some(
             (r) => r.customerId === key,
-          ),
+          ) &&
+          !(await store.all<{ referredBy: string }>(req.business.id, "customerExtras")).some((extra) => extra.referredBy === key),
         "This customer has history. Edit their details or mark Do not contact instead.",
         409,
       );
+      const input = z.object({ name: z.string() }).parse(req.body);
+      requireThat(input.name === before.name, "Enter the exact customer name to confirm removal.");
+    }
     await store.transaction(async () => {
       if (["packages", "performers"].includes(kind))
         await store.put(req.business.id, kind, {
@@ -1479,18 +1481,32 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           id: key,
           active: false,
         });
-      else
+      else {
+        if (kind === "customers") {
+          if (account) {
+            await store.db.prepare("DELETE FROM customer_sessions WHERE account_id=?").run(account.id);
+            await store.db.prepare("DELETE FROM customer_resets WHERE account_id=?").run(account.id);
+            await store.db.prepare("DELETE FROM referral_codes WHERE account_id=?").run(account.id);
+            await store.db.prepare("DELETE FROM customer_accounts WHERE id=? AND business_id=?").run(account.id, req.business.id);
+          }
+          for (const related of ["customerExtras", "pushDevices", "customerNotifications", "notificationDeliveries"]) {
+            const records = await store.all<{ id: string; customerId?: string }>(req.business.id, related);
+            for (const record of records.filter((item) => item.id === key || item.customerId === key))
+              await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind=? AND id=?").run(req.business.id, related, record.id);
+          }
+        }
         await store.db
           .prepare(
             "DELETE FROM records WHERE business_id=? AND kind=? AND id=?",
           )
           .run(req.business.id, kind, key);
+      }
       await store.audit(
         req.business.id,
         req.user.email,
         `${kind}.removed`,
         key,
-        before,
+        kind === "customers" ? null : before,
         null,
       );
     });
