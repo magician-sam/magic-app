@@ -2523,6 +2523,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     res.status(404).json({ error: "Endpoint not found" }),
   );
   app.use(express.static(resolve("dist/public"), { index: false }));
+  app.get("/manage.", (_req, res) => res.redirect(302, "/manage"));
   app.get(["/", "/b/:slug", "/manage", "/event"], (_req, res) =>
     res.sendFile(resolve("public/index.html")),
   );
