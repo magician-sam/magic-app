@@ -1,4 +1,5 @@
 import { guestServiceNames } from "./guest-services.js";
+import { siteMediaSlots } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
 import type { FollowupSettings } from "./followups.js";
 import { reportPeriod } from "./reports.js";
@@ -441,6 +442,31 @@ function showDetails(p: Package) {
   });
 }
 function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices); }
+function siteMediaUrl(key: string) {
+  return catalog.business.siteMedia?.[key] ?? siteMediaSlots.find((slot) => slot.key === key)?.defaultUrl ?? "";
+}
+function applyPublicSiteMedia() {
+  const heroKeys = ["heroMagic", "heroScience", "heroCharacters"];
+  for (const selector of [".hero-gallery", ".mobile-hero-photos"]) {
+    const images = [...app.querySelectorAll<HTMLImageElement>(`${selector} img`)];
+    images.forEach((image, index) => {
+      const url = siteMediaUrl(heroKeys[index]);
+      if (url) image.src = url;
+      else image.remove();
+    });
+  }
+  for (const [selector, key] of [
+    [".show-proof img", "showProof"],
+    [".adult-magic-feature img", "adultMagic"],
+    [".sam-profile img", "samProfile"],
+  ]) {
+    const image = app.querySelector<HTMLImageElement>(selector);
+    if (!image) continue;
+    const url = siteMediaUrl(key);
+    if (url) image.src = url;
+    else image.remove();
+  }
+}
 
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -549,6 +575,7 @@ function renderPublic() {
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
           .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  applyPublicSiteMedia();
   if (!moreShowNames().includes("Characters")) app.querySelector(".site-nav a[href='#characters']")?.remove();
   for (const group of ["party-shows", "special-acts"])
     if (!app.querySelector(`#${group}`)) app.querySelector(`.show-jump a[href='#${group}']`)?.remove();
@@ -559,19 +586,19 @@ function renderPublic() {
     document.querySelector(".site-nav a[href='#characters']")?.before(offersLink);
   }
   const moments = [
-    ["/portfolio/sam-magic-live-2.jpg", "Magic with Sam", "show", "magic"],
-    ["/portfolio/sam-science-live-2.jpg", "Science show", "show", "science"],
-    ["/portfolio/characters-rabbits.jpg", "Character costumes", "enquiry", "Characters"],
-    ["/portfolio/decoration/dinosaur-birthday.jpg", "Birthday decoration", "enquiry", "Decoration"],
-    ["/portfolio/presentation/carnival-games.jpg", "Carnival games", "enquiry", "Carnival Games"],
-    ["/portfolio/characters-panda-bear.jpg", "Panda and bear characters", "enquiry", "Characters"],
-  ].filter(([, , kind, key]) => kind !== "enquiry" || moreShowNames().includes(key));
+    [siteMediaUrl("momentMagic"), "Magic with Sam", "show", "magic"],
+    [siteMediaUrl("momentScience"), "Science show", "show", "science"],
+    [siteMediaUrl("momentCharacters"), "Character costumes", "enquiry", "Characters"],
+    [siteMediaUrl("momentDecoration"), "Birthday decoration", "enquiry", "Decoration"],
+    [siteMediaUrl("momentGames"), "Carnival games", "enquiry", "Carnival Games"],
+    [siteMediaUrl("momentPanda"), "Panda and bear characters", "enquiry", "Characters"],
+  ].filter(([url, , kind, key]) => !!url && (kind !== "enquiry" || moreShowNames().includes(key)));
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
   const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => `<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${e(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
   strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
-  document.querySelector(".ribbon")?.after(strip);
+  if (moments.length) document.querySelector(".ribbon")?.after(strip);
   renderBox();
   app.querySelectorAll<HTMLElement>(".review").forEach((card, index) => {
     const review = catalog.reviews[index];
@@ -2093,15 +2120,67 @@ function editContactEntry(customerId: string, entry?: ContactEntry) {
 
 function renderGuestPhotosAdmin(root: Element) {
   const names = guestServiceNames(state!.business.otherShowNames);
+  const visibleHeroPhotos = siteMediaSlots.slice(0, 3).filter((slot) => (state!.business.siteMedia?.[slot.key] ?? slot.defaultUrl) !== "").length;
+  const siteCards = siteMediaSlots.map((slot) => {
+    const url = state!.business.siteMedia?.[slot.key] ?? slot.defaultUrl;
+    const canHide = url && (!slot.key.startsWith("hero") || visibleHeroPhotos > 1);
+    return `<article class="panel site-media-card">${url ? `<img src="${e(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<div class="site-media-empty">Photo hidden</div>'}<h3>${e(slot.label)}</h3><p class="muted">${state!.business.siteMedia?.[slot.key] === undefined ? "Original photo" : url ? "Your photo" : "Hidden from website"}</p><div class="actions"><button type="button" class="small outline" data-edit-site-media="${e(slot.key)}">Change photo</button>${canHide ? `<button type="button" class="small danger" data-hide-site-media="${e(slot.key)}">Hide</button>` : ""}${state!.business.siteMedia?.[slot.key] !== undefined ? `<button type="button" class="small outline" data-reset-site-media="${e(slot.key)}">Use original</button>` : ""}</div></article>`;
+  }).join("");
   const guestCards = names.map((name) => {
     const saved = state!.guestGalleries?.find((entry) => entry.id === name.toLocaleLowerCase("en"));
     const photos = guestBuiltInPhotos(name).filter((photo) => !saved?.hiddenPhotoUrls.includes(photo.url)).length + (saved?.gallery.length ?? 0);
     const videos = guestVideos(name).length;
     return `<article class="panel"><h3>${e(name)}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-guest-gallery="${e(name)}">Manage photos & videos ↗</button></article>`;
   }).join("");
-  root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Choose a show to upload photos or videos, add links, change the main picture, or hide media already included. Save to update the public website.</p></section><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
+  root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Replace homepage pictures below, then manage photos and videos for each show. Changes to a show appear after you save its media.</p></section><h2>Homepage photos</h2><div class="profile-grid">${siteCards}</div><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
+  on(root, "[data-edit-site-media]", "click", (event) => editSiteMedia((event.currentTarget as HTMLElement).dataset.editSiteMedia!));
+  on(root, "[data-hide-site-media]", "click", async (event) => {
+    await api(`/manage/site-media/${(event.currentTarget as HTMLElement).dataset.hideSiteMedia!}`, "PUT", { value: "" });
+    await loadDashboard();
+    notify("Photo hidden from the website.");
+  });
+  on(root, "[data-reset-site-media]", "click", async (event) => {
+    await api(`/manage/site-media/${(event.currentTarget as HTMLElement).dataset.resetSiteMedia!}`, "PUT", { value: null });
+    await loadDashboard();
+    notify("Original photo restored.");
+  });
   on(root, "[data-package-media]", "click", (event) => editPackageMedia((event.currentTarget as HTMLElement).dataset.packageMedia!));
   on(root, "[data-guest-gallery]", "click", (event) => editGuestGallery((event.currentTarget as HTMLElement).dataset.guestGallery!));
+}
+function editSiteMedia(key: string) {
+  const slot = siteMediaSlots.find((item) => item.key === key);
+  if (!slot) return;
+  const current = state!.business.siteMedia?.[key] || "";
+  const uploadControl = state!.uploadsEnabled
+    ? '<div class="photo-upload"><label for="site-photo-upload">Choose a photo from your device</label><input id="site-photo-upload" type="file" accept="image/*"><small>We resize the photo before uploading. Save afterward to publish it.</small><p id="site-photo-status" role="status"></p></div>'
+    : '<p class="hint">Photo uploads need connected media storage. You can still use a public HTTPS image link.</p>';
+  openDialog(`Change ${slot.label}`, formBody([{ key: "url", label: "Public HTTPS photo link", value: current, type: "url", required: true, wide: true }], uploadControl, "Use this photo"));
+  on(modal, "#site-photo-upload", "change", async (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const status = modal.querySelector<HTMLElement>("#site-photo-status")!;
+    input.disabled = true;
+    try {
+      status.textContent = "Preparing your photo…";
+      const photo = await resizedPhoto(file);
+      const response = await fetch("/api/manage/upload-photo", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: photo });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Photo upload failed.");
+      modal.querySelector<HTMLInputElement>("#f-url")!.value = result.url;
+      status.textContent = "Photo ready. Save to update the website.";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "Photo upload failed.";
+    } finally {
+      input.disabled = false;
+    }
+  });
+  submit(modal.querySelector("form")!, async (data) => {
+    await api(`/manage/site-media/${key}`, "PUT", { value: String(data.get("url") ?? "").trim() });
+    modal.close();
+    await loadDashboard();
+    notify("Homepage photo updated.");
+  });
 }
 function renderGuestShowsAdmin(root: Element) {
   const names = guestServiceNames(state!.business.otherShowNames);

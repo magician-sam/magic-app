@@ -23,6 +23,7 @@ export interface Business {
   otherShowNames?: string[];
   hiddenGuestServices?: string[];
   showCategories?: string[];
+  siteMedia?: Record<string, string>;
   intro: string;
 }
 export interface Package {

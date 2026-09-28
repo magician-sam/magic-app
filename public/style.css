@@ -1952,6 +1952,9 @@ button.show-art:hover { transform: none; }
 .guest-show-search { display: block; max-width: 390px; margin-top: 16px; font-weight: 700; }
 .guest-show-search input { display: block; width: 100%; margin-top: 7px; }
 [data-guest-show-card][hidden] { display: none; }
+.site-media-card img, .site-media-empty { display: block; width: 100%; height: 160px; border-radius: 12px; object-fit: cover; background: #efe8f6; }
+.site-media-empty { display: grid; place-items: center; color: #655b70; }
+.site-media-card h3 { margin-top: 14px; }
 @media (max-width: 600px) {
   .category-manager-row { align-items: flex-start; flex-direction: column; }
   .category-manager-row .actions { width: 100%; }

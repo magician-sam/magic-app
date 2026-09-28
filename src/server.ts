@@ -1,4 +1,5 @@
 import { guestServiceNames } from "./guest-services.js";
+import { siteMediaSlots } from "./site-media.js";
 import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
@@ -1162,6 +1163,32 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       await store.audit(req.business.id, req.user.email, `guest-service.${input.action}`, existing ?? input.name, req.business, next);
     });
     res.json({ otherShowNames: others, hiddenGuestServices: hidden });
+  });
+  writes.put("/api/manage/site-media/:slot", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const slot = String(req.params.slot);
+    requireThat(siteMediaSlots.some((entry) => entry.key === slot), "Photo location not found.", 404);
+    const { value } = z.object({
+      value: z.union([
+        z.literal(""),
+        z.url().max(2000).refine((url) => {
+          const link = new URL(url);
+          return link.protocol === "https:" && !link.username && !link.password;
+        }, "Use a public HTTPS photo link without credentials"),
+        z.null(),
+      ]),
+    }).parse(req.body);
+    const siteMedia = { ...(req.business.siteMedia ?? {}) };
+    if (value === null) delete siteMedia[slot];
+    else siteMedia[slot] = value;
+    requireThat(["heroMagic", "heroScience", "heroCharacters"].some((key) => siteMedia[key] !== ""), "Keep at least one homepage photo.");
+    const next = { ...req.business, siteMedia };
+    await store.transaction(async () => {
+      await store.db.prepare("UPDATE businesses SET data=? WHERE id=?").run(JSON.stringify(next), req.business.id);
+      await store.audit(req.business.id, req.user.email, "site-media.updated", slot, req.business.siteMedia?.[slot] ?? null, value);
+    });
+    res.json({ siteMedia });
   });
   writes.put("/api/manage/guest-galleries/:name", async (request, res) => {
     const req = request as Authed;

@@ -351,6 +351,21 @@ test("owner manages show categories and linked shows safely", async () => {
     await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='bundleAnnouncements' AND id=?").run(business.id, announcement.id);
 });
 
+test("owner can replace or hide homepage photos while preserving a visible hero", async () => {
+  const path = "/manage/site-media/momentMagic";
+  assert.equal((await request(path, "PUT", { value: "https://example.com/new-magic.jpg" }, assistant)).status, 403);
+  assert.equal((await request(path, "PUT", { value: "http://example.com/no.jpg" })).status, 400);
+  assert.equal((await request(path, "PUT", { value: "https://example.com/new-magic.jpg" })).status, 200);
+  assert.equal((await request("/public/test", "GET", undefined, null)).data.business.siteMedia.momentMagic, "https://example.com/new-magic.jpg");
+  assert.equal((await request("/manage/site-media/heroMagic", "PUT", { value: "" })).status, 200);
+  assert.equal((await request("/manage/site-media/heroScience", "PUT", { value: "" })).status, 200);
+  assert.equal((await request("/manage/site-media/heroCharacters", "PUT", { value: "" })).status, 400);
+  assert.equal((await request("/manage/site-media/heroMagic", "PUT", { value: null })).status, 200);
+  assert.equal((await request("/manage/site-media/heroScience", "PUT", { value: null })).status, 200);
+  assert.equal((await request(path, "PUT", { value: null })).status, 200);
+  assert.equal((await request("/public/test", "GET", undefined, null)).data.business.siteMedia.momentMagic, undefined);
+});
+
 test("bundles retain booking snapshots and reject overlapping shows in requests and quotes", async () => {
   // This scenario shares the suite fixture; preserve rate counters for the existing scenarios.
   const counters = await store.db.prepare("SELECT * FROM rate_limits").all();
