@@ -440,7 +440,7 @@ function showDetails(p: Package) {
     if (togglePackage(p.id)) modal.close();
   });
 }
-function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames); }
+function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices); }
 
 function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
@@ -515,7 +515,7 @@ function guestCatalogGroups() {
     { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
     { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name)) },
   ];
-  return groups.map((group) => `<section class="show-group" id="${group.id}"><h3>${group.title}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
+  return groups.filter((group) => group.names.length).map((group) => `<section class="show-group" id="${group.id}"><h3>${group.title}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
 }
 function adultMagicFeature() {
   const show = catalog.packages.find((p) => p.active && !p.bundleIds?.length && p.category.toLowerCase() === "magic");
@@ -549,6 +549,9 @@ function renderPublic() {
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
           .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  if (!moreShowNames().includes("Characters")) app.querySelector(".site-nav a[href='#characters']")?.remove();
+  for (const group of ["party-shows", "special-acts"])
+    if (!app.querySelector(`#${group}`)) app.querySelector(`.show-jump a[href='#${group}']`)?.remove();
   if (!catalog.packages.some((item) => item.bundleIds?.length)) {
     const offersLink = document.createElement("a");
     offersLink.href = "#offers";
@@ -562,7 +565,7 @@ function renderPublic() {
     ["/portfolio/decoration/dinosaur-birthday.jpg", "Birthday decoration", "enquiry", "Decoration"],
     ["/portfolio/presentation/carnival-games.jpg", "Carnival games", "enquiry", "Carnival Games"],
     ["/portfolio/characters-panda-bear.jpg", "Panda and bear characters", "enquiry", "Characters"],
-  ];
+  ].filter(([, , kind, key]) => kind !== "enquiry" || moreShowNames().includes(key));
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
@@ -1619,6 +1622,7 @@ const navItems = [
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
   ["packages", "✧", "Shows & packages"],
+  ["guest-shows", "✶", "Guest shows & services"],
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
   ["performers", "☆", "Performers"],
@@ -1664,7 +1668,7 @@ function renderDashboard() {
       (n) =>
         (state!.user.role !== "performer" ||
         ["today", "bookings", "calendar", "settings"].includes(n[0])) &&
-        (n[0] !== "guest-photos" || ["owner", "admin"].includes(state!.user.role)),
+        (!["guest-photos", "guest-shows"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -1705,6 +1709,7 @@ function renderDashboard() {
     return;
   } else if (currentView === "bookings") renderBookings(content);
   else if (currentView === "guest-photos") renderGuestPhotosAdmin(content);
+  else if (currentView === "guest-shows") renderGuestShowsAdmin(content);
   else if (currentView === "enquiries") renderEnquiries(content);
   else if (currentView === "customers") renderCustomers(content);
   else if (currentView === "packages" || currentView === "performers")
@@ -2098,6 +2103,40 @@ function renderGuestPhotosAdmin(root: Element) {
   on(root, "[data-package-media]", "click", (event) => editPackageMedia((event.currentTarget as HTMLElement).dataset.packageMedia!));
   on(root, "[data-guest-gallery]", "click", (event) => editGuestGallery((event.currentTarget as HTMLElement).dataset.guestGallery!));
 }
+function renderGuestShowsAdmin(root: Element) {
+  const names = guestServiceNames(state!.business.otherShowNames);
+  const hidden = state!.business.hiddenGuestServices ?? [];
+  root.innerHTML = `<section class="panel"><div class="toolbar"><div><h2>Guest shows & party services</h2><p class="muted">Add an act, or remove one from the website. Customers can ask about visible services; you confirm availability and price personally.</p></div><button class="small" id="add-guest-show">＋ Add guest show</button></div><label class="guest-show-search" for="guest-show-search">Find a guest show<input id="guest-show-search" type="search" placeholder="Search by name…" autocomplete="off"></label></section><div class="profile-grid">${names.map((name) => {
+    const isHidden = hidden.some((entry) => entry.toLowerCase() === name.toLowerCase());
+    return `<article class="panel" data-guest-show-card="${e(name.toLowerCase())}"><span class="badge">${isHidden ? "Hidden" : "Public"}</span><h3>${e(name)}</h3><p>${isHidden ? "Removed from the public website. Existing requests are preserved." : "Visitors can add this service to their event request."}</p><button class="small ${isHidden ? "outline" : "danger"}" data-guest-visibility="${e(name)}" data-guest-action="${isHidden ? "restore" : "hide"}">${isHidden ? "Put back on website" : "Remove from website"}</button></article>`;
+  }).join("")}</div>`;
+  on(root, "#guest-show-search", "input", (ev) => {
+    const query = (ev.currentTarget as HTMLInputElement).value.trim().toLowerCase();
+    root.querySelectorAll<HTMLElement>("[data-guest-show-card]").forEach((card) => {
+      card.hidden = !card.dataset.guestShowCard!.includes(query);
+    });
+  });
+  on(root, "#add-guest-show", "click", () => {
+    openDialog("Add a guest show", formBody([{ key: "name", label: "Show or service name", required: true }], '<p class="privacy">This creates an enquiry-only listing. Add a full bookable show under Shows & packages if you want to set its own quote and preparation details.</p>', "Add guest show"));
+    submit(modal.querySelector("form")!, async (data) => {
+      await api("/manage/guest-services", "POST", { action: "add", name: String(data.get("name") ?? "").trim() });
+      modal.close();
+      await loadDashboard();
+      notify("Guest show added to the website.");
+    });
+  });
+  on(root, "[data-guest-visibility]", "click", (ev) => {
+    const button = ev.currentTarget as HTMLElement;
+    const name = button.dataset.guestVisibility!, action = button.dataset.guestAction!;
+    openDialog(action === "hide" ? `Remove ${name} from website?` : `Show ${name} again?`, `<p>${action === "hide" ? "This hides the service from customers. Existing requests and photos stay available in Backstage." : "This makes the service visible to customers again."}</p><form><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit" class="${action === "hide" ? "danger" : ""}">${action === "hide" ? "Remove from website" : "Put back on website"}</button></div></form>`);
+    submit(modal.querySelector("form")!, async () => {
+      await api("/manage/guest-services", "POST", { action, name });
+      modal.close();
+      await loadDashboard();
+      notify(action === "hide" ? "Guest show removed from the website." : "Guest show is visible again.");
+    });
+  });
+}
 function addedPhotoControls(photos: { url: string; caption: string }[]) {
   if (!photos.length) return "";
   return `<fieldset class="built-in-photos"><legend>Photos you added</legend><p>Use Remove photo to take an added picture off the website, then save.</p><div class="built-in-photo-grid">${photos.map((photo) => `<div class="added-photo"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><span>${e(photo.caption)}</span><button type="button" class="small outline" data-remove-added-photo="${e(photo.url)}">Remove photo</button></div>`).join("")}</div></fieldset>`;
@@ -2249,14 +2288,42 @@ function editGuestGallery(name: string) {
     notify(`${name} photos and videos updated.`);
   });
 }
+function managedShowCategories() {
+  return [...new Set([
+    ...(state!.business.showCategories ?? []),
+    ...state!.packages.filter((show) => !show.bundleIds?.length).map((show) => show.category),
+    ...state!.performers.flatMap((performer) => performer.categories),
+  ].filter((name) => name && name.toLowerCase() !== "bundle"))];
+}
+function editShowCategory(oldName = "") {
+  const fields: Field[] = [{ key: "name", label: "Category name", value: oldName, required: true, max: 40 }];
+  openDialog(oldName ? `Rename ${oldName}` : "Add show category", formBody(fields, oldName ? "<p class=\"privacy\">Shows and performer profiles in this category will be updated together.</p>" : "", oldName ? "Save category" : "Add category"));
+  submit(modal.querySelector("form")!, async (data) => {
+    await api("/manage/show-categories", "POST", { action: oldName ? "rename" : "add", ...(oldName ? { oldName } : {}), name: String(data.get("name") ?? "").trim() });
+    modal.close();
+    await loadDashboard();
+    notify(oldName ? "Category renamed." : "Category added. You can now choose it when adding a show.");
+  });
+}
+function removeShowCategory(name: string) {
+  openDialog(`Remove ${name}?`, '<p>Empty categories can be removed. Move any shows or performers to another category first.</p><form><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit" class="danger">Remove category</button></div></form>');
+  submit(modal.querySelector("form")!, async () => {
+    await api("/manage/show-categories", "POST", { action: "remove", oldName: name });
+    modal.close();
+    await loadDashboard();
+    notify("Category removed.");
+  });
+}
 function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
   const offers = currentView === "offers";
-  root.innerHTML = `<div class="toolbar"><p class="muted">Your ${kind === "packages" ? "show details, prices and venue requirements" : "cast, profiles, media and verified memberships"}.</p><button class="small" data-edit="${kind}:new">＋ Add ${offers ? "offer / bundle" : kind === "packages" ? "package" : "performer"}</button></div><div class="profile-grid">${
+  const categories = kind === "packages" && !offers ? managedShowCategories() : [];
+  const categoryPanel = kind === "packages" && !offers ? `<section class="panel"><div class="toolbar"><div><h2>Show categories</h2><p class="muted">Create categories here, then choose one when adding or editing a show.</p></div><button class="small outline" id="add-show-category">＋ Add category</button></div><div class="category-manager">${categories.map((name) => { const count = state!.packages.filter((show) => !show.bundleIds?.length && show.category.toLowerCase() === name.toLowerCase()).length; return `<div class="category-manager-row"><div><strong>${e(name)}</strong><small>${count} ${count === 1 ? "show" : "shows"}</small></div><div class="actions"><button type="button" class="small outline" data-rename-category="${e(name)}">Rename</button><button type="button" class="small danger" data-remove-category="${e(name)}" ${count || state!.performers.some((performer) => performer.categories.some((category) => category.toLowerCase() === name.toLowerCase())) ? "disabled title=\"Move linked shows and performers first\"" : ""}>Remove</button></div></div>`; }).join("") || '<p class="muted">Add your first category to organise shows.</p>'}</div></section>` : "";
+  root.innerHTML = `<div class="toolbar"><p class="muted">Your ${kind === "packages" ? "show details, prices and venue requirements" : "cast, profiles, media and verified memberships"}.</p><div class="actions">${kind === "packages" && !offers ? '<button class="small outline" data-go="guest-shows">Manage guest acts</button>' : ""}<button class="small" data-edit="${kind}:new">＋ Add ${offers ? "offer / bundle" : kind === "packages" ? "show" : "performer"}</button></div></div>${categoryPanel}<div class="profile-grid">${
     (state![kind] as (Package | Performer)[])
-      .filter((v) => !offers || ("bundleIds" in v && v.bundleIds?.length))
+      .filter((v) => kind !== "packages" || (offers ? !!(v as Package).bundleIds?.length : !(v as Package).bundleIds?.length))
       .map(
         (v) =>
-          `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">${v.duration} min · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit all details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button><button class="small danger" data-delete="${kind}:${v.id}">Archive</button></div></article>`,
+          `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">Category: ${e(v.category)} · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button>${v.active ? `<button class="small danger" data-delete="${kind}:${v.id}">Remove from website</button>` : kind === "packages" ? `<button class="small outline" data-restore-show="${e(v.id)}">Put back on website</button>` : ""}</div></article>`,
       )
       .join("") ||
     empty(
@@ -2273,6 +2340,16 @@ function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
       ev.currentTarget as HTMLElement
     ).dataset.duplicate!.split(":");
     editRecord(kind, key, true);
+  });
+  on(root, "#add-show-category", "click", () => editShowCategory());
+  on(root, "[data-rename-category]", "click", (ev) => editShowCategory((ev.currentTarget as HTMLElement).dataset.renameCategory!));
+  on(root, "[data-remove-category]", "click", (ev) => removeShowCategory((ev.currentTarget as HTMLElement).dataset.removeCategory!));
+  on(root, "[data-restore-show]", "click", async (ev) => {
+    const show = state!.packages.find((item) => item.id === (ev.currentTarget as HTMLElement).dataset.restoreShow);
+    if (!show) return;
+    await api(`/manage/packages/${encodeURIComponent(show.id)}`, "PUT", { ...show, active: true });
+    await loadDashboard();
+    notify("Show is back on the website.");
   });
 }
 let reportFrom = "",
@@ -2885,10 +2962,11 @@ function editRecord(kind: string, key: string, duplicate = false) {
     ];
   if (kind === "packages")
     fields = [
-      f("name", "Package name", "text", { required: true }),
-      f("category", "Show category", "text", {
-        help: "For example: magic, science, bubbles, clown or character.",
-        value: item.category ?? "magic",
+      f("name", "Show name", "text", { required: true }),
+      f("category", "Show category", "select", {
+        help: "Manage the choices in Shows & packages. Bundles use the reserved Bundle category.",
+        options: [...new Set([...(currentView === "offers" ? ["bundle"] : []), ...managedShowCategories(), String(item.category ?? "")].filter(Boolean))].map((name) => ({ value: name, label: pretty(name) })),
+        value: item.category ?? (currentView === "offers" ? "bundle" : managedShowCategories()[0] ?? "magic"),
       }),
       f("description", "Description", "textarea", { wide: true }),
       f("previewVideos", "Show videos", "textarea", {
@@ -3084,7 +3162,7 @@ function editRecord(kind: string, key: string, duplicate = false) {
       : '<p class="muted">Adding photos from your device is being prepared. You can add HTTPS photo links above now.</p>'
     : "";
   openDialog(
-    `${key === "new" || duplicate ? "Add" : "Edit"} ${kind === "customers" ? "customer" : kind === "packages" ? "package" : kind === "performers" ? "performer" : kind === "blocks" ? "availability block" : kind === "referrals" ? "referral" : "follow-up"}`,
+    `${key === "new" || duplicate ? "Add" : "Edit"} ${kind === "customers" ? "customer" : kind === "packages" ? currentView === "offers" ? "bundle" : "show" : kind === "performers" ? "performer" : kind === "blocks" ? "availability block" : kind === "referrals" ? "referral" : "follow-up"}`,
     formBody(
       fields,
       kind === "performers"

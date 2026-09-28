@@ -21,6 +21,8 @@ export interface Business {
   logo?: string;
   characterNames?: string[];
   otherShowNames?: string[];
+  hiddenGuestServices?: string[];
+  showCategories?: string[];
   intro: string;
 }
 export interface Package {

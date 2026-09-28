@@ -1,4 +1,4 @@
-export function guestServiceNames(otherShowNames: string[] = []) {
+export function guestServiceNames(otherShowNames: string[] = [], hidden: string[] = []) {
   const names = ["Characters", ...otherShowNames.filter((name) => !/character/i.test(name)).map((name) => /^LED Robots$/i.test(name) ? "LED Dancing Suits" : name)];
   for (const [name, match] of [
     ["Animation", /animation/i],
@@ -31,5 +31,5 @@ export function guestServiceNames(otherShowNames: string[] = []) {
   ] as const) {
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }
-  return names;
+  return names.filter((name) => !hidden.some((entry) => entry.toLowerCase() === name.toLowerCase()));
 }

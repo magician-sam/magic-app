@@ -1944,6 +1944,18 @@ button.show-art:hover { transform: none; }
 .show-search input { flex: 1 1 210px; min-width: 0; margin: 0; }
 .show-search span { color: #655b70; font-size: 13px; }
 .show-card[hidden] { display: none; }
+.category-manager { display: grid; gap: 10px; }
+#add-show-category { align-self: center; min-height: 44px; white-space: nowrap; }
+.category-manager-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 1px solid #e7dced; border-radius: 14px; background: #fbf8fd; }
+.category-manager-row strong, .category-manager-row small { display: block; }
+.category-manager-row small { margin-top: 3px; color: #655b70; }
+.guest-show-search { display: block; max-width: 390px; margin-top: 16px; font-weight: 700; }
+.guest-show-search input { display: block; width: 100%; margin-top: 7px; }
+[data-guest-show-card][hidden] { display: none; }
+@media (max-width: 600px) {
+  .category-manager-row { align-items: flex-start; flex-direction: column; }
+  .category-manager-row .actions { width: 100%; }
+}
 .show-detail video { display: block; width: 100%; max-height: 430px; border-radius: 15px; background: #251a36; }
 .show-video-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
 .science-videos { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }

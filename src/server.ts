@@ -415,7 +415,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .object({ event: eventSchema.extend({ packageIds: z.array(short.min(1)).max(12), requestedServices: z.array(short.min(1)).max(30).default([]) }), customAnswers: z.unknown().optional() })
       .parse(req.body);
     requireThat(input.event.packageIds.length + input.event.requestedServices.length > 0, "Choose at least one show.");
-    const services = guestServiceNames(business.otherShowNames);
+    const services = guestServiceNames(business.otherShowNames, business.hiddenGuestServices);
     requireThat(input.event.requestedServices.every((name) => services.includes(name)), "A selected guest act is unavailable.");
     requireThat(new Set(input.event.requestedServices).size === input.event.requestedServices.length, "Choose each guest act once.");
     await validateSelection(
@@ -1074,6 +1074,94 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       );
     });
     res.json(next);
+  });
+  writes.post("/api/manage/show-categories", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const input = z.discriminatedUnion("action", [
+      z.object({ action: z.literal("add"), name: short.min(2).max(40) }),
+      z.object({ action: z.literal("rename"), oldName: short.min(1).max(40), name: short.min(2).max(40) }),
+      z.object({ action: z.literal("remove"), oldName: short.min(1).max(40) }),
+    ]).parse(req.body);
+    const packages = await store.all<Package>(req.business.id, "packages");
+    const performers = await store.all<Performer>(req.business.id, "performers");
+    const categories = [...new Set([
+      ...(req.business.showCategories ?? []),
+      ...packages.filter((item) => !item.bundleIds?.length).map((item) => item.category),
+      ...performers.flatMap((item) => item.categories),
+    ].filter((name) => name && name.toLowerCase() !== "bundle"))];
+    const match = (name: string) => categories.find((item) => item.toLowerCase() === name.toLowerCase());
+    if (input.action === "add") {
+      requireThat(input.name.toLowerCase() !== "bundle", "Bundle is reserved for offers.");
+      requireThat(!match(input.name), "This category already exists.");
+      requireThat(categories.length < 30, "You can have up to 30 show categories.");
+      categories.push(input.name);
+    } else {
+      const existing = match(input.oldName);
+      requireThat(existing, "Category not found.", 404);
+      if (input.action === "rename") {
+        requireThat(input.name.toLowerCase() !== "bundle", "Bundle is reserved for offers.");
+        requireThat(!match(input.name) || match(input.name) === existing, "This category already exists.");
+        categories[categories.indexOf(existing)] = input.name;
+      } else {
+        requireThat(
+          !packages.some((item) => item.category.toLowerCase() === existing.toLowerCase()) &&
+            !performers.some((item) => item.categories.some((category) => category.toLowerCase() === existing.toLowerCase())),
+          "Move shows and performers to another category before removing it.",
+          409,
+        );
+        categories.splice(categories.indexOf(existing), 1);
+      }
+    }
+    const next = { ...req.business, showCategories: categories };
+    await store.transaction(async () => {
+      if (input.action === "rename") {
+        for (const item of packages.filter((item) => item.category.toLowerCase() === input.oldName.toLowerCase()))
+          await store.put(req.business.id, "packages", { ...item, category: input.name });
+        for (const item of performers.filter((item) => item.categories.some((category) => category.toLowerCase() === input.oldName.toLowerCase())))
+          await store.put(req.business.id, "performers", {
+            ...item,
+            categories: item.categories.map((category) => category.toLowerCase() === input.oldName.toLowerCase() ? input.name : category),
+          });
+      }
+      await store.db.prepare("UPDATE businesses SET data=? WHERE id=?").run(JSON.stringify(next), req.business.id);
+      await store.audit(req.business.id, req.user.email, `show-category.${input.action}`, input.action === "add" ? input.name : input.oldName, req.business.showCategories ?? [], categories);
+    });
+    res.json({ categories });
+  });
+  writes.post("/api/manage/guest-services", async (request, res) => {
+    const req = request as Authed;
+    canManage(req);
+    const input = z.discriminatedUnion("action", [
+      z.object({ action: z.literal("add"), name: short.min(2).max(80) }),
+      z.object({ action: z.literal("hide"), name: short.min(2).max(80) }),
+      z.object({ action: z.literal("restore"), name: short.min(2).max(80) }),
+    ]).parse(req.body);
+    const allNames = guestServiceNames(req.business.otherShowNames);
+    const existing = allNames.find((name) => name.toLowerCase() === input.name.toLowerCase());
+    const hidden = [...(req.business.hiddenGuestServices ?? [])];
+    const others = [...(req.business.otherShowNames ?? [])];
+    if (input.action === "add") {
+      requireThat(!existing, "This guest show already exists. Restore it if it is hidden.");
+      requireThat(others.length < 100, "You can have up to 100 guest services.");
+      others.push(input.name);
+    } else {
+      requireThat(existing, "Guest show not found.", 404);
+      const index = hidden.findIndex((name) => name.toLowerCase() === existing.toLowerCase());
+      if (input.action === "hide") {
+        requireThat(index < 0, "This guest show is already hidden.");
+        hidden.push(existing);
+      } else {
+        requireThat(index >= 0, "This guest show is already visible.");
+        hidden.splice(index, 1);
+      }
+    }
+    const next = { ...req.business, otherShowNames: others, hiddenGuestServices: hidden };
+    await store.transaction(async () => {
+      await store.db.prepare("UPDATE businesses SET data=? WHERE id=?").run(JSON.stringify(next), req.business.id);
+      await store.audit(req.business.id, req.user.email, `guest-service.${input.action}`, existing ?? input.name, req.business, next);
+    });
+    res.json({ otherShowNames: others, hiddenGuestServices: hidden });
   });
   writes.put("/api/manage/guest-galleries/:name", async (request, res) => {
     const req = request as Authed;

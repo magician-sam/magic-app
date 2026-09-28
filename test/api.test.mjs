@@ -6,6 +6,7 @@ import { snapshot, restoreSnapshot } from "../dist/snapshots.js";
 import { TestStore as Store } from "./store-fixture.mjs";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
+import { guestServiceNames } from "../dist/guest-services.js";
 
 let store,
   server,
@@ -314,6 +315,40 @@ test("photo upload requires owner login and an attached photo store", async () =
     if (previous === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
     else process.env.BLOB_READ_WRITE_TOKEN = previous;
   }
+});
+
+test("owner manages show categories and linked shows safely", async () => {
+  const path = "/manage/show-categories";
+  assert.equal((await request(path, "POST", { action: "add", name: "Puppetry" }, assistant)).status, 403);
+  const added = await request(path, "POST", { action: "add", name: "Puppetry" });
+  assert.equal(added.status, 200);
+  assert.ok(added.data.categories.includes("Puppetry"));
+  assert.equal((await request(path, "POST", { action: "add", name: "puppetry" })).status, 400);
+  const original = await store.get(business.id, "packages", "magic");
+  const show = await request("/manage/packages/new", "PUT", {
+    ...original,
+    name: "Puppet Show",
+    category: "Puppetry",
+    gallery: [],
+    previewVideos: [],
+    bundleIds: [],
+  });
+  assert.equal(show.status, 200);
+  assert.ok((await request("/public/test", "GET", undefined, null)).data.packages.some((item) => item.id === show.data.id));
+  assert.equal((await request(path, "POST", { action: "remove", oldName: "Puppetry" })).status, 409);
+  const renamed = await request(path, "POST", { action: "rename", oldName: "Puppetry", name: "Stage Stories" });
+  assert.equal(renamed.status, 200);
+  assert.equal((await store.get(business.id, "packages", show.data.id)).category, "Stage Stories");
+  assert.equal((await request("/public/test", "GET", undefined, null)).data.packages.find((item) => item.id === show.data.id).category, "Stage Stories");
+  assert.equal((await request(path, "POST", { action: "remove", oldName: "Stage Stories" })).status, 409);
+  assert.equal((await request("/manage/packages/" + show.data.id, "PUT", { ...show.data, category: "magic", active: false })).status, 200);
+  const removed = await request(path, "POST", { action: "remove", oldName: "Stage Stories" });
+  assert.equal(removed.status, 200);
+  assert.ok(!removed.data.categories.includes("Stage Stories"));
+  assert.equal((await store.get(other.id, "packages", "magic")).category, "magic");
+  await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='packages' AND id=?").run(business.id, show.data.id);
+  for (const announcement of (await store.all(business.id, "bundleAnnouncements")).filter((item) => item.packageId === show.data.id))
+    await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='bundleAnnouncements' AND id=?").run(business.id, announcement.id);
 });
 
 test("bundles retain booking snapshots and reject overlapping shows in requests and quotes", async () => {
@@ -1520,5 +1555,21 @@ test("a guest-only event can be confirmed without assigning a Sam show performer
   });
   assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
   assert.equal((await current(info.id)).status, "confirmed");
+});
+
+test("guest shows can be added, hidden and restored without losing old requests", async () => {
+  const path = "/manage/guest-services";
+  assert.equal((await request(path, "POST", { action: "hide", name: "Clown" }, assistant)).status, 403);
+  assert.equal((await request(path, "POST", { action: "hide", name: "Clown" })).status, 200);
+  let publicBusiness = (await request("/public/test", "GET", undefined, null)).data.business;
+  assert.ok(!guestServiceNames(publicBusiness.otherShowNames, publicBusiness.hiddenGuestServices).includes("Clown"));
+  assert.equal((await request("/public/test/requests", "POST", { event: { ...event, packageIds: [], performerIds: [], requestedServices: ["Clown"] } }, customerCookie)).status, 400);
+  assert.equal((await request(path, "POST", { action: "restore", name: "Clown" })).status, 200);
+  assert.equal((await request(path, "POST", { action: "add", name: "Shadow Puppets" })).status, 200);
+  publicBusiness = (await request("/public/test", "GET", undefined, null)).data.business;
+  assert.ok(guestServiceNames(publicBusiness.otherShowNames, publicBusiness.hiddenGuestServices).includes("Shadow Puppets"));
+  assert.equal((await request(path, "POST", { action: "hide", name: "Shadow Puppets" })).status, 200);
+  publicBusiness = (await request("/public/test", "GET", undefined, null)).data.business;
+  assert.ok(!guestServiceNames(publicBusiness.otherShowNames, publicBusiness.hiddenGuestServices).includes("Shadow Puppets"));
 });
 
