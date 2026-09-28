@@ -1632,7 +1632,7 @@ async function login() {
     ],
     "",
     "Step inside →",
-  )}<p class="privacy">Each business has its own private records. Authorized platform support access is disclosed and logged.</p><a href="/">← Back to the happy side</a></section></main>`;
+  )}<p class="privacy">Each business has its own private records. Authorized platform support access is disclosed and logged.</p><p><a href="/install.html">Install Magic App on your phone or computer ↗</a></p><a href="/">← Back to the happy side</a></section></main>`;
   submit(app.querySelector("form")!, async (data) => {
     await api("/login", "POST", Object.fromEntries(data));
     await loadDashboard();
