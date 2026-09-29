@@ -1644,6 +1644,7 @@ async function loadDashboard() {
 }
 const navItems = [
   ["today", "✦", "Today"],
+  ["notices", "◉", "Notifications"],
   ["bookings", "▤", "Events & requests"],
   ["enquiries", "✉", "Service enquiries"],
   ["calendar", "▦", "Calendar"],
@@ -1694,7 +1695,7 @@ function renderDashboard() {
     .filter(
       (n) =>
         (state!.user.role !== "performer" ||
-        ["today", "bookings", "calendar", "settings"].includes(n[0])) &&
+        ["today", "notices", "bookings", "calendar", "settings"].includes(n[0])) &&
         (!["guest-photos", "guest-shows"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
@@ -1741,7 +1742,8 @@ function renderDashboard() {
       const waiting = state.bookings.filter((b) => !["cancelled", "completed"].includes(b.status) && b.performerIds.some((performerId) => b.availability[performerId] !== "available"));
       content.insertAdjacentHTML("beforeend", `<section class="panel"><h3>Artist responses to follow up</h3>${waiting.slice(0, 8).map((b) => `<div class="row"><div><strong>${e(b.name)}</strong><p>${day(b.date)} · ${e(b.performerIds.filter((performerId) => b.availability[performerId] !== "available").map((performerId) => state!.performers.find((p) => p.id === performerId)?.name ?? "Artist").join(", "))}</p></div><button class="outline small" data-booking="${e(b.id)}">Review</button></div>`).join("") || '<p class="muted">All assigned artists have replied for current events.</p>'}</section>`);
     }
-  } else if (currentView === "calendar") {
+  } else if (currentView === "notices") renderNotifications(content);
+  else if (currentView === "calendar") {
     renderCalendar(content);
     return;
   } else if (currentView === "bookings") renderBookings(content);
@@ -1829,6 +1831,61 @@ function renderBookings(root: Element) {
       );
     list();
   });
+}
+function renderNotifications(root: Element) {
+  const today = localToday();
+  const inDays = (count: number) => {
+    const date = new Date(`${today}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + count);
+    return date.toISOString().slice(0, 10);
+  };
+  const artistId = state!.user.performerId ?? "";
+  const artist = state!.user.role === "performer";
+  const future = state!.bookings.filter((b) => b.date >= today && !["cancelled", "completed"].includes(b.status));
+  const alerts: { booking: Booking; label: string; detail: string }[] = [];
+  if (artist) {
+    for (const booking of future) {
+      if (booking.availability[artistId] === "pending") alerts.push({ booking, label: "Reply needed", detail: "Confirm or decline this assignment." });
+      else if (booking.availability[artistId] === "available" && booking.date <= inDays(7)) alerts.push({ booking, label: "Coming up", detail: "Review your time, venue and show-day details." });
+    }
+    for (const booking of state!.bookings.filter((b) => b.date < today && b.date >= inDays(-30) && b.availability[artistId] === "available" && !b.artistCompletion?.[artistId] && b.status !== "cancelled")) {
+      alerts.push({ booking, label: "After the show", detail: "Record how your assignment went." });
+    }
+  } else {
+    for (const booking of future) {
+      if (["requested", "availability_pending"].includes(booking.status)) alerts.push({ booking, label: "New request", detail: "Review the customer request and next step." });
+      const declined = booking.performerIds.filter((id) => booking.availability[id] === "declined");
+      const pending = booking.performerIds.filter((id) => (booking.availability[id] ?? "pending") === "pending");
+      if (declined.length) alerts.push({ booking, label: "Artist declined", detail: declined.map((id) => state!.performers.find((p) => p.id === id)?.name ?? "Artist").join(", ") });
+      if (pending.length) alerts.push({ booking, label: "Artist reply needed", detail: pending.map((id) => state!.performers.find((p) => p.id === id)?.name ?? "Artist").join(", ") });
+      if (booking.date <= inDays(7) && ["accepted", "confirmed"].includes(booking.status)) alerts.push({ booking, label: "Coming up", detail: "Check the event plan before show day." });
+    }
+    for (const booking of state!.bookings.filter((b) => b.date >= inDays(-30) && Object.keys(b.artistCompletion ?? {}).length)) {
+      alerts.push({ booking, label: "Artist report", detail: `${Object.keys(booking.artistCompletion ?? {}).length} completion report(s) to review.` });
+    }
+  }
+  alerts.sort((a, b) => (a.booking.date + a.booking.time).localeCompare(b.booking.date + b.booking.time));
+  const alertRow = ({ booking, label, detail }: (typeof alerts)[number]) => `<div class="row"><div><span class="eyebrow">${e(label)}</span><h3>${e(booking.name)}</h3><p>${e(day(booking.date))} · ${e(booking.time)} · ${e(detail)}</p></div><button class="outline small" data-booking="${e(booking.id)}">Open event ↗</button></div>`;
+  root.innerHTML = `<section class="panel"><h2>${artist ? "Your job updates" : "Booking notification center"}</h2><p class="muted">Live updates from events and artist responses. Open an event to act on it.</p>${alerts.slice(0, 30).map(alertRow).join("") || '<p class="muted">Nothing needs attention right now.</p>'}</section>${artist ? "" : '<section class="panel"><h3>Schedule checks</h3><p class="muted">Checking upcoming events for scheduling or venue issues.</p><div id="notice-conflicts" role="status">Checking…</div></section>'}`;
+  wireDashboard(root);
+  if (!artist) {
+    const candidates = future.filter((b) => b.date <= inDays(14)).slice(0, 12);
+    void Promise.all(candidates.map(async (booking) => {
+      try {
+        const check = await api<{ issues: string[] }>(`/manage/bookings/${booking.id}/checks`);
+        return { booking, issues: check.issues };
+      } catch {
+        return { booking, issues: ["Schedule check unavailable. Open the event to retry."] };
+      }
+    })).then((results) => {
+      if (!root.isConnected || currentView !== "notices") return;
+      const target = root.querySelector("#notice-conflicts");
+      if (!target) return;
+      const warnings = results.flatMap(({ booking, issues }) => issues.map((issue) => ({ booking, label: "Schedule check", detail: issue })));
+      target.innerHTML = warnings.map(alertRow).join("") || '<p class="muted">No issues found in the next two weeks.</p>';
+      wireDashboard(target);
+    });
+  }
 }
 function renderCalendar(root: Element) {
   const today = localToday();
