@@ -644,6 +644,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
               booking.performerIds.map((p) => [p, "pending" as const]),
             )
           : booking.availability,
+      availabilityResponses:
+        input.location !== booking.location ? {} : booking.availabilityResponses,
+      artistCompletion:
+        input.location !== booking.location ? {} : booking.artistCompletion,
       status:
         booking.status === "confirmed" ? ("accepted" as const) : booking.status,
       revision: booking.revision + 1,
@@ -978,14 +982,35 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       const assigned = (await store.all<Booking>(bid, "bookings")).filter((b) =>
         b.performerIds.includes(req.user.performerId ?? ""),
       );
+      result.companyCalendar = req.user.viewCompanyCalendar
+        ? (result.bookings as Booking[])
+            .filter((b) => !b.performerIds.includes(req.user.performerId ?? ""))
+            .map((b) => ({ date: b.date, time: b.time, status: b.status }))
+        : [];
+      const visiblePackageIds = new Set(assigned.flatMap((b) => b.packageIds));
+      result.packages = (result.packages as Package[])
+        .filter((p) => visiblePackageIds.has(p.id))
+        .map((p) => ({ ...p, price: 0, bundleSnapshot: undefined }));
+      result.performers = (result.performers as Performer[])
+        .filter((p) => p.id === req.user.performerId);
       result.bookings = assigned.map((b) => ({
         ...b,
         quotes: [],
         acceptedQuoteId: "",
         customerId: "",
         notes: "",
+        paymentTerms: undefined,
+        packageSnapshot: undefined,
+        customAnswers: undefined,
+        giftDetails: undefined,
         surpriseDetails: undefined,
         backupPerformerIds: [],
+        availabilityResponses: b.availabilityResponses?.[req.user.performerId ?? ""]
+          ? { [req.user.performerId ?? ""]: b.availabilityResponses[req.user.performerId ?? ""] }
+          : {},
+        artistCompletion: b.artistCompletion?.[req.user.performerId ?? ""]
+          ? { [req.user.performerId ?? ""]: b.artistCompletion[req.user.performerId ?? ""] }
+          : {},
       }));
       for (const k of [
         "customers",
@@ -1000,6 +1025,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       ).filter((b) => b.performerId === req.user.performerId);
     }
     if (["owner", "admin"].includes(req.user.role)) {
+      result.actPlans = await store.all<ActPlan>(bid, "actPlans");
       result.audit = (await store.all(bid, "audit")).slice(-200).reverse();
       result.users = (
         await store.db
@@ -1218,6 +1244,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         password: z.string().min(14).max(200),
         role: z.enum(["owner", "assistant", "performer"]),
         performerId: short.optional(),
+        viewCompanyCalendar: z.boolean().default(false),
       })
       .parse(req.body);
     if (input.role === "performer")
@@ -1242,6 +1269,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       input.role,
       input.performerId,
     );
+    if (input.role === "performer" && input.viewCompanyCalendar) {
+      user.viewCompanyCalendar = true;
+      await store.db.prepare("UPDATE users SET data=? WHERE id=?")
+        .run(JSON.stringify(user), user.id);
+    }
     await store.audit(
       req.business.id,
       req.user.email,
@@ -1295,6 +1327,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         email: z.email(),
         role: z.enum(["owner", "assistant", "performer", "admin"]),
         performerId: short.optional(),
+        viewCompanyCalendar: z.boolean().default(false),
       })
       .parse(req.body);
     const row = await store.db
@@ -1327,7 +1360,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           (await store.get(req.business.id, "performers", input.performerId)),
         "Choose a performer profile.",
       );
-    const next = { ...old, ...input, email: input.email.toLowerCase() };
+    const next = { ...old, ...input, email: input.email.toLowerCase(),
+      viewCompanyCalendar: input.role === "performer" && input.viewCompanyCalendar };
     await store.transaction(async () => {
       await store.db
         .prepare("UPDATE users SET email=?,data=? WHERE id=?")
@@ -1767,6 +1801,10 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             "Closed bookings retain their event history.",
           );
           requireThat(input.packageIds.length > 0 || !!b.requestedServices?.length, "Choose at least one show.");
+          const paidArtists = (await store.all<MoneyEntry>(req.business.id, "money"))
+            .filter((entry) => entry.bookingId === b.id && entry.performerId && entry.kind === "expense")
+            .map((entry) => entry.performerId!);
+          requireThat(paidArtists.every((performerId) => input.performerIds.includes(performerId)), "Keep artists with recorded payments on the event. Correct the payments first.");
           const scheduleChanged =
             b.travel !== input.travel ||
             b.breakMinutes !== input.breakMinutes ||
@@ -1804,6 +1842,16 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
                   : (b.availability[p] ?? "pending"),
               ]),
             ),
+            availabilityResponses: scheduleChanged || packageChanged
+              ? {}
+              : Object.fromEntries(input.performerIds.flatMap((p) =>
+                  b.availabilityResponses?.[p] ? [[p, b.availabilityResponses[p]]] : [],
+                )),
+            artistCompletion: scheduleChanged || packageChanged
+              ? {}
+              : Object.fromEntries(input.performerIds.flatMap((p) =>
+                  b.artistCompletion?.[p] ? [[p, b.artistCompletion[p]]] : [],
+                )),
           };
         },
         "details.updated-recheck-required",
@@ -1891,6 +1939,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         );
         const before =
           (await store.get<ActPlan>(req.business.id, "actPlans", b.id)) ?? null;
+        const payments = (await store.all<MoneyEntry>(req.business.id, "money"))
+          .filter((entry) => entry.bookingId === b.id && entry.performerId && entry.kind === "expense");
+        for (const performerId of new Set(payments.map((entry) => entry.performerId!))) {
+          const paid = payments.filter((entry) => entry.performerId === performerId).reduce((sum, entry) => sum + entry.amount, 0);
+          const agreed = input.rows.filter((row) => row.performerId === performerId).reduce((sum, row) => sum + row.agreedPay, 0);
+          requireThat(agreed >= paid, "An artist's agreed fee cannot be lower than payments already recorded.");
+        }
         const plan = { id: b.id, ...input };
         await store.put(req.business.id, "actPlans", plan);
         await store.audit(
@@ -1909,6 +1964,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           availability: Object.fromEntries(
             b.performerIds.map((p) => [p, "pending" as const]),
           ),
+          availabilityResponses: {},
+          artistCompletion: {},
         };
         await store.put(req.business.id, "bookings", next);
         await store.audit(
@@ -1969,6 +2026,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
             availability: Object.fromEntries(
               b.performerIds.map((p) => [p, "pending" as const]),
             ),
+            availabilityResponses: {},
+            artistCompletion: {},
           };
         },
         "running-order.updated-recheck-required",
@@ -2019,11 +2078,23 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
               "Access denied",
               403,
             );
+          if (req.user.role === "performer")
+            requireThat(b.date >= DateTime.now().setZone(req.business.timezone).toISODate()!, "Past job responses are closed. Contact the organizer.", 409);
           requireThat(
             !["completed", "cancelled"].includes(b.status),
             "The event is closed.",
           );
           b.availability[input.performerId] = input.state;
+          if (input.state === "pending") {
+            delete b.availabilityResponses?.[input.performerId];
+          } else {
+            b.availabilityResponses ??= {};
+            b.availabilityResponses[input.performerId] = {
+              at: new Date().toISOString(),
+              by: req.user.email,
+            };
+          }
+          if (input.state !== "available") delete b.artistCompletion?.[input.performerId];
           if (b.status === "requested") b.status = "availability_pending";
           if (b.status === "confirmed" && input.state !== "available")
             b.status = "accepted";
@@ -2032,6 +2103,26 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "availability.updated",
       ),
     );
+  });
+  writes.post("/api/manage/bookings/:id/artist-completion", async (request, res) => {
+    const req = request as Authed;
+    requireThat(req.user.role === "performer" && req.user.performerId, "Only the assigned artist can complete this job.", 403);
+    const input = z.object({
+      notes: z.string().max(3000).default(""),
+      problems: z.string().max(3000).default(""),
+      extraExpense: cents.max(10_000_000).default(0),
+    }).parse(req.body);
+    res.json(await editBooking(req, (b) => {
+      const performerId = req.user.performerId!;
+      requireThat(b.performerIds.includes(performerId), "This job is not assigned to you.", 403);
+      requireThat(["confirmed", "completed"].includes(b.status), "The event is not confirmed.", 409);
+      requireThat(b.date <= DateTime.now().setZone(req.business.timezone).toISODate()!, "Mark the job complete on or after the event date.", 409);
+      requireThat(b.availability[performerId] === "available", "Confirm this job before completing it.", 409);
+      requireThat(!b.artistCompletion?.[performerId], "This job was already completed.", 409);
+      b.artistCompletion ??= {};
+      b.artistCompletion[performerId] = { at: new Date().toISOString(), ...input };
+      return b;
+    }, "artist.job-completed"));
   });
   writes.post("/api/manage/bookings/:id/quotes", async (request, res) => {
     const req = request as Authed;
@@ -2248,8 +2339,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         403,
       );
     const packages = await store.all<Package>(req.business.id, "packages");
-    res.json({
-      issues: [
+    const issues = [
         ...compatibility(b, selectedPackages(b, packages)),
         ...conflicts(
           b,
@@ -2258,7 +2348,13 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           await store.all(req.business.id, "blocks"),
           req.business.timezone,
         ),
-      ],
+      ];
+    res.json({
+      issues: req.user.role === "performer"
+        ? [...new Set(issues.map((issue) => issue.startsWith("Conflicts with ")
+            ? "Scheduling conflict with another event. Contact the organizer."
+            : issue))]
+        : issues,
       timetable: timetable(b, packages, req.business.timezone),
       ...(req.user.role === "performer"
         ? {
@@ -2287,6 +2383,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         category: short.min(1),
         note: short,
         date,
+        performerId: short.optional(),
       })
       .parse(req.body);
     const booking = await owned<Booking>(
@@ -2295,6 +2392,17 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       input.bookingId,
     );
     const balance = totals(booking, await store.all(req.business.id, "money"));
+    if (input.performerId) {
+      requireThat(input.kind === "expense", "Artist payments must be recorded as expenses.");
+      requireThat(booking.performerIds.includes(input.performerId), "The artist is not assigned to this event.");
+      const plan = await store.get<ActPlan>(req.business.id, "actPlans", booking.id);
+      const agreed = plan?.rows.filter((r) => r.performerId === input.performerId).reduce((sum, r) => sum + r.agreedPay, 0) ?? 0;
+      requireThat(agreed > 0, "Set the artist's agreed pay in the staffing plan first.");
+      const recorded = (await store.all<MoneyEntry>(req.business.id, "money"))
+        .filter((m) => m.bookingId === booking.id && m.performerId === input.performerId && m.kind === "expense")
+        .reduce((sum, m) => sum + m.amount, 0);
+      requireThat(recorded + input.amount <= agreed, "Artist payments cannot exceed the agreed fee.");
+    }
     if (input.kind === "refund")
       requireThat(
         input.amount <= balance.paid,
@@ -2400,6 +2508,12 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const entries = (await store.all<MoneyEntry>(req.business.id, "money")).map(
       (m) => (m.id === old.id ? corrected : m),
     );
+    if (old.performerId) {
+      const plan = await store.get<ActPlan>(req.business.id, "actPlans", booking.id);
+      const agreed = plan?.rows.filter((r) => r.performerId === old.performerId).reduce((sum, r) => sum + r.agreedPay, 0) ?? 0;
+      const recorded = entries.filter((m) => m.bookingId === booking.id && m.performerId === old.performerId && m.kind === "expense").reduce((sum, m) => sum + m.amount, 0);
+      requireThat(recorded <= agreed, "Artist payments cannot exceed the agreed fee.");
+    }
     const t = totals(booking, entries);
     requireThat(t.paid >= 0, "Correction would make refunds exceed payments.");
     requireThat(t.paid <= t.agreed, "Correction would create an overpayment.");
