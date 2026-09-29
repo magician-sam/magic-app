@@ -1860,6 +1860,9 @@ details summary {
   background: #e9e2f5;
   color: #49316a;
 }
+.calendar-event.needs-attention {
+  box-shadow: inset 3px 0 #c77934;
+}
 .calendar-event.completed,
 .calendar-event.cancelled {
   background: #eee;
