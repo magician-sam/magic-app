@@ -8,6 +8,7 @@ export interface User {
   name: string;
   role: Role;
   performerId?: string;
+  viewCompanyCalendar?: boolean;
 }
 export interface Business {
   id: string;
@@ -144,6 +145,8 @@ export interface Booking {
   packageSnapshot?: Package[];
   performerIds: string[];
   availability: Record<string, "pending" | "available" | "declined">;
+  availabilityResponses?: Record<string, { at: string; by: string }>;
+  artistCompletion?: Record<string, { at: string; notes: string; problems: string; extraExpense: number }>;
   status: Status;
   quotes: Quote[];
   acceptedQuoteId: string;
@@ -161,6 +164,7 @@ export interface Booking {
 export interface MoneyEntry {
   id: string;
   bookingId: string;
+  performerId?: string;
   kind: "payment" | "refund" | "expense";
   amount: number;
   category: string;
@@ -235,6 +239,8 @@ export interface ServiceEnquiry {
   createdAt: string;
 }
 export interface Dashboard {
+  companyCalendar?: { date: string; time: string; status: Status }[];
+  actPlans?: import("./act-plans.js").ActPlan[];
   uploadsEnabled?: boolean;
   guestGalleries: GuestGallery[];
   business: Business;
