@@ -1716,7 +1716,7 @@ function renderDashboard() {
   const content = app.querySelector("#dash-content")!;
   if (currentView === "today") {
     const upcoming = state.bookings
-      .filter((b) => b.status !== "cancelled" && b.status !== "completed")
+      .filter((b) => b.status !== "cancelled" && b.status !== "completed" && b.date >= localToday())
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
       .slice(0, 6);
     content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${state.user.role !== "performer" ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new") ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new").length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
@@ -1731,6 +1731,16 @@ function renderDashboard() {
         .join("") ||
       '<p class="muted">No follow-ups waiting. Enjoy the breathing room.</p>'
     }<button class="outline small" data-go="reminders">Plan a follow-up</button><hr><h3>Before the curtain goes up</h3><p class="muted">${state.bookings.filter((b) => (!b.performerIds.length || b.performerIds.some((p) => b.availability[p] !== "available")) && !["cancelled", "completed"].includes(b.status)).length} events still need performer availability.</p></section></div>`;
+    if (state.user.role === "performer") {
+      content.querySelector(".two-col .panel:last-child")?.remove();
+      const weekEnd = new Date(`${localToday()}T12:00:00Z`);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+      const attention = state.bookings.filter((b) => !["cancelled", "completed"].includes(b.status) && (b.availability[state!.user.performerId ?? ""] !== "available" || (b.date >= localToday() && b.date <= weekEnd.toISOString().slice(0, 10))));
+      content.insertAdjacentHTML("beforeend", `<section class="panel"><h3>Your job reminders</h3><p class="muted">Review jobs awaiting your reply and events coming up in the next week.</p>${attention.map((b) => `<div class="row"><div><strong>${e(b.name)}</strong><p>${day(b.date)} · ${e(b.time)} · ${b.availability[state!.user.performerId ?? ""] === "available" ? "Confirmed" : "Your response is needed"}</p></div><button class="outline small" data-booking="${e(b.id)}">Open job</button></div>`).join("") || '<p class="muted">Nothing needs your reply right now.</p>'}</section>`);
+    } else {
+      const waiting = state.bookings.filter((b) => !["cancelled", "completed"].includes(b.status) && b.performerIds.some((performerId) => b.availability[performerId] !== "available"));
+      content.insertAdjacentHTML("beforeend", `<section class="panel"><h3>Artist responses to follow up</h3>${waiting.slice(0, 8).map((b) => `<div class="row"><div><strong>${e(b.name)}</strong><p>${day(b.date)} · ${e(b.performerIds.filter((performerId) => b.availability[performerId] !== "available").map((performerId) => state!.performers.find((p) => p.id === performerId)?.name ?? "Artist").join(", "))}</p></div><button class="outline small" data-booking="${e(b.id)}">Review</button></div>`).join("") || '<p class="muted">All assigned artists have replied for current events.</p>'}</section>`);
+    }
   } else if (currentView === "calendar") {
     renderCalendar(content);
     return;
@@ -1831,6 +1841,10 @@ function renderCalendar(root: Element) {
         (!calendarPerformer || b.performerIds.includes(calendarPerformer)),
     )
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const companyEvents = (state!.companyCalendar ?? [])
+    .filter((b) => b.date.startsWith(calendarMonth) &&
+      (calendarStatus === "all" || b.status === calendarStatus))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   const blocks = state!.blocks.filter(
     (b) =>
       b.date.startsWith(calendarMonth) &&
@@ -1859,11 +1873,15 @@ function renderCalendar(root: Element) {
         )
         .join(
           "",
-        )}${dayEvents.length > 3 ? `<button class="link small" data-calendar-day="${date}">＋ ${dayEvents.length - 3} more</button>` : ""}${dayBlocks.length ? `<button class="calendar-block" data-calendar-day="${date}">${dayBlocks.length} unavailable time${dayBlocks.length === 1 ? "" : "s"}</button>` : ""}</section>`;
+        )}${dayEvents.length > 3 ? `<button class="link small" data-calendar-day="${date}">＋ ${dayEvents.length - 3} more</button>` : ""}${state!.user.role === "performer" && state!.user.viewCompanyCalendar && companyEvents.some((item) => item.date === date) ? `<button class="calendar-block" data-calendar-day="${date}">Company: ${companyEvents.filter((item) => item.date === date).length} event(s)</button>` : ""}${dayBlocks.length ? `<button class="calendar-block" data-calendar-day="${date}">${dayBlocks.length} unavailable time${dayBlocks.length === 1 ? "" : "s"}</button>` : ""}</section>`;
     })
     .join(
       "",
     )}</div></div></section><section class="panel" id="calendar-agenda"><div class="section-heading"><h2>${calendarDay ? e(day(calendarDay)) : "This month’s agenda"}</h2>${calendarDay ? '<button class="link" id="calendar-all-days">Show whole month</button>' : ""}</div>${shown.map(bookingRow).join("") || '<p class="muted">No events match these filters.</p>'}<h3>Unavailable times</h3>${unavailable.map((b) => `<div class="row"><div><h3>${e(state!.performers.find((p) => p.id === b.performerId)?.name ?? "Performer")}</h3><p>${day(b.date)} · ${b.start}–${b.end} · ${e(b.note)}</p></div><button class="outline small" data-edit="blocks:${b.id}">Edit</button><button class="danger small" data-delete="blocks:${b.id}">Remove</button></div>`).join("") || '<p class="muted">No unavailable times recorded for this selection.</p>'}</section>`;
+  if (state!.user.role === "performer" && state!.user.viewCompanyCalendar) {
+    const visible = companyEvents.filter((b) => !calendarDay || b.date === calendarDay);
+    root.insertAdjacentHTML("beforeend", `<section class="panel"><h3>Company calendar</h3><p class="muted">Other bookings appear as dates and status only. Open your assigned jobs above for details.</p>${visible.map((b) => `<div class="row"><strong>${e(day(b.date))} · ${e(b.time)}</strong>${badge(b.status)}</div>`).join("") || '<p class="muted">No other events in this view.</p>'}</section>`);
+  }
   const move = (month: string) => {
     monthDays(month);
     calendarMonth = month;
@@ -2469,6 +2487,13 @@ function renderMoney(root: Element) {
       )
       .join("") || '<p class="muted">No transactions recorded.</p>'
   }</section><section class="panel"><h3>Where the happy begins</h3><p class="muted">All-time page views (not filtered by these dates), not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Requested shows · by event date</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${report.events.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources · by event date</h3>${[...new Set(report.events.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${report.events.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => report.events.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events dated within this period.</p></section></div>`;
+  const artistRows = state!.performers.map((artist) => {
+    const jobs = report.events.filter((b) => b.performerIds.includes(artist.id));
+    const agreed = jobs.reduce((sum, b) => sum + (state!.actPlans?.find((plan) => plan.id === b.id)?.rows.filter((row) => row.performerId === artist.id).reduce((n, row) => n + row.agreedPay, 0) ?? 0), 0);
+    const paid = state!.money.filter((entry) => entry.performerId === artist.id && jobs.some((job) => job.id === entry.bookingId)).reduce((sum, entry) => sum + entry.amount, 0);
+    return { artist, jobs, agreed, paid };
+  }).filter((row) => row.jobs.length);
+  root.insertAdjacentHTML("beforeend", `<section class="panel table-wrap"><h3>Artist work & pay · by event date</h3><p class="muted">Agreed fees come from each event’s staffing plan. Paid amounts are recorded artist expenses for those events, regardless of payment date.</p><table><thead><tr><th>Artist</th><th>Jobs</th><th>Confirmed</th><th>Completed</th><th>Cancelled</th><th>Agreed</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${artistRows.map(({ artist, jobs, agreed, paid }) => `<tr><td>${e(artist.name)}</td><td>${jobs.length}</td><td>${jobs.filter((b) => b.availability[artist.id] === "available").length}</td><td>${jobs.filter((b) => !!b.artistCompletion?.[artist.id]).length}</td><td>${jobs.filter((b) => b.status === "cancelled").length}</td><td>${money(agreed)}</td><td>${money(paid)}</td><td>${money(Math.max(0, agreed - paid))}</td></tr>`).join("")}</tbody></table>${artistRows.length ? "" : '<p class="muted">No assigned artists in this period.</p>'}</section>`);
   submit(
     root.querySelector<HTMLFormElement>("#report-period")!,
     async (data) => {
@@ -2966,6 +2991,11 @@ async function editRewards() {
   });
 }
 function renderSettings(root: Element) {
+  if (state!.user.role === "performer") {
+    root.innerHTML = `<section class="panel"><h2>Your artist account</h2><p>${e(state!.user.name)} · ${e(state!.user.email)}</p><p class="muted">Your calendar shows your own assignments${state!.user.viewCompanyCalendar ? " and company event dates" : ""}. The organizer controls company calendar access.</p><button class="outline small" id="change-password">Change my password</button></section>`;
+    on(root, "#change-password", "click", () => changePassword());
+    return;
+  }
   root.innerHTML = `<div class="two-col"><section class="panel"><h3>Your business, your personality</h3><p>${e(state!.business.name)}</p><p class="muted">${e(state!.business.intro)}</p><button class="outline small" id="edit-business">Edit business details</button><button class="outline small" id="edit-rewards">Edit rewards and points</button><button class="outline small" id="edit-questions">Edit booking questions</button><button class="outline small" id="customer-resets">Customer password help</button><p class="privacy">Booking timezone: ${e(state!.business.timezone)} · Currency: ${e(state!.business.currency)}. Changing these for historical records requires a migration.</p><h3>Keep a copy</h3><p class="muted">Export this business’s records, including booking history. Keep customer exports private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a></section><section class="panel"><h3>People backstage</h3><button class="small outline" id="change-password">Change my password</button><p class="privacy">Other businesses cannot see your customer records. Authorized platform support access requires a reason and is logged.</p>${state!.users.map((u) => `<div class="row"><div><h3>${e(u.name)}</h3><p>${e(u.email)} · ${e(u.role)}</p></div><button class="small outline" data-edit-user="${u.id}">Edit</button>${u.id !== state!.user.id ? `<button class="small danger" data-remove-user="${u.id}">Remove access</button>` : ""}</div>`).join("")}<button class="outline small" id="add-user">＋ Add login</button>${state!.user.role === "admin" ? '<button class="outline small" id="add-business">＋ Separate business</button>' : ""}</section></div><section class="panel"><h3>Change history</h3><p class="muted">Who changed what, and when. The latest 200 entries are shown; exports include the full history.</p>${state!.audit.map((a) => `<details><summary>${e(a.at.replace("T", " ").slice(0, 19))} · ${e(a.actor)} · ${e(a.action)}</summary><div class="audit-detail">Before: ${e(JSON.stringify(a.before, null, 2))}<br>After: ${e(JSON.stringify(a.after, null, 2))}</div></details>`).join("") || '<p class="muted">Saved changes will appear here.</p>'}</section>`;
   on(root, "#customer-resets", "click", () => customerResetQueue());
   on(root, "#edit-questions", "click", () => editQuestions());
@@ -3490,6 +3520,7 @@ function addUser() {
         ...state!.performers.map((p) => ({ value: p.id, label: p.name })),
       ],
     },
+    { key: "viewCompanyCalendar", label: "Let this artist see the company calendar (dates and status only)", type: "checkbox", wide: true },
   ];
   openDialog(
     "Invite someone backstage",
@@ -3603,6 +3634,7 @@ function editUser(key: string) {
         ...state!.performers.map((p) => ({ value: p.id, label: p.name })),
       ],
     },
+    { key: "viewCompanyCalendar", label: "Let this artist see the company calendar (dates and status only)", type: "checkbox", value: u.viewCompanyCalendar, wide: true },
   ];
   openDialog(
     "Edit backstage access",
@@ -3621,6 +3653,24 @@ function editUser(key: string) {
     notify("Access details updated.");
   });
 }
+function artistConfirmationSection(b: Booking) {
+  if (state!.user.role === "performer") {
+    const performerId = state!.user.performerId ?? "";
+    const response = b.availability[performerId] ?? "pending";
+    const closed = ["cancelled", "completed"].includes(b.status) || b.date < localToday();
+    return `<section class="panel"><h3>Your job confirmation</h3><p>${response === "available" ? "You confirmed this job." : response === "declined" ? "You declined this job. Please contact the organizer if this changes." : "Please check the date, venue and your assigned shows before replying."}</p>${b.availabilityResponses?.[performerId] ? `<p class="muted">Last response: ${e(new Date(b.availabilityResponses[performerId].at).toLocaleString("en-GB"))}</p>` : ""}${closed ? "" : `<div class="actions"><button type="button" data-job-response="available" ${response === "available" ? "disabled" : ""}>Confirm job</button><button type="button" class="outline" data-job-response="declined" ${response === "declined" ? "disabled" : ""}>Decline job</button></div>`}</section>`;
+  }
+  return `<section class="panel"><h3>Artist confirmations</h3>${b.performerIds.map((p) => { const response = b.availabilityResponses?.[p]; return `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name ?? "Artist")}<br><small>${response ? `Responded ${e(new Date(response.at).toLocaleString("en-GB"))} · ${e(response.by)}` : "No response time recorded"}</small></span>${`<span class="badge ${e(b.availability[p] ?? "pending")}">${b.availability[p] === "available" ? "Confirmed" : e(pretty(b.availability[p] ?? "pending"))}</span>`}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${e(p)}" ${["cancelled", "completed"].includes(b.status) ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`; }).join("") || '<p class="muted">Assign artists using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p><button id="refer-event" class="small outline">＋ Track a referral</button></section>`;
+}
+function artistCompletionSection(b: Booking) {
+  if (state!.user.role === "performer") {
+    const completion = b.artistCompletion?.[state!.user.performerId ?? ""];
+    if (completion) return `<section class="panel"><h3>Job completed ✓</h3><p>Recorded ${e(new Date(completion.at).toLocaleString("en-GB"))}.</p>${completion.notes ? `<p>${e(completion.notes)}</p>` : ""}</section>`;
+    if (!["confirmed", "completed"].includes(b.status) || b.date > localToday()) return "";
+    return `<section class="panel"><h3>After the show</h3><p>Tell the organizer how your assignment went.</p><button type="button" id="artist-complete-job">Job completed ↗</button></section>`;
+  }
+  return `<section class="panel"><h3>Artist completion</h3>${b.performerIds.map((performerId) => { const done = b.artistCompletion?.[performerId]; return `<div class="row"><div><strong>${e(state!.performers.find((p) => p.id === performerId)?.name ?? "Artist")}</strong><p>${done ? `Completed ${e(new Date(done.at).toLocaleString("en-GB"))}` : "Awaiting artist completion"}</p>${done?.notes ? `<p>Notes: ${e(done.notes)}</p>` : ""}${done?.problems ? `<p>Problems: ${e(done.problems)}</p>` : ""}${done?.extraExpense ? `<p>Reported extra expense: ${money(done.extraExpense)} · Review before recording payment</p>` : ""}</div>${badge(done ? "completed" : "pending")}</div>`; }).join("") || '<p class="muted">No artists assigned.</p>'}</section>`;
+}
 async function openBooking(key: string) {
   const b = state!.bookings.find((b) => b.id === key)!;
   const c = state!.customers.find((c) => c.id === b.customerId);
@@ -3637,7 +3687,7 @@ async function openBooking(key: string) {
   }>(`/manage/bookings/${b.id}/checks`);
   openDialog(
     b.name,
-    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div>${requestedServicesSummary(b)}<div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div><section class="panel"><h3>Who’s on stage?</h3>${b.performerIds.map((p) => `<div class="row"><span>${e(state!.performers.find((v) => v.id === p)?.name)}</span>${badge(b.availability[p] ?? "pending")}<select aria-label="Availability for ${e(state!.performers.find((v) => v.id === p)?.name)}" data-availability="${p}" ${state!.user.role === "performer" && p !== state!.user.performerId ? "disabled" : ""}>${["pending", "available", "declined"].map((v) => `<option value="${v}" ${b.availability[p] === v ? "selected" : ""}>${pretty(v)}</option>`).join("")}</select></div>`).join("") || '<p class="muted">Assign performers using Edit event details before confirming.</p>'}<p class="muted">Backups: ${e(b.backupPerformerIds.map((p) => state!.performers.find((v) => v.id === p)?.name).join(", ") || "None assigned")}</p>${state!.user.role !== "performer" ? '<button id="refer-event" class="small outline">＋ Track a referral</button>' : ""}</section>${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
+    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div>${requestedServicesSummary(b)}<div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div>${artistConfirmationSection(b)}${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
       state!.user.role !== "performer"
         ? `<section class="panel"><h3>Referrals</h3>${
             state!.referrals
@@ -3649,8 +3699,9 @@ async function openBooking(key: string) {
               .join("") || '<p class="muted">No referrals recorded.</p>'
           }</section>`
         : ""
-    }${checks.totals ? `<section class="panel"><h3>The proposal & payments</h3><p>Agreed ${money(checks.totals.agreed)} · Collected ${money(checks.totals.paid)} · Balance ${money(checks.totals.balance)}</p>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}${b.quotes.map((q) => `<div class="row"><div><h3>${e(q.name)} ${q.id === b.acceptedQuoteId ? "✓ Accepted" : ""}</h3><p>${q.packageIds.map((p) => e(state!.packages.find((v) => v.id === p)?.name)).join(" + ")}</p><p>${e(q.notes)}</p>${rewardSummary(q)}</div><strong>${money(q.amount)}</strong></div>`).join("") || '<p class="muted">No proposal prepared yet.</p>'}</section>` : ""}${customSummary(b)}<section class="panel"><h3>Ready, set, showtime</h3><form id="checklist-form">${b.checklist.map((ch, i) => `<label class="check"><input type="checkbox" name="check" value="${i}" ${ch.done ? "checked" : ""}>${e(ch.text)}</label>`).join("") || '<p class="muted">Add a checklist in event details, or confirm the event to use package preparation lists.</p>'}<div class="form-error" role="alert"></div><div class="form-actions"><button class="small outline" type="submit">Save checklist</button></div></form></section>${!["cancelled", "completed"].includes(b.status) && ["admin", "owner"].includes(state!.user.role) ? `<div class="actions">${b.status !== "confirmed" ? `<button id="accept-event">Accept & confirm event</button>` : ""}${b.status === "confirmed" ? '<button id="complete-event" class="outline">Mark completed</button>' : ""}${["requested", "availability_pending", "quoted"].includes(b.status) ? '<button id="refuse-event" class="danger">Refuse request</button>' : ""}<button id="cancel-event" class="danger">Cancel event</button></div>` : ""}<p class="privacy">Schedule and venue edits require a fresh confirmation. Date, venue or performer changes reset performer availability. Cancellation preserves the record; refunds are recorded separately.</p>`,
+    }${checks.totals ? `<section class="panel"><h3>The proposal & payments</h3><p>Agreed ${money(checks.totals.agreed)} · Collected ${money(checks.totals.paid)} · Balance ${money(checks.totals.balance)}</p>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}${b.quotes.map((q) => `<div class="row"><div><h3>${e(q.name)} ${q.id === b.acceptedQuoteId ? "✓ Accepted" : ""}</h3><p>${q.packageIds.map((p) => e(state!.packages.find((v) => v.id === p)?.name)).join(" + ")}</p><p>${e(q.notes)}</p>${rewardSummary(q)}</div><strong>${money(q.amount)}</strong></div>`).join("") || '<p class="muted">No proposal prepared yet.</p>'}</section>` : ""}${customSummary(b)}<section class="panel"><h3>Ready, set, showtime</h3><p><strong>Artist confirmation:</strong> ${b.performerIds.length ? `${b.performerIds.filter((performerId) => b.availability[performerId] === "available").length} of ${b.performerIds.length} confirmed` : "No artists assigned"}</p><form id="checklist-form">${b.checklist.map((ch, i) => `<label class="check"><input type="checkbox" name="check" value="${i}" ${ch.done ? "checked" : ""}>${e(ch.text)}</label>`).join("") || '<p class="muted">Add a checklist in event details, or confirm the event to use package preparation lists.</p>'}<div class="form-error" role="alert"></div><div class="form-actions"><button class="small outline" type="submit">Save checklist</button></div></form></section>${!["cancelled", "completed"].includes(b.status) && ["admin", "owner"].includes(state!.user.role) ? `<div class="actions">${b.status !== "confirmed" ? `<button id="accept-event">Accept & confirm event</button>` : ""}${b.status === "confirmed" ? '<button id="complete-event" class="outline">Mark completed</button>' : ""}${["requested", "availability_pending", "quoted"].includes(b.status) ? '<button id="refuse-event" class="danger">Refuse request</button>' : ""}<button id="cancel-event" class="danger">Cancel event</button></div>` : ""}<p class="privacy">Schedule and venue edits require a fresh confirmation. Date, venue or performer changes reset performer availability. Cancellation preserves the record; refunds are recorded separately.</p>`,
   );
+  modal.querySelector(".booking-banner")?.insertAdjacentHTML("afterend", artistCompletionSection(b));
   if (["owner", "admin"].includes(state!.user.role) && (b.notes || b.giftDetails || b.surpriseDetails)) {
     const privateDetails = `<section class="panel private-planning"><h3>Customer’s planning notes</h3>${b.notes ? `<p>${e(b.notes)}</p>` : ""}${b.giftDetails ? `<p><strong>Gift for ${e(b.giftDetails.recipientName)}</strong>${b.giftDetails.flexibleDate ? " · Date is flexible" : ""}</p><p>${e(b.giftDetails.message)}</p>` : ""}${b.surpriseDetails ? `<div><strong>${b.surpriseDetails.proposal ? "Proposal plan" : "Surprise plan"}${b.surpriseDetails.guestName ? ` for ${e(b.surpriseDetails.guestName)}` : ""}</strong><p>Private detail: ${e(b.surpriseDetails.secret || "None supplied")}</p>${b.surpriseDetails.howWeMet ? `<p>How they met: ${e(b.surpriseDetails.howWeMet)}</p>` : ""}${b.surpriseDetails.specialMoment ? `<p>Sam’s moment: ${e(b.surpriseDetails.specialMoment)}</p>` : ""}</div>` : ""}<small>Keep surprise details within the event team.</small></section>`;
     modal.querySelector(".booking-banner")?.insertAdjacentHTML("afterend", privateDetails);
@@ -3748,6 +3799,33 @@ async function openBooking(key: string) {
     });
     await loadDashboard();
     await openBooking(b.id);
+  });
+  on(modal, "[data-job-response]", "click", async (ev) => {
+    const response = (ev.currentTarget as HTMLElement).dataset.jobResponse;
+    if (!response || !state!.user.performerId) return;
+    await api(`/manage/bookings/${b.id}/availability`, "POST", {
+      revision: b.revision,
+      performerId: state!.user.performerId,
+      state: response,
+    });
+    await loadDashboard();
+    await openBooking(b.id);
+    notify(response === "available" ? "Your job is confirmed." : "Your response has been sent to the organizer.");
+  });
+  on(modal, "#artist-complete-job", "click", () => {
+    const fields: Field[] = [
+      { key: "notes", label: "How did the show go?", type: "textarea", wide: true },
+      { key: "problems", label: "Any problems to report?", type: "textarea", wide: true },
+      { key: "extraExpense", label: "Extra expense to review (USD)", type: "number", min: 0, step: "0.01", value: 0 },
+    ];
+    openDialog("Complete your job", formBody(fields, '<p class="hint">An extra expense is a report for the organizer to review; it is not an automatic payment.</p>', "Save completion"));
+    submit(modal.querySelector("form")!, async (data) => {
+      const values = formValues(data, fields);
+      await api(`/manage/bookings/${b.id}/artist-completion`, "POST", { ...values, extraExpense: Math.round(Number(values.extraExpense) * 100), revision: b.revision });
+      await loadDashboard();
+      await openBooking(b.id);
+      notify("Your completion is recorded.");
+    });
   });
   for (const [selector, status] of [
     ["#complete-event", "completed"],
@@ -4322,6 +4400,7 @@ function moneyForm(bookingId = "") {
         "other",
       ]),
     },
+    { key: "performerId", label: "Artist paid (for an artist expense)", type: "select", options: [{ value: "", label: "Not an artist payment" }, ...state!.performers.map((p) => ({ value: p.id, label: p.name }))], help: "First set agreed pay in the event staffing plan. Advances and partial payments can be recorded separately." },
     { key: "note", label: "Reference / note", wide: true },
   ];
   openDialog(
