@@ -656,8 +656,10 @@ test("performer views omit customers, money and quotes; assistant cannot price o
     .data;
   assert.deepEqual(p.customers, []);
   assert.deepEqual(p.money, []);
+  assert.ok(p.packages.every((item) => item.price === 0));
+  assert.ok(p.performers.every((item) => item.id === "sam"));
   assert.ok(
-    p.bookings.every((b) => b.customerId === "" && b.quotes.length === 0),
+    p.bookings.every((b) => b.customerId === "" && b.quotes.length === 0 && !b.packageSnapshot && !b.customAnswers),
   );
   const b = p.bookings[0];
   assert.equal(
@@ -675,6 +677,115 @@ test("performer views omit customers, money and quotes; assistant cannot price o
     (await request("/manage/export", "GET", undefined, assistant)).status,
     403,
   );
+});
+test("artist job responses are attributed, scoped, and reset after a schedule change", async () => {
+  const template = (await store.all(business.id, "bookings")).find((b) => b.performerIds.includes("sam"));
+  const info = { ...template, id: "artist-response-case", name: "Artist response test", date: "2028-11-09", status: "requested", availability: { sam: "pending" }, availabilityResponses: {}, revision: 1 };
+  await store.put(business.id, "bookings", info);
+  const path = `/manage/bookings/${info.id}/availability`;
+  const first = await current(info.id);
+  const confirmed = await request(path, "POST", {
+    revision: first.revision,
+    performerId: "sam",
+    state: "available",
+  }, performerCookie);
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.data.availability.sam, "available");
+  assert.equal(confirmed.data.availabilityResponses.sam.by, "performer@example.test");
+  assert.ok(!Number.isNaN(Date.parse(confirmed.data.availabilityResponses.sam.at)));
+
+  const declined = await request(path, "POST", {
+    revision: confirmed.data.revision,
+    performerId: "sam",
+    state: "declined",
+  }, performerCookie);
+  assert.equal(declined.status, 200);
+  assert.equal(declined.data.availability.sam, "declined");
+  assert.equal((await request(path, "POST", {
+    revision: declined.data.revision,
+    performerId: "someone-else",
+    state: "available",
+  }, performerCookie)).status, 400);
+  assert.equal((await request(path, "POST", {
+    revision: first.revision,
+    performerId: "sam",
+    state: "available",
+  }, performerCookie)).status, 409);
+
+  const details = { ...declined.data, date: "2028-11-10", packageIds: ["magic"], performerIds: ["sam"] };
+  const edited = await request(`/manage/bookings/${info.id}/details`, "PUT", {
+    ...details,
+    revision: declined.data.revision,
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.data));
+  assert.equal(edited.data.availability.sam, "pending");
+  assert.deepEqual(edited.data.availabilityResponses, {});
+});
+test("owner controls each artist's company calendar without exposing booking details", async () => {
+  const template = (await store.all(business.id, "bookings")).find((b) => b.performerIds.includes("sam"));
+  await store.put(business.id, "bookings", { ...template, id: "private-company-calendar-case", name: "Private client celebration", date: "2029-02-03", time: "17:00", performerIds: [], notes: "Private planning", availability: {}, status: "confirmed" });
+  const artist = (await request("/manage/state")).data.users.find((u) => u.email === "performer@example.test");
+  assert.equal((await request("/manage/state", "GET", undefined, performerCookie)).data.companyCalendar.length, 0);
+  const grant = await request(`/manage/users/${artist.id}`, "PUT", { ...artist, viewCompanyCalendar: true });
+  assert.equal(grant.status, 200);
+  performerCookie = await login("performer@example.test");
+  const state = (await request("/manage/state", "GET", undefined, performerCookie)).data;
+  assert.equal(state.user.viewCompanyCalendar, true);
+  assert.ok(state.companyCalendar.some((entry) => entry.date === "2029-02-03" && entry.status === "confirmed"));
+  assert.equal(JSON.stringify(state.companyCalendar).includes("Private client celebration"), false);
+  assert.equal(JSON.stringify(state.companyCalendar).includes("Private planning"), false);
+  assert.equal(state.bookings.some((b) => b.id === "private-company-calendar-case"), false);
+  assert.equal((await request(`/manage/bookings/private-company-calendar-case/checks`, "GET", undefined, performerCookie)).status, 403);
+  const revoke = await request(`/manage/users/${artist.id}`, "PUT", { ...grant.data, viewCompanyCalendar: false });
+  assert.equal(revoke.status, 200);
+  performerCookie = await login("performer@example.test");
+  assert.deepEqual((await request("/manage/state", "GET", undefined, performerCookie)).data.companyCalendar, []);
+});
+test("artist conflict alerts do not reveal another customer's event name", async () => {
+  const template = (await store.all(business.id, "bookings")).find((b) => b.performerIds.includes("sam"));
+  const shared = { ...template, date: "2029-04-04", time: "16:00", status: "confirmed", performerIds: ["sam"], availability: { sam: "available" } };
+  await store.put(business.id, "bookings", { ...shared, id: "artist-conflict-own", name: "My assigned show" });
+  await store.put(business.id, "bookings", { ...shared, id: "artist-conflict-private", name: "Private client celebration" });
+  const path = "/manage/bookings/artist-conflict-own/checks";
+  const ownerIssues = (await request(path)).data.issues.join(" ");
+  const artistIssues = (await request(path, "GET", undefined, performerCookie)).data.issues.join(" ");
+  assert.match(ownerIssues, /Private client celebration/);
+  assert.match(artistIssues, /Scheduling conflict with another event/);
+  assert.equal(artistIssues.includes("Private client celebration"), false);
+});
+test("artist can complete an assigned past job once and owner sees the report", async () => {
+  const template = (await store.all(business.id, "bookings")).find((b) => b.performerIds.includes("sam"));
+  const booking = { ...template, id: "artist-completion-case", date: "2020-01-03", performerIds: ["sam"], availability: { sam: "available" }, status: "confirmed", artistCompletion: {}, revision: 1 };
+  await store.put(business.id, "bookings", booking);
+  const path = `/manage/bookings/${booking.id}/artist-completion`;
+  assert.equal((await request(`/manage/bookings/${booking.id}/availability`, "POST", { revision: 1, performerId: "sam", state: "declined" }, performerCookie)).status, 409);
+  assert.equal((await request(path, "POST", { revision: 1, notes: "Done", problems: "", extraExpense: 0 })).status, 403);
+  const saved = await request(path, "POST", { revision: 1, notes: "Happy crowd", problems: "Sound check was late", extraExpense: 1200 }, performerCookie);
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal(saved.data.artistCompletion.sam.notes, "Happy crowd");
+  assert.equal(saved.data.artistCompletion.sam.extraExpense, 1200);
+  assert.equal((await request(path, "POST", { revision: saved.data.revision, notes: "Again", problems: "", extraExpense: 0 }, performerCookie)).status, 409);
+  const ownerView = await current(booking.id);
+  assert.equal(ownerView.artistCompletion.sam.problems, "Sound check was late");
+  assert.ok((await store.all(business.id, "audit")).some((a) => a.action === "bookings.artist.job-completed" && a.entityId === booking.id));
+});
+test("artist advances and final pay stay within the agreed staffing fee", async () => {
+  const template = (await store.all(business.id, "bookings")).find((b) => b.performerIds.includes("sam"));
+  const booking = { ...template, id: "artist-pay-case", date: "2029-03-02", performerIds: ["sam"], status: "confirmed" };
+  await store.put(business.id, "bookings", booking);
+  await store.put(business.id, "actPlans", { id: booking.id, rows: [{ packageId: "magic", performerId: "sam", agreedPay: 10000 }], notes: "" });
+  const entry = { bookingId: booking.id, kind: "expense", performerId: "sam", category: "performer payment", note: "Advance", date: "2026-09-29", amount: 3000 };
+  assert.equal((await request("/manage/money", "POST", entry, performerCookie)).status, 403);
+  assert.equal((await request("/manage/money", "POST", { ...entry, performerId: "missing" })).status, 400);
+  const advance = await request("/manage/money", "POST", entry);
+  assert.equal(advance.status, 201, JSON.stringify(advance.data));
+  assert.equal((await request("/manage/money", "POST", { ...entry, amount: 7000, note: "Final" })).status, 201);
+  assert.equal((await request("/manage/money", "POST", { ...entry, amount: 1 })).status, 400);
+  assert.equal((await request(`/manage/money/${advance.data.id}/correct`, "POST", { amount: 3001, category: entry.category, note: "Correction", date: entry.date, reason: "Wrong amount" })).status, 400);
+  const ownerState = (await request("/manage/state")).data;
+  assert.ok(ownerState.actPlans.some((plan) => plan.id === booking.id));
+  assert.equal(ownerState.money.filter((row) => row.bookingId === booking.id && row.performerId === "sam").reduce((sum, row) => sum + row.amount, 0), 10000);
+  assert.equal(JSON.stringify((await request("/manage/state", "GET", undefined, performerCookie)).data).includes("agreedPay"), false);
 });
 test("admin cross-business support needs a reason and writes a disclosed audit entry", async () => {
   assert.equal(
@@ -1587,4 +1698,3 @@ test("guest shows can be added, hidden and restored without losing old requests"
   publicBusiness = (await request("/public/test", "GET", undefined, null)).data.business;
   assert.ok(!guestServiceNames(publicBusiness.otherShowNames, publicBusiness.hiddenGuestServices).includes("Shadow Puppets"));
 });
-
