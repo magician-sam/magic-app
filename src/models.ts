@@ -1,6 +1,6 @@
 import type { CustomField, CustomAnswer } from "./custom-fields.js";
 import type { QuoteReward } from "./reward-ledger.js";
-export type Role = "owner" | "assistant" | "performer" | "admin";
+export type Role = "owner" | "manager" | "sales" | "accountant" | "assistant" | "performer" | "admin";
 export interface User {
   id: string;
   businessId: string;
@@ -239,6 +239,7 @@ export interface ServiceEnquiry {
   createdAt: string;
 }
 export interface Dashboard {
+  noticeStates?: import("./staff-notices.js").StaffNoticeState[];
   companyCalendar?: { date: string; time: string; status: Status }[];
   actPlans?: import("./act-plans.js").ActPlan[];
   uploadsEnabled?: boolean;

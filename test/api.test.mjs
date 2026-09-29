@@ -1683,6 +1683,104 @@ test("a guest-only event can be confirmed without assigning a Sam show performer
   assert.equal((await current(info.id)).status, "confirmed");
 });
 
+test("staff roles enforce direct-route permissions and redact write responses", async () => {
+  await store.db.prepare("DELETE FROM rate_limits").run();
+  const users = {}, sessions = {};
+  for (const role of ["manager", "sales", "accountant"]) {
+    const created = await request("/manage/users", "POST", { name: role + " test", email: role + "@example.test", password, role });
+    assert.equal(created.status, 201, JSON.stringify(created.data));
+    users[role] = created.data;
+    sessions[role] = await login(role + "@example.test");
+  }
+  const info = await newRequest({ date: "2029-05-20", notes: "Private preparation", surpriseDetails: { guestName: "Guest", secret: "PRIVATE-SURPRISE", proposal: true, howWeMet: "Personal story", specialMoment: "Private moment" } });
+  await propose(info.id);
+  let salesDraft = await current(info.id);
+  assert.equal((await request(`/manage/bookings/${info.id}/quotes`, "POST", {
+    revision: salesDraft.revision,
+    options: [{ name: "Sales proposal", packageIds: ["magic"], amount: 30000, deposit: 5000, notes: "Payment terms" }],
+  }, sessions.sales)).status, 200);
+  await accept(info);
+  let b = await current(info.id);
+  const base = `/manage/bookings/${info.id}`;
+  const planPath = base + "/act-plan";
+  assert.equal((await request(planPath, "PUT", { revision: b.revision, rows: [{ packageId: "magic", performerId: "sam", agreedPay: 10000 }], notes: "PRIVATE-STAFFING" }, sessions.manager)).status, 200);
+  const newArtist = await request("/manage/performers/new", "PUT", { ...performer, name: "Manager-created artist" }, sessions.manager);
+  assert.equal(newArtist.status, 200);
+  assert.equal((await request(`/manage/performers/${newArtist.data.id}`, "DELETE", {}, sessions.manager)).status, 403);
+  await store.put(business.id, "money", { id: "staff-private-cost", bookingId: info.id, kind: "expense", amount: 2000, category: "cost", note: "PRIVATE-COST", date: "2026-09-30" });
+  await store.put(business.id, "money", { id: "staff-deposit", bookingId: info.id, kind: "payment", amount: 5000, category: "deposit", note: "PRIVATE-PAYMENT-NOTE", date: "2026-09-30" });
+  const salesState = (await request("/manage/state", "GET", undefined, sessions.sales)).data;
+  assert.equal(salesState.money.some((entry) => entry.kind === "expense"), false);
+  assert.equal(salesState.money.find((entry) => entry.id === "staff-deposit").note, "");
+  assert.deepEqual(salesState.actPlans, []);
+  assert.deepEqual(salesState.users, []);
+  assert.deepEqual(salesState.audit, []);
+  assert.equal(salesState.bookings.find((entry) => entry.id === info.id).surpriseDetails, undefined);
+  for (const auth of Object.values(sessions)) {
+    for (const [path, method] of [["/manage/export", "GET"], ["/manage/users", "POST"], ["/manage/business", "PUT"], [base + "/permanent", "DELETE"], ["/manage/unknown-future-endpoint", "POST"]]) {
+      assert.equal((await request(path, method, method === "GET" ? undefined : {}, auth)).status, 403, path);
+    }
+    assert.equal((await request("/manage/state", "GET", undefined, auth, { "x-support-business": other.id })).status, 403);
+  }
+  for (const [path, method] of [[planPath, "GET"], [base + "/accept", "POST"], ["/manage/money", "POST"], ["/manage/packages/magic", "PUT"]]) {
+    assert.equal((await request(path, method, method === "GET" ? undefined : {}, sessions.sales)).status, 403, path);
+  }
+  b = await current(info.id);
+  const details = { ...b, name: "Sales updated event" };
+  delete details.surpriseDetails;
+  const edited = await request(base + "/details", "PUT", details, sessions.sales);
+  assert.equal(edited.status, 200, JSON.stringify(edited.data));
+  assert.equal(edited.data.surpriseDetails, undefined);
+  assert.equal((await current(info.id)).surpriseDetails.secret, "PRIVATE-SURPRISE");
+  b = await current(info.id);
+  assert.equal((await request(base + "/details", "PUT", { ...b, surpriseDetails: undefined, performerIds: [] }, sessions.sales)).status, 403);
+  assert.equal((await request(base + "/details", "PUT", { ...b, surpriseDetails: undefined, checklist: [{ text: "Alter checklist", done: true }] }, sessions.sales)).status, 403);
+  assert.equal((await request("/manage/money", "POST", {}, sessions.manager)).status, 403);
+  assert.equal((await request(base + "/accept", "POST", { revision: b.revision, agreedAmount: 30000, receivedAmount: 1000, paymentTerms: "After event", reason: "Checked" }, sessions.manager)).status, 403);
+  assert.equal((await request(base + "/availability", "POST", { revision: b.revision, performerId: "sam", state: "available" }, sessions.manager)).status, 200);
+  b = await current(info.id);
+  assert.equal((await request(base + "/accept", "POST", { revision: b.revision, agreedAmount: 30000, receivedAmount: 0, paymentTerms: "Balance after event", reason: "Venue and artist checked" }, sessions.manager)).status, 200);
+  const preparation = (await current(info.id)).checklist;
+  for (const task of ["Arrange transport", "Prepare costumes", "Pack props and equipment"]) {
+    assert.ok(preparation.some((item) => item.text === task && !item.done));
+  }
+  const accounts = (await request("/manage/state", "GET", undefined, sessions.accountant)).data;
+  const accountBooking = accounts.bookings.find((entry) => entry.id === info.id);
+  assert.equal(accountBooking.notes, "");
+  assert.equal(accountBooking.surpriseDetails, undefined);
+  assert.deepEqual(accountBooking.checklist, []);
+  assert.equal(accounts.actPlans.find((entry) => entry.id === info.id).notes, "");
+  assert.equal((await request(planPath, "GET", undefined, sessions.accountant)).data.plan.notes, "");
+  for (const [path, method] of [[base + "/details", "PUT"], [base + "/quotes", "POST"], [planPath, "PUT"], ["/manage/customers/new", "PUT"]]) {
+    assert.equal((await request(path, method, {}, sessions.accountant)).status, 403, path);
+  }
+  const payment = await request("/manage/money", "POST", { bookingId: info.id, kind: "payment", amount: 1000, category: "deposit", note: "Recorded by accountant", date: "2026-09-30" }, sessions.accountant);
+  assert.equal(payment.status, 201, JSON.stringify(payment.data));
+  assert.equal((await request(`/manage/money/${payment.data.id}/correct`, "POST", { amount: 900, category: "deposit", note: "Corrected receipt", date: "2026-09-30", reason: "Checked receipt" }, sessions.accountant)).status, 200);
+  const latest = await current(info.id);
+  const noticeBody = { bookingId: info.id, revision: latest.revision, label: "Coming up", state: "dismissed" };
+  assert.equal((await request("/manage/notices", "PUT", noticeBody, sessions.manager)).status, 200);
+  const managerNotices = (await request("/manage/state", "GET", undefined, sessions.manager)).data.noticeStates;
+  assert.ok(managerNotices.some((notice) => notice.bookingId === info.id && notice.dismissedAt && notice.readAt));
+  assert.equal((await request("/manage/state")).data.noticeStates.some((notice) => notice.id === managerNotices[0].id), false);
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, state: "restore", userId: users.manager.id }, sessions.sales)).status, 200);
+  assert.ok((await request("/manage/state", "GET", undefined, sessions.manager)).data.noticeStates.find((notice) => notice.bookingId === info.id).dismissedAt);
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, revision: latest.revision - 1 }, sessions.manager)).status, 409);
+  assert.equal((await request("/manage/notices", "PUT", noticeBody, sessions.accountant)).status, 403);
+  const unassigned = { ...latest, id: "notice-unassigned-event", performerIds: [] };
+  await store.put(business.id, "bookings", unassigned);
+  const artistSession = await login("performer@example.test");
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, bookingId: unassigned.id }, artistSession)).status, 403);
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, state: "read" }, artistSession)).status, 200);
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, state: "restore" }, sessions.manager)).status, 200);
+  assert.equal((await request("/manage/state", "GET", undefined, sessions.manager)).data.noticeStates.find((notice) => notice.bookingId === info.id).dismissedAt, "");
+  assert.equal((await request("/manage/notices", "PUT", { ...noticeBody, state: "unread" }, sessions.manager)).status, 200);
+  assert.equal((await request("/manage/state", "GET", undefined, sessions.manager)).data.noticeStates.find((notice) => notice.bookingId === info.id).readAt, "");
+  const revised = await request(`/manage/users/${users.sales.id}`, "PUT", { ...users.sales, role: "accountant" });
+  assert.equal(revised.status, 200);
+  assert.equal((await request("/manage/state", "GET", undefined, sessions.sales)).status, 401);
+});
+
 test("guest shows can be added, hidden and restored without losing old requests", async () => {
   const path = "/manage/guest-services";
   assert.equal((await request(path, "POST", { action: "hide", name: "Clown" }, assistant)).status, 403);
