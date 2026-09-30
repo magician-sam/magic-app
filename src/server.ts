@@ -1,4 +1,6 @@
 import { guestServiceNames } from "./guest-services.js";
+import { experienceFor } from "./visitor-experience.js";
+import { readFile } from "node:fs/promises";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
 import { limitedStaff, staffRouteAllowed, canSeeArtistPay, canStaffAction, staffResponse } from "./staff-permissions.js";
@@ -2734,6 +2736,23 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   );
   app.use(express.static(resolve("dist/public"), { index: false }));
   app.get("/manage.", (_req, res) => res.redirect(302, "/manage"));
+  app.get("/b/:slug/:kind/:key", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    const kind = String(req.params.kind), key = String(req.params.key);
+    requireThat(kind === "show" || kind === "service", "Show page not found", 404);
+    const show = kind === "show" ? (await store.all<Package>(business.id, "packages")).find((item) => item.active && item.id === key) : undefined;
+    const service = kind === "service" && guestServiceNames(business.otherShowNames, business.hiddenGuestServices).includes(key);
+    requireThat(show || service, "Show page not found", 404);
+    const name = show ? (show.bundleIds?.length ? show.name : ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[show.category.toLowerCase()] ?? show.name) : key;
+    const description = (show?.description || experienceFor(name).experience).slice(0, 240);
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+    const canonical = `${origin}/b/${encodeURIComponent(business.slug)}/${kind}/${encodeURIComponent(key)}`;
+    const html = (await readFile(resolve("public/index.html"), "utf8"))
+      .replace(/<title>[^<]*<\/title>/, `<title>${escape(name)} · ${escape(business.name)}</title>`)
+      .replace(/<meta\s+name="description"[\s\S]*?\/>/, `<meta name="description" content="${escape(description)}" />`)
+      .replace("</head>", `<link rel="canonical" href="${escape(canonical)}" /><meta property="og:type" content="website" /><meta property="og:title" content="${escape(name)} · ${escape(business.name)}" /><meta property="og:description" content="${escape(description)}" /><meta property="og:url" content="${escape(canonical)}" /></head>`);
+    res.type("html").send(html);
+  });
   app.get(["/", "/b/:slug", "/manage", "/event"], (_req, res) =>
     res.sendFile(resolve("public/index.html")),
   );
