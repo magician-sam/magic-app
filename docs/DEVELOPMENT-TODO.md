@@ -5,6 +5,7 @@ Updated 30 September 2026. This is the complete customer-facing idea list Sam su
 ## Current delivery
 
 - Service enquiries: Open/Edit, Mark handled, Archive/Restore, owner/admin permanent deletion with exact-name confirmation, stale-edit protection and business isolation. Regression coverage uses temporary records only.
+- Frontend increment: homepage occasion shortcuts enter the existing guided selector directly; recommended shows and guest services can be combined without closing the selector, then continued through required account creation. Occasion and event-box selections survive page refresh in the current browser session. No prices, capacity guarantees or availability claims were added.
 - Artist workflow: continue from ARTIST-WORKFLOW-STATUS.md; staff roles, assignment responses, calendars, preparation, payment records and saved notices already have implementations. Private after-event uploads and external scheduled reminders remain dependent on hosting/storage.
 
 ## Customer discovery and design

@@ -72,6 +72,8 @@ let calendarMonth = "",
   calendarPerformer = "";
 let basket: string[] = [];
 let guestBasket: string[] = [];
+const publicOccasions = ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas", "Private party", "Just because"];
+let chosenOccasion = "";
 function publicShowName(p: Package) {
   if (p.bundleIds?.length) return p.name;
   return ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[p.category.toLowerCase()] ?? p.name;
@@ -83,7 +85,7 @@ const publicPackageLabel = (name: string | undefined) =>
   name === "A little hocus pocus" ? "The magic starts here" : name ?? "";
 function selectionNames() { return [...basket.map((key) => { const show = catalog.packages.find((p) => p.id === key); return show ? publicShowName(show) : ""; }), ...guestBasket]; }
 function saveEventBox() {
-  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
+  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount, chosenOccasion })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
 }
 function restoreEventBox() {
   try {
@@ -92,6 +94,7 @@ function restoreEventBox() {
     guestBasket = Array.isArray(saved.guestBasket) ? [...new Set<string>(saved.guestBasket)].filter((name) => moreShowNames().includes(name)) : [];
     selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
     requestBundleDiscount = saved.requestBundleDiscount === true;
+    chosenOccasion = publicOccasions.includes(saved.chosenOccasion) ? saved.chosenOccasion : "";
   } catch { /* Ignore expired or invalid drafts. */ }
 }
 function toggleGuest(name: string) {
@@ -676,6 +679,13 @@ function renderPublic() {
       : [...selectedPerformers, key];
     renderPublic();
   });
+  const occasionShortcuts = document.createElement("div");
+  occasionShortcuts.className = "occasion-shortcuts";
+  occasionShortcuts.innerHTML = `<p>What are we celebrating?</p><div role="group" aria-label="Start planning by occasion">${publicOccasions.slice(0, 6).map((occasion) => `<button type="button" class="outline small" data-start-occasion="${e(occasion)}">${e(occasion === "School event" ? "School" : occasion === "Corporate event" ? "Corporate" : occasion)}</button>`).join("")}</div>`;
+  app.querySelector(".hero-copy .micro")!.before(occasionShortcuts);
+  app.querySelector("#help-choose")!.textContent = "Design my event";
+  app.querySelector(".hero-copy .actions a")!.textContent = "Book your event ↗";
+  on(app, "[data-start-occasion]", "click", (event) => helpChoose((event.currentTarget as HTMLElement).dataset.startOccasion!));
   on(app, "#help-choose", "click", () => helpChoose());
   on(app, "#privacy", "click", () =>
     openDialog(
@@ -813,6 +823,11 @@ function eventFields(b?: Partial<Booking>): Field[] {
       options: options([
         "Birthday",
         "School event",
+        "Wedding",
+        "Festival",
+        "Christmas",
+        "Private party",
+        "Just because",
         "Family celebration",
         "Corporate event",
         "Other",
@@ -933,7 +948,7 @@ async function requestForm() {
   const extras = catalog.packages.filter(
     (p) => p.checkoutExtra && !basket.includes(p.id),
   );
-  const fields = eventFields();
+  const fields = eventFields(chosenOccasion ? { occasion: chosenOccasion } : undefined);
   const magicOnly = !guestBasket.length && basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
   const giftExtras = `<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
@@ -990,17 +1005,18 @@ async function requestForm() {
     location.href = result.path;
   });
 }
-function helpChoose() {
+function helpChoose(initialOccasion = "") {
   const occasions = [
     ["🎂", "Birthday"], ["💍", "Wedding"], ["🎉", "Private party"],
     ["🏢", "Corporate event"], ["🏫", "School event"], ["✨", "Just because"],
+    ["🎪", "Festival"], ["🎄", "Christmas"],
   ];
   const guestGroups = [["👨‍👩‍👧", "1–20"], ["🥳", "21–50"], ["🎪", "More than 50"]];
   const feelings = [
     ["😂", "Make everyone laugh"], ["😮", "Leave everyone speechless"],
     ["❤️", "Create a personal moment"], ["🔥", "A high-energy party"],
   ];
-  const answers = { occasion: "", guests: "", feeling: "", audience: "", setting: "" };
+  const answers = { occasion: publicOccasions.includes(initialOccasion) ? initialOccasion : "", guests: "", feeling: "", audience: "", setting: "" };
   const steps = [
     { title: "What are you celebrating?", choices: occasions, key: "occasion" },
     { title: "How many guests?", choices: guestGroups, key: "guests" },
@@ -1009,6 +1025,8 @@ function helpChoose() {
     { title: "Where will the fun happen?", choices: [["", "Indoors"], ["", "Outdoors"], ["", "Not decided yet"]], key: "setting" },
   ] as const;
   const showResults = () => {
+    chosenOccasion = answers.occasion;
+    saveEventBox();
     const category = (p: Package) => p.category.toLowerCase();
     const score = (p: Package) =>
       Number(answers.occasion === "School event" && category(p) === "science") * 5 +
@@ -1042,7 +1060,7 @@ function helpChoose() {
           : ["Close-up Magic", "Aerial Show", "Fire Show", "Juggling"];
     const availableIdeas = moreShowNames();
     openDialog(
-      "A few ideas for your day",
+      "Design your event",
       `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)} · ${e(answers.audience)} · ${e(answers.setting)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
         return `<article class="chooser-result">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(publicPackageLabel(p.name))}</h3><small>${e(price(p))}</small><p class="recommendation-reason">${e(p.category === "magic" ? "A shared moment of surprise for your celebration." : p.category === "science" ? "A chance for curious guests to discover something new." : "Playful visual moments for your guests.")} ${answers.setting === "Outdoors" ? "Listed for outdoor venues, subject to setup checks." : "Matched to your audience preference."}</p><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button></div></article>`;
@@ -1050,9 +1068,28 @@ function helpChoose() {
     );
     on(modal, "[data-recommend]", "click", (ev) => {
       const key = (ev.currentTarget as HTMLElement).dataset.recommend!;
-      if (togglePackage(key)) modal.close();
+      if (togglePackage(key)) {
+        const button = ev.currentTarget as HTMLButtonElement;
+        button.textContent = basket.includes(key) ? "✓ Added · remove" : "Add to my event ↗";
+        modal.querySelector<HTMLButtonElement>("#chooser-continue")!.disabled = !basket.length && !guestBasket.length;
+      }
     });
-    on(modal, "[data-guest-idea]", "click", (ev) => enquiryDetails((ev.currentTarget as HTMLElement).dataset.guestIdea!));
+    on(modal, "[data-guest-idea]", "click", (ev) => {
+      const button = ev.currentTarget as HTMLButtonElement;
+      const name = button.dataset.guestIdea!;
+      toggleGuest(name);
+      button.textContent = guestBasket.includes(name) ? "✓ " + name + " · remove" : name + " ↗";
+      modal.querySelector<HTMLButtonElement>("#chooser-continue")!.disabled = !basket.length && !guestBasket.length;
+    });
+    const continueButton = document.createElement("button");
+    continueButton.id = "chooser-continue";
+    continueButton.type = "button";
+    continueButton.textContent = "Continue with my event ↗";
+    continueButton.disabled = !basket.length && !guestBasket.length;
+    modal.querySelector(".chooser-bottom")!.after(continueButton);
+    modal.querySelectorAll<HTMLButtonElement>("[data-recommend]").forEach((button) => { if (basket.includes(button.dataset.recommend!)) button.textContent = "✓ Added · remove"; });
+    modal.querySelectorAll<HTMLButtonElement>("[data-guest-idea]").forEach((button) => { if (guestBasket.includes(button.dataset.guestIdea!)) button.textContent = "✓ " + button.dataset.guestIdea + " · remove"; });
+    continueButton.addEventListener("click", () => { void requestForm(); });
     on(modal, "#chooser-restart", "click", () => showStep(0));
     on(modal, "#chooser-all", "click", () => {
       modal.close();
@@ -1076,7 +1113,7 @@ function helpChoose() {
       document.querySelector("#shows")?.scrollIntoView({ behavior: "smooth" });
     });
   };
-  showStep(0);
+  showStep(answers.occasion ? 1 : 0);
 }
 
 function customerAuth(orderAfter = false, register = true) {

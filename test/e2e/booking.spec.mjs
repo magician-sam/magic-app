@@ -1,4 +1,27 @@
 import { test, expect } from "@playwright/test";
+test("occasion shortcut builds a mixed event and keeps it through the account step", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-start-occasion="School event"]').click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "How many guests?" })).toBeVisible();
+  await dialog.getByRole("button", { name: "21–50", exact: true }).click();
+  await dialog.getByRole("button", { name: "Leave everyone speechless", exact: true }).click();
+  await dialog.getByRole("button", { name: "Children 6–12", exact: true }).click();
+  await dialog.getByRole("button", { name: "Not decided yet", exact: true }).click();
+  await expect(dialog.getByRole("heading", { name: "Design your event", exact: true })).toBeVisible();
+  const shows = dialog.locator("[data-recommend]");
+  await shows.nth(0).click();
+  await shows.nth(1).click();
+  await dialog.locator('[data-guest-idea="Juggling"]').click();
+  await expect(dialog.locator("[data-recommend]").nth(0)).toHaveText("✓ Added · remove");
+  await expect(dialog.locator("[data-recommend]").nth(1)).toHaveText("✓ Added · remove");
+  await dialog.getByRole("button", { name: "Continue with my event ↗", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Create account & continue", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.reload();
+  await expect(page.locator("#event-box")).toContainText("Juggling");
+  await expect(page.locator("#request")).toBeEnabled();
+});
 test("show details keep the first line and close button visible", async ({ page }) => {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 820 });

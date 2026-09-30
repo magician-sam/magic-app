@@ -2171,6 +2171,12 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
 .chooser-progress-track .step-3 { width: 60%; }
 .chooser-progress-track .step-4 { width: 80%; }
 .chooser-progress-track .step-5 { width: 100%; }
+.occasion-shortcuts { margin: 20px 0; }
+.occasion-shortcuts p { margin: 0 0 9px; font-size: 13px; font-weight: 700; }
+.occasion-shortcuts > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.occasion-shortcuts button { min-height: 44px; padding: 9px 14px; border-color: #ded0e9; background: #fffaf2; font-size: 13px; }
+.occasion-shortcuts button:hover { background: #f1e4fb; }
+#chooser-continue { width: 100%; margin-top: 16px; min-height: 48px; }
 
 @media (max-width: 360px) {
   .site-header { flex-wrap: wrap; gap: 8px; }
