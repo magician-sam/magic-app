@@ -1,12 +1,15 @@
 # Magic App development list
 
-Updated 30 September 2026. This is the complete customer-facing idea list Sam supplied, alongside the current Backstage priority. Listed ideas are requests to evaluate and implement, not claims that every feature is live. Audit existing controls before duplicating them.
+Updated 1 October 2026. This is the complete customer-facing idea list Sam supplied, alongside the current Backstage priority. Listed ideas are requests to evaluate and implement, not claims that every feature is live. Audit existing controls before duplicating them.
 
 Sam's 30 September priority: finish the major site and Backstage features first. Do not ask about prices, hosting, or email during this phase. Recheck the public site in a fresh browser tab on desktop and phone after each meaningful release, then fix obvious design and usability problems without waiting for a design decision.
 
 Product direction: the customer website, future Android and iPhone customer apps, and the artist app must use the same event records, catalog rules, permissions and notification preferences. Keep business logic in shared server APIs and give each screen a device-appropriate interface. Do not build separate app-only booking rules that can drift from the site.
 
 ## Current delivery
+
+- Visitor experience release: retain every catalogue card with visible section counts and jump links; give magic, science, bubbles, party, energetic and spectacle acts distinct visual moods. Improve customer typography and phone buttons. Hide empty comparisons. Put performance video previews before photo galleries, with swipe navigation, thumbnails and counters on phones. Add factual experience descriptions, FAQs and related choices. Show approved customer reviews near the entrance only when available. Explain planner recommendations and allow swapping without losing the event box. Add public shareable show/service pages with escaped metadata and reject hidden, inactive or other-business items. Required signup displays saved choices and explains the next step. Backstage typography remains unchanged.
+- Release verification: type checks, lint and client bundling passed; 86 application tests passed, including the new show-page privacy and metadata tests. The separate setup subprocess test remains blocked by the local sandbox. Phone checks cover planner previews, filtered gallery counters, dedicated pages and saved choices; desktop and production checks are recorded after deployment. Do not treat this increment as completion of the entire development list.
 
 - Service enquiries: Open/Edit, Mark handled, Archive/Restore, owner/admin permanent deletion with exact-name confirmation, stale-edit protection and business isolation. Regression coverage uses temporary records only.
 - Frontend increment: homepage occasion shortcuts enter the existing guided selector directly; recommended shows and guest services can be combined without closing the selector, then continued through required account creation. Occasion and event-box selections survive page refresh in the current browser session. No prices, capacity guarantees or availability claims were added.
