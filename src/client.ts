@@ -75,6 +75,7 @@ let basket: string[] = [];
 let guestBasket: string[] = [];
 const publicOccasions = ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas", "Private party", "Just because"];
 let chosenOccasion = "";
+let characterPreference = "";
 let comparisonIds: string[] = [];
 function savedPlanExists() {
   try {
@@ -96,7 +97,7 @@ const publicPackageLabel = (name: string | undefined) =>
   name === "A little hocus pocus" ? "The magic starts here" : name ?? "";
 function selectionNames() { return [...basket.map((key) => { const show = catalog.packages.find((p) => p.id === key); return show ? publicShowName(show) : ""; }), ...guestBasket]; }
 function saveEventBox() {
-  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount, chosenOccasion })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
+  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount, chosenOccasion, characterPreference })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
 }
 function restoreEventBox() {
   try {
@@ -111,12 +112,14 @@ function restoreEventBox() {
     selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
     requestBundleDiscount = saved.requestBundleDiscount === true;
     chosenOccasion = publicOccasions.includes(saved.chosenOccasion) ? saved.chosenOccasion : "";
+    characterPreference = guestBasket.includes("Characters") && (catalog.business.characterNames ?? []).includes(saved.characterPreference) ? saved.characterPreference : "";
   } catch { /* Ignore expired or invalid drafts. */ }
 }
 function toggleGuest(name: string) {
   if (!moreShowNames().includes(name)) return;
   const adding = !guestBasket.includes(name);
   guestBasket = guestBasket.includes(name) ? guestBasket.filter((item) => item !== name) : [...guestBasket, name];
+  if (name === "Characters" && !guestBasket.includes(name)) characterPreference = "";
   if (adding) trackInterest("service_add", name);
   renderPublic();
   notify(guestBasket.includes(name) ? name + ' added to your event.' : name + ' removed.');
@@ -410,7 +413,60 @@ function guestVideos(name: string) {
   return [...new Set([...guestBuiltInVideos(name).filter((url) => !hidden.has(url)), ...(saved?.videos ?? [])])].slice(0, 6);
 }
 function characterGallery() {
-  return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${guestPhotos("Characters").map((photo) => zoomableFigure(photo)).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
+  const photos = guestPhotos("Characters");
+  const themes = [
+    ["Rabbits", /rabbit|bunny/i],
+    ["Bears & pandas", /bear|panda/i],
+    ["Gorillas", /gorilla/i],
+    ["Superheroes", /superhero/i],
+    ["Christmas", /christmas|santa/i],
+    ["Mascots", /mascot/i],
+  ] as const;
+  const filters = themes.filter(([, pattern]) => photos.some((photo) => pattern.test(photo.caption)));
+  return `<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? `<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => `<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${e(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => `<option value="${e(label)}">${e(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><p class="character-empty" hidden>No photos match this search. Try another costume.</p>` : '<p>Character photos are coming soon.</p>'}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
+}
+function wireCharacterGallery() {
+  const browser = modal.querySelector<HTMLElement>(".character-browser");
+  if (!browser) return;
+  const search = browser.querySelector<HTMLInputElement>("#character-search");
+  const mobileSelect = browser.querySelector<HTMLSelectElement>("#character-type");
+  const filters = [...browser.querySelectorAll<HTMLButtonElement>("[data-character-filter]")];
+  const figures = [...browser.querySelectorAll<HTMLElement>(".show-detail-gallery figure")];
+  const groups: Record<string, RegExp> = {
+    Rabbits: /rabbit|bunny/i,
+    "Bears & pandas": /bear|panda/i,
+    Gorillas: /gorilla/i,
+    Superheroes: /superhero/i,
+    Christmas: /christmas|santa/i,
+    Mascots: /mascot/i,
+  };
+  let selected = "all";
+  const update = () => {
+    const query = search?.value.trim().toLocaleLowerCase() ?? "";
+    let visible = 0;
+    for (const figure of figures) {
+      const caption = figure.querySelector("figcaption")?.textContent ?? "";
+      figure.hidden = (!!query && !caption.toLocaleLowerCase().includes(query)) || (selected !== "all" && !groups[selected]?.test(caption));
+      if (!figure.hidden) visible++;
+    }
+    const count = browser.querySelector(".character-count");
+    if (count) count.textContent = `${visible} of ${figures.length} photos`;
+    const empty = browser.querySelector<HTMLElement>(".character-empty");
+    if (empty) empty.hidden = visible > 0;
+  };
+  search?.addEventListener("input", update);
+  search?.addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
+  mobileSelect?.addEventListener("change", () => {
+    selected = mobileSelect.value;
+    filters.forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.characterFilter === selected)));
+    update();
+  });
+  for (const button of filters) button.addEventListener("click", () => {
+    selected = button.dataset.characterFilter ?? "all";
+    if (mobileSelect) mobileSelect.value = selected;
+    filters.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+    update();
+  });
 }
 function zoomableFigure(photo: { url: string; caption: string }) {
   return `<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
@@ -457,7 +513,7 @@ function setupPhotoZoom() {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-zoom-photo]");
     if (!button || !document.body.classList.contains("customer-surface")) return;
     const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid, .hero-gallery, .mobile-hero-photos") ?? button.parentElement;
-    const buttons = [...(gallery?.querySelectorAll<HTMLButtonElement>("[data-zoom-photo]") ?? [])];
+    const buttons = [...(gallery?.querySelectorAll<HTMLButtonElement>("[data-zoom-photo]") ?? [])].filter((item) => !item.closest("figure")?.hidden);
     photos = buttons.map((item) => {
       const img = item.querySelector<HTMLImageElement>("img")!;
       return { url: img.currentSrc || img.src, caption: img.alt || item.getAttribute("aria-label") || "Event photo" };
@@ -585,7 +641,7 @@ function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
   const node = document.querySelector("#event-box")!;
   const count = chosen.length + guestBasket.length;
-  node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${count ? chosen.map((p) => `<div class="box-item"><span>${e(publicShowName(p))}<br><small>${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(publicShowName(p))}">×</button></div>`).join("") + guestBasket.map((name) => `<div class="box-item"><span>${e(name)}<br><small>Availability & price to confirm</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${count ? chosen.map((p) => `<div class="box-item"><span>${e(publicShowName(p))}<br><small>${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(publicShowName(p))}">×</button></div>`).join("") + guestBasket.map((name) => `<div class="box-item"><span>${e(name)}<br><small>${name === "Characters" && characterPreference ? `Ask for ${e(characterPreference)} · subject to confirmation` : "Availability & price to confirm"}</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
   const planActions = document.createElement("div");
   planActions.className = "plan-actions";
   const phone = (catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "")).replace(/\D/g, "").replace(/^00/, "");
@@ -594,7 +650,7 @@ function renderBox() {
   node.querySelector("#request")!.after(planActions);
   on(planActions, "#save-plan", "click", () => {
     try {
-      localStorage.setItem('saved-event-plan:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, chosenOccasion, expiresAt: Date.now() + 30 * 86400_000 }));
+      localStorage.setItem('saved-event-plan:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, chosenOccasion, characterPreference, expiresAt: Date.now() + 30 * 86400_000 }));
       renderBox();
       notify("Your event choices are saved on this device for 30 days.");
     } catch { notify("This browser could not save your plan. You can still copy a share link."); }
@@ -937,6 +993,7 @@ function enquiryDetails(name: string) {
     `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
   on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
+  if (/character/i.test(name)) wireCharacterGallery();
 }
 function chooseCharacter() {
   const names = catalog.business.characterNames ?? [];
@@ -956,11 +1013,16 @@ function chooseCharacter() {
       "Ask about this character →",
     ),
   );
+  wireCharacterGallery();
   submit(modal.querySelector("form")!, async (data) => {
     const name = String(data.get("character"));
     if (!names.includes(name))
       throw new Error("Please choose a current character.");
-    serviceEnquiry(name);
+    characterPreference = name;
+    if (!guestBasket.includes("Characters")) guestBasket.push("Characters");
+    modal.close();
+    renderPublic();
+    notify(`${name} added as a character preference. We’ll confirm availability.`);
   });
 }
 function requestedServicesSummary(b: Booking) {
@@ -1151,7 +1213,7 @@ async function requestForm() {
           ...formValues(data, fields),
           ...(isGift ? { giftDetails: { recipientName: String(data.get("gift-recipient") ?? "").trim(), message: String(data.get("gift-message") ?? "").trim(), flexibleDate: data.has("gift-flexible") } } : {}),
           ...(isSurprise ? { surpriseDetails: { guestName: String(data.get("surprise-guest") ?? "").trim(), secret: String(data.get("surprise-secret") ?? "").trim(), proposal: data.has("surprise-proposal"), howWeMet: String(data.get("surprise-met") ?? "").trim(), specialMoment: String(data.get("surprise-moment") ?? "").trim() } } : {}),
-          notes: `${requestBundleDiscount ? "Bundle discount requested. " : ""}${Number(data.get("requestTokens") ?? 0) > 0 ? `${Number(data.get("requestTokens"))} referral tokens requested for magic show. ` : ""}${String(data.get("notes") ?? "")}`.trim(),
+          notes: `${requestBundleDiscount ? "Bundle discount requested. " : ""}${Number(data.get("requestTokens") ?? 0) > 0 ? `${Number(data.get("requestTokens"))} referral tokens requested for magic show. ` : ""}${guestBasket.includes("Characters") && characterPreference ? `Preferred character: ${characterPreference} (subject to confirmation). ` : ""}${String(data.get("notes") ?? "")}`.trim(),
           packageIds: [
             ...new Set([...basket, ...selected(data, "checkout-extra")]),
           ],
