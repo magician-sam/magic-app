@@ -1973,6 +1973,17 @@ dialog.photo-lightbox[open] { display: flex; }
 .lightbox-stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .lightbox-stage img.magnified { flex: none; height: auto; max-width: none; object-fit: initial; }
 .lightbox-caption { margin: 0; font-size: 14px; text-align: center; overflow-wrap: anywhere; }
+.visitor-interests { margin-bottom: 24px; }
+.visitor-interests h2 { margin: 5px 0 8px; }
+.interest-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; margin-top: 20px; }
+.interest-group { padding: 18px; border-radius: 18px; background: #f8f4fc; }
+.interest-group h3 { margin: 0 0 15px; font-size: 17px; }
+.interest-row { margin: 11px 0; }
+.interest-row > div { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.interest-row strong { font-variant-numeric: tabular-nums; }
+.interest-track, .interest-track > span { display: block; height: 6px; border-radius: 10px; }
+.interest-track { margin-top: 5px; background: #e6d9f1; }
+.interest-track > span { background: linear-gradient(90deg, #6535a3, #c68bdd); }
 @media (max-width: 600px) { dialog.photo-lightbox { width: calc(100% - 12px); height: calc(100dvh - 12px); max-height: calc(100dvh - 12px); } .lightbox-toolbar, .lightbox-foot { padding: 8px; gap: 6px; } .lightbox-controls { gap: 3px; } .lightbox-controls button, .lightbox-foot button { min-width: 40px; min-height: 40px; flex-basis: 40px; } }
 .character-section { scroll-margin-top: 90px; margin: 28px 0; }
 .show-search { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px; border-radius: 18px; background: #f1eafb; }

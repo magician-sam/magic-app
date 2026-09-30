@@ -19,6 +19,8 @@ export function rateLimit(store: Store): RequestHandler {
               ? "password"
               : /\/visit$/.test(path)
                 ? "visit"
+              : /\/interest$/.test(path)
+                ? "interest"
                 : /\/requests$/.test(path)
                   ? "request"
                   : /\/enquiries$/.test(path)
@@ -29,6 +31,8 @@ export function rateLimit(store: Store): RequestHandler {
         ? 5
         : key === "visit"
           ? 100
+          : key === "interest"
+            ? 200
           : key === "request" || key === "enquiry"
             ? 20
             : key === "write"
@@ -57,4 +61,3 @@ export function rateLimit(store: Store): RequestHandler {
     next();
   };
 }
-

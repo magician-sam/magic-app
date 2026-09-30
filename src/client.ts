@@ -115,7 +115,9 @@ function restoreEventBox() {
 }
 function toggleGuest(name: string) {
   if (!moreShowNames().includes(name)) return;
+  const adding = !guestBasket.includes(name);
   guestBasket = guestBasket.includes(name) ? guestBasket.filter((item) => item !== name) : [...guestBasket, name];
+  if (adding) trackInterest("service_add", name);
   renderPublic();
   notify(guestBasket.includes(name) ? name + ' added to your event.' : name + ' removed.');
 }
@@ -127,6 +129,10 @@ function notify(message: string) {
   n.textContent = message;
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => (n.textContent = ""), 6500);
+}
+function trackInterest(kind: "show_open" | "show_add" | "service_open" | "service_add" | "occasion", key: string) {
+  if (!catalog?.business.slug) return;
+  void api(`/public/${encodeURIComponent(catalog.business.slug)}/interest`, "POST", { kind, key }).catch(() => {});
 }
 async function api<T = Record<string, unknown>>(
   path: string,
@@ -536,6 +542,7 @@ function renderComparisonTray() {
   on(tray, "#clear-comparison", "click", () => { comparisonIds = []; renderComparisonTray(); document.querySelectorAll<HTMLButtonElement>("[data-compare]").forEach((button) => { button.setAttribute("aria-pressed", "false"); button.textContent = "Compare this show"; }); });
 }
 function showDetails(p: Package) {
+  trackInterest("show_open", p.id);
   const photos = showPhotos(p);
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
   const videos = showVideos(p);
@@ -649,6 +656,7 @@ function togglePackage(key: string) {
   basket = basket.includes(key)
     ? basket.filter((x) => x !== key)
     : [...basket, key];
+  if (basket.includes(key)) trackInterest("show_add", key);
   renderPublic();
   notify(
     basket.includes(key)
@@ -823,12 +831,12 @@ function renderPublic() {
   app.querySelector(".hero-copy .micro")!.before(occasionShortcuts);
   app.querySelector("#help-choose")!.textContent = "Design my event";
   app.querySelector(".hero-copy .actions a")!.textContent = "Book your event ↗";
-  on(app, "[data-start-occasion]", "click", (event) => helpChoose((event.currentTarget as HTMLElement).dataset.startOccasion!));
+  on(app, "[data-start-occasion]", "click", (event) => { const occasion = (event.currentTarget as HTMLElement).dataset.startOccasion!; trackInterest("occasion", occasion); helpChoose(occasion); });
   on(app, "#help-choose", "click", () => helpChoose());
   on(app, "#privacy", "click", () =>
     openDialog(
       "Your details, handled with care",
-      `<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Event photos and reviews are published only with your permission.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
+      `<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Event photos and reviews are published only with your permission.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source and clicks on shows, services and event types without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
     ),
   );
 }
@@ -896,6 +904,7 @@ function enquiryCard(name: string) {
   return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function enquiryDetails(name: string) {
+  trackInterest("service_open", name);
   const photos = guestPhotos(name);
   const videos = guestVideos(name);
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
@@ -2804,6 +2813,24 @@ function renderMoney(root: Element) {
       )
       .join("") || '<p class="muted">No transactions recorded.</p>'
   }</section><section class="panel"><h3>Where the happy begins</h3><p class="muted">All-time page views (not filtered by these dates), not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Requested shows · by event date</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${report.events.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources · by event date</h3>${[...new Set(report.events.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${report.events.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => report.events.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events dated within this period.</p></section></div>`;
+  if (["owner", "admin"].includes(state!.user.role)) {
+    const interest = state!.interest ?? [];
+    const groups = [
+      ["show_open", "Shows opened"],
+      ["service_open", "Guest services opened"],
+      ["show_add", "Shows added to event boxes"],
+      ["service_add", "Guest services added"],
+      ["occasion", "Event types chosen"],
+    ];
+    root.insertAdjacentHTML("afterbegin", `<section class="panel visitor-interests"><span class="eyebrow">Customer interests</span><h2>What visitors explore</h2><p class="muted">Clicks in the last 30 days. These are actions, not unique people or confirmed bookings. No visitor identity is collected for this report.</p><div class="interest-groups">${groups.map(([kind, title]) => {
+      const rows = interest.filter((item) => item.kind === kind).sort((a, b) => b.count - a.count).slice(0, 6);
+      const max = rows[0]?.count ?? 1;
+      return `<div class="interest-group"><h3>${title}</h3>${rows.map((item) => {
+        const name = kind.startsWith("show_") ? state!.packages.find((show) => show.id === item.key)?.name ?? item.key : item.key;
+        return `<div class="interest-row"><div><span>${e(name)}</span><strong>${item.count}</strong></div><span class="interest-track"><span style="width:${Math.round(item.count / max * 100)}%"></span></span></div>`;
+      }).join("") || '<p class="muted">No clicks recorded yet.</p>'}</div>`;
+    }).join("")}</div></section>`);
+  }
   const artistRows = state!.performers.map((artist) => {
     const jobs = report.events.filter((b) => b.performerIds.includes(artist.id));
     const agreed = jobs.reduce((sum, b) => sum + (state!.actPlans?.find((plan) => plan.id === b.id)?.rows.filter((row) => row.performerId === artist.id).reduce((n, row) => n + row.agreedPay, 0) ?? 0), 0);

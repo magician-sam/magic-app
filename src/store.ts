@@ -17,6 +17,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS links (hash TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id), booking_id TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS visits (business_id TEXT NOT NULL REFERENCES businesses(id), source TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(business_id,source,day));
+      CREATE TABLE IF NOT EXISTS interest_clicks (business_id TEXT NOT NULL REFERENCES businesses(id), kind TEXT NOT NULL, item_key TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(business_id,kind,item_key,day));
       CREATE INDEX IF NOT EXISTS records_kind ON records(business_id,kind);
       CREATE TABLE IF NOT EXISTS customer_accounts (
         id TEXT PRIMARY KEY, business_id TEXT NOT NULL REFERENCES businesses(id),

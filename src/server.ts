@@ -389,6 +389,23 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .run(business.id, source, new Date().toISOString().slice(0, 10));
     res.json({ ok: true });
   });
+  writes.post("/api/public/:slug/interest", async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    const { kind, key } = z.object({
+      kind: z.enum(["show_open", "show_add", "service_open", "service_add", "occasion"]),
+      key: z.string().min(1).max(100),
+    }).parse(req.body);
+    const valid = kind.startsWith("show_")
+      ? (await store.all<Package>(business.id, "packages")).some((item) => item.active && item.id === key)
+      : kind.startsWith("service_")
+        ? guestServiceNames(business.otherShowNames, business.hiddenGuestServices).includes(key)
+        : ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas"].includes(key);
+    requireThat(valid, "Unknown public choice.", 400);
+    await store.db.prepare(
+      "INSERT INTO interest_clicks(business_id,kind,item_key,day,count) VALUES(?,?,?,?,1) ON CONFLICT(business_id,kind,item_key,day) DO UPDATE SET count=count+1",
+    ).run(business.id, kind, key, new Date().toISOString().slice(0, 10));
+    res.json({ ok: true });
+  });
   const customerSession = customerAccounts(app, store, origin, issueLink);
   writes.post("/api/public/:slug/enquiries", async (req, res) => {
     const business = await businessBySlug(String(req.params.slug));
@@ -1066,10 +1083,14 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
           "SELECT source,SUM(count) as count FROM visits WHERE business_id=? GROUP BY source",
         )
         .all(bid);
+      result.interest = await store.db.prepare(
+        "SELECT kind,item_key as key,SUM(count) as count FROM interest_clicks WHERE business_id=? AND day>=? GROUP BY kind,item_key ORDER BY count DESC",
+      ).all(bid, new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10));
     } else {
       result.audit = [];
       result.users = [];
       result.visits = [];
+      result.interest = [];
     }
     res.json(result);
   });

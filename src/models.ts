@@ -262,6 +262,7 @@ export interface Dashboard {
   enquiries: ServiceEnquiry[];
   users: User[];
   visits: { source: string; count: number }[];
+  interest: { kind: string; key: string; count: number }[];
 }
 export interface Catalog {
   guestGalleries?: GuestGallery[];

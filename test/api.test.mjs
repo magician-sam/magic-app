@@ -195,6 +195,20 @@ after(async () => {
     retryDelay: 100,
   });
 });
+test("anonymous interest counts are limited to public choices and private to the owner", async () => {
+  const first = await request("/public/test/interest", "POST", { kind: "show_open", key: "magic" }, null);
+  const second = await request("/public/test/interest", "POST", { kind: "show_open", key: "magic" }, null);
+  const service = await request("/public/test/interest", "POST", { kind: "service_open", key: "Characters" }, null);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(service.status, 200);
+  assert.equal((await request("/public/test/interest", "POST", { kind: "show_open", key: "secret" }, null)).status, 400);
+  const owner = await request("/manage/state");
+  assert.equal(owner.data.interest.find((item) => item.kind === "show_open" && item.key === "magic")?.count, 2);
+  assert.equal(owner.data.interest.find((item) => item.kind === "service_open" && item.key === "Characters")?.count, 1);
+  assert.deepEqual((await request("/manage/state", "GET", undefined, assistant)).data.interest, []);
+  assert.deepEqual((await request("/manage/state", "GET", undefined, otherCookie)).data.interest, []);
+});
 test("visitors can enquire about guest services and only staff can see their details", async () => {
   const input = {
     service: "Decoration",
