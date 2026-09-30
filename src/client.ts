@@ -299,13 +299,13 @@ function photoGallery(
         approved
           .map(
             (p) =>
-              '<figure><a href="' +
-              e(p.url) +
-              '" target="_blank" rel="noopener noreferrer"><img src="' +
+              '<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ' +
+              e(p.caption || "photo") +
+              '"><img src="' +
               e(p.url) +
               '" alt="' +
               e(p.caption) +
-              '" loading="lazy" referrerpolicy="no-referrer"></a><figcaption>' +
+              '" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>' +
               e(p.caption) +
               "</figcaption></figure>",
           )
@@ -404,7 +404,75 @@ function guestVideos(name: string) {
   return [...new Set([...guestBuiltInVideos(name).filter((url) => !hidden.has(url)), ...(saved?.videos ?? [])])].slice(0, 6);
 }
 function characterGallery() {
-  return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${guestPhotos("Characters").map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
+  return `<section><h3>Meet the characters</h3><div class="show-detail-gallery">${guestPhotos("Characters").map((photo) => zoomableFigure(photo)).join("")}</div><p class="privacy">Tell us which costume you like. We will confirm its availability for your date before booking.</p></section>`;
+}
+function zoomableFigure(photo: { url: string; caption: string }) {
+  return `<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
+}
+function setupPhotoZoom() {
+  const lightbox = document.createElement("dialog");
+  lightbox.className = "photo-lightbox";
+  lightbox.setAttribute("aria-label", "Photo viewer");
+  lightbox.innerHTML = `<div class="lightbox-toolbar"><span class="lightbox-count" aria-live="polite"></span><div class="lightbox-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span class="lightbox-level" aria-live="polite">100%</span><button type="button" data-zoom-in aria-label="Zoom in">＋</button><button type="button" data-zoom-close aria-label="Close photo viewer">×</button></div></div><div class="lightbox-stage"><img alt="" referrerpolicy="no-referrer"></div><div class="lightbox-foot"><button type="button" data-zoom-prev aria-label="Previous photo">←</button><p class="lightbox-caption"></p><button type="button" data-zoom-next aria-label="Next photo">→</button></div>`;
+  document.body.append(lightbox);
+  const stage = lightbox.querySelector<HTMLElement>(".lightbox-stage")!;
+  const image = stage.querySelector<HTMLImageElement>("img")!;
+  const count = lightbox.querySelector<HTMLElement>(".lightbox-count")!;
+  const caption = lightbox.querySelector<HTMLElement>(".lightbox-caption")!;
+  const level = lightbox.querySelector<HTMLElement>(".lightbox-level")!;
+  const previous = lightbox.querySelector<HTMLButtonElement>("[data-zoom-prev]")!;
+  const next = lightbox.querySelector<HTMLButtonElement>("[data-zoom-next]")!;
+  const out = lightbox.querySelector<HTMLButtonElement>("[data-zoom-out]")!;
+  const plus = lightbox.querySelector<HTMLButtonElement>("[data-zoom-in]")!;
+  let photos: { url: string; caption: string }[] = [];
+  let index = 0;
+  let zoom = 1;
+  const paint = () => {
+    const photo = photos[index];
+    if (!photo) return;
+    image.src = photo.url;
+    image.alt = photo.caption;
+    caption.textContent = photo.caption;
+    count.textContent = `${index + 1} of ${photos.length}`;
+    previous.disabled = index === 0;
+    next.disabled = index === photos.length - 1;
+    zoom = 1;
+    resize();
+  };
+  const resize = () => {
+    image.style.width = zoom === 1 ? "" : `${zoom * 100}%`;
+    image.classList.toggle("magnified", zoom > 1);
+    level.textContent = `${zoom * 100}%`;
+    out.disabled = zoom === 1;
+    plus.disabled = zoom === 3;
+    stage.scrollTo(0, 0);
+  };
+  document.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>("[data-zoom-photo]");
+    if (!button || !document.body.classList.contains("customer-surface")) return;
+    const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid") ?? button.parentElement;
+    const buttons = [...(gallery?.querySelectorAll<HTMLButtonElement>("[data-zoom-photo]") ?? [])];
+    photos = buttons.map((item) => {
+      const img = item.querySelector<HTMLImageElement>("img")!;
+      return { url: img.currentSrc || img.src, caption: img.alt || item.getAttribute("aria-label") || "Event photo" };
+    });
+    index = buttons.indexOf(button);
+    if (index < 0) return;
+    paint();
+    lightbox.showModal();
+  });
+  previous.addEventListener("click", () => { if (index > 0) { index--; paint(); } });
+  next.addEventListener("click", () => { if (index < photos.length - 1) { index++; paint(); } });
+  out.addEventListener("click", () => { zoom = Math.max(1, zoom - 1); resize(); });
+  plus.addEventListener("click", () => { zoom = Math.min(3, zoom + 1); resize(); });
+  lightbox.querySelector("[data-zoom-close]")!.addEventListener("click", () => lightbox.close());
+  lightbox.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft" && index > 0) { index--; paint(); }
+    if (event.key === "ArrowRight" && index < photos.length - 1) { index++; paint(); }
+    if (event.key === "+" || event.key === "=") { zoom = Math.min(3, zoom + 1); resize(); }
+    if (event.key === "-") { zoom = Math.max(1, zoom - 1); resize(); }
+  });
+  lightbox.addEventListener("click", (event) => { if (event.target === lightbox) lightbox.close(); });
 }
 function showPhotos(p: Package) {
   const approved = (p.gallery ?? []).filter((photo) => photo.approved);
@@ -473,7 +541,7 @@ function showDetails(p: Package) {
   const videos = showVideos(p);
   openDialog(
     publicShowName(p),
-    `<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${e(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? "All ages" : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? "<li>Electricity needed</li>" : ""}</ul>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption || p.name)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${e(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? "All ages" : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? "<li>Electricity needed</li>" : ""}</ul>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
   );
   on(modal, "#detail-add", "click", () => {
     if (togglePackage(p.id)) modal.close();
@@ -840,7 +908,7 @@ function enquiryDetails(name: string) {
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
-      ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => `<figure><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="eager"><figcaption>${e(photo.caption)}</figcaption></figure>`).join("")}</div></section>`
+      ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   openDialog(
     name,
@@ -5051,6 +5119,7 @@ async function start() {
     return;
   }
   document.body.classList.add("customer-surface");
+  setupPhotoZoom();
   if (location.pathname === "/event") {
     await renderEvent();
     return;

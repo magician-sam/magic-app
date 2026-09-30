@@ -62,6 +62,27 @@ test("show details keep the first line and close button visible", async ({ page 
     await dialog.getByRole("button", { name: "Close dialog" }).click();
   }
 });
+test("show photos enlarge and return to their details on phone and desktop", async ({ page }) => {
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 820 });
+    await page.goto("/");
+    await page.locator('[data-show-details="magic"]').first().click();
+    const details = page.locator("#modal");
+    await expect(details.getByRole("heading", { name: /Magic Show/ })).toBeVisible();
+    await details.locator("[data-zoom-photo]").first().click();
+    const viewer = page.locator(".photo-lightbox");
+    await expect(viewer).toBeVisible();
+    await expect(viewer.locator(".lightbox-count")).toContainText("1 of");
+    await viewer.getByRole("button", { name: "Zoom in" }).click();
+    await expect(viewer.locator(".lightbox-level")).toHaveText("200%");
+    await viewer.getByRole("button", { name: "Next photo" }).click();
+    await expect(viewer.locator(".lightbox-count")).toContainText("2 of");
+    await expect(viewer.locator(".lightbox-level")).toHaveText("100%");
+    await viewer.getByRole("button", { name: "Close photo viewer" }).click();
+    await expect(details).toBeVisible();
+    await expect(viewer).not.toBeVisible();
+  }
+});
 test("customer request, owner quote, customer acceptance and owner confirmation", async ({
   browser,
 }) => {
