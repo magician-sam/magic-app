@@ -79,6 +79,8 @@ Updated 30 September 2026. This is the complete customer-facing idea list Sam su
 
 ## Verification requirements
 
+30 September delivery evidence: enquiry release 9b72330 and frontend release 7ac64e8 both reached READY on the production domain. 83 application tests passed (the environment's process-spawn restriction prevents the setup-command suite). Type checks, lint and the direct client build passed. Live browser checks confirmed mixed Science/Magic/Juggling choices survive the account handoff and a refresh, all six homepage occasion shortcuts appear, and the 390 × 844 phone view has no horizontal overflow or dialog-header overlap. Backstage visual verification still requires Sam to sign in; API behavior was tested using isolated fixtures. A browser regression specification was added, but its local runner was not executed because the earlier browser policy blocks the local preview. Pricing, external notification tests and the remaining roadmap are not complete.
+
 - Verify desktop and phone layouts, modal close/actions, keyboard access, readable labels and no horizontal overflow.
 - Test authorization, tenant isolation, stale changes, consent and private-link handling for new data flows.
 - Use temporary records; never delete real enquiries or send customer messages during unapproved tests.

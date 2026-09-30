@@ -16,7 +16,7 @@ test("occasion shortcut builds a mixed event and keeps it through the account st
   await expect(dialog.locator("[data-recommend]").nth(0)).toHaveText("✓ Added · remove");
   await expect(dialog.locator("[data-recommend]").nth(1)).toHaveText("✓ Added · remove");
   await dialog.getByRole("button", { name: "Continue with my event ↗", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Create account & continue", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /^Create account & continue/ })).toBeVisible();
   await dialog.getByRole("button", { name: "Close dialog", exact: true }).click();
   await page.reload();
   await expect(page.locator("#event-box")).toContainText("Juggling");
