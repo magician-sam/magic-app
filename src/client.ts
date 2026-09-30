@@ -757,11 +757,32 @@ function bundleIdeas() {
     { title: "Science & bubbles", note: "Hands-on curiosity meets big smiles.", shows: [science, bubbles] },
   ].filter((idea) => idea.shows.every(Boolean)).map((idea) => `<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${idea.title}</h3><p>${idea.note}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
 }
+function mobileMenuMarkup() {
+  const shows = catalog.packages.filter((show) => show.active && !show.bundleIds?.length);
+  const bundles = catalog.packages.filter((show) => show.active && !!show.bundleIds?.length);
+  const partyNames = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Decoration", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
+  const services = moreShowNames();
+  const party = services.filter((name) => partyNames.includes(name));
+  const special = services.filter((name) => !partyNames.includes(name));
+  const showButtons = (items: Package[]) => items.map((show) => `<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${e(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
+  const serviceButtons = (items: string[]) => items.map((name) => `<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${e(name)}</span><b aria-hidden="true">↗</b></button>`).join("");
+  const branch = (title: string, note: string, children: string, nested = false) => `<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${title}</strong><small>${note}</small></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
+  const allShows = [
+    shows.length ? branch("Sam’s shows", "Magic, science & bubbles", showButtons(shows), true) : "",
+    party.length ? branch("Characters & party fun", "Colourful extras for your event", serviceButtons(party), true) : "",
+    special.length ? branch("Special acts", "More ways to amaze", serviceButtons(special), true) : "",
+    '<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>',
+  ].join("");
+  const offers = bundles.length
+    ? `${showButtons(bundles)}<a class="mobile-menu-leaf" href="#offers"><span>See all bundle ideas</span><b aria-hidden="true">↗</b></a>`
+    : '<a class="mobile-menu-leaf" href="#offers"><span>Explore bundle ideas</span><b aria-hidden="true">↗</b></a>';
+  return `<div class="mobile-menu-backdrop" id="mobile-menu-backdrop" aria-hidden="true"></div><aside class="mobile-site-menu" id="mobile-site-menu" aria-label="Explore Magic by Sam" aria-hidden="true" inert><div class="mobile-menu-head"><span><span aria-hidden="true">✦</span> Magic by Sam</span><button type="button" class="mobile-menu-close" aria-label="Close menu">×</button></div><div class="mobile-menu-scroll"><div class="mobile-menu-intro"><span class="mobile-menu-spark" aria-hidden="true">✧</span><span class="eyebrow">Your invitation to wonder</span><h2>Where shall we begin?</h2><p>Find the moment that feels like yours.</p></div><nav aria-label="Phone menu"><div class="mobile-menu-group"><span class="mobile-menu-group-title">Explore the magic</span>${branch("All the shows", "Open the collection", allShows)}${party.length ? branch("Characters & party fun", "Costumes, games and colourful acts", serviceButtons(party)) : ""}${branch("Offers & bundles", "More wonder together", offers)}</div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Make it yours</span><a href="#event-box"><span><strong>Your event box</strong><small>${basket.length + guestBasket.length} chosen ${basket.length + guestBasket.length === 1 ? "item" : "items"}</small></span><b aria-hidden="true">↗</b></a><a href="#rewards"><span><strong>Free magic show</strong><small>Invite friends, collect tokens</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Behind the wonder</span><a href="#performers"><span><strong>Meet the people</strong><small>The faces behind the magic</small></span><b aria-hidden="true">↗</b></a><a href="#how"><span><strong>How it works</strong><small>From an idea to your event</small></span><b aria-hidden="true">↗</b></a><button type="button" id="mobile-customer-account"><span><strong>My account</strong><small>Your bookings and rewards</small></span><b aria-hidden="true">↗</b></button></div></nav><p class="mobile-menu-signoff">A little wonder is waiting for you. <span aria-hidden="true">✦</span></p></div></aside>`;
+}
 function setupMobileSiteMenu() {
   const header = app.querySelector<HTMLElement>(".site-header");
   if (!header) return;
   header.insertAdjacentHTML("beforeend", '<button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-controls="mobile-site-menu" aria-expanded="false"><span class="mobile-menu-toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Explore</span></button>');
-  header.insertAdjacentHTML("afterend", `<div class="mobile-menu-backdrop" id="mobile-menu-backdrop" aria-hidden="true"></div><aside class="mobile-site-menu" id="mobile-site-menu" aria-label="Explore Magic by Sam" aria-hidden="true" inert><div class="mobile-menu-head"><span><span aria-hidden="true">✦</span> Magic by Sam</span><button type="button" class="mobile-menu-close" aria-label="Close menu">×</button></div><div class="mobile-menu-scroll"><div class="mobile-menu-intro"><span class="mobile-menu-spark" aria-hidden="true">✧</span><span class="eyebrow">Your invitation to wonder</span><h2>Where shall we begin?</h2><p>Find the moment that feels like yours.</p></div><nav aria-label="Phone menu"><div class="mobile-menu-group"><span class="mobile-menu-group-title">Explore the magic</span><a href="#shows"><span><strong>All the shows</strong><small>Magic, science, bubbles & more</small></span><b aria-hidden="true">↗</b></a><a href="#party-shows"><span><strong>Characters & party fun</strong><small>Costumes, games and colourful acts</small></span><b aria-hidden="true">↗</b></a><a href="#offers"><span><strong>Offers & bundles</strong><small>More wonder together</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Make it yours</span><a href="#event-box"><span><strong>Your event box</strong><small>${basket.length + guestBasket.length} chosen ${basket.length + guestBasket.length === 1 ? "item" : "items"}</small></span><b aria-hidden="true">↗</b></a><a href="#rewards"><span><strong>Free magic show</strong><small>Invite friends, collect tokens</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Behind the wonder</span><a href="#performers"><span><strong>Meet the people</strong><small>The faces behind the magic</small></span><b aria-hidden="true">↗</b></a><a href="#how"><span><strong>How it works</strong><small>From an idea to your event</small></span><b aria-hidden="true">↗</b></a><button type="button" id="mobile-customer-account"><span><strong>My account</strong><small>Your bookings and rewards</small></span><b aria-hidden="true">↗</b></button></div></nav><p class="mobile-menu-signoff">A little wonder is waiting for you. <span aria-hidden="true">✦</span></p></div></aside>`);
+  header.insertAdjacentHTML("afterend", mobileMenuMarkup());
   const toggle = header.querySelector<HTMLButtonElement>("#mobile-menu-toggle")!;
   const drawer = app.querySelector<HTMLElement>("#mobile-site-menu")!;
   const backdrop = app.querySelector<HTMLElement>("#mobile-menu-backdrop")!;
@@ -783,11 +804,23 @@ function setupMobileSiteMenu() {
   closeButton.addEventListener("click", () => close());
   backdrop.addEventListener("click", () => close());
   drawer.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => link.addEventListener("click", () => close(false)));
+  drawer.querySelectorAll<HTMLButtonElement>("[data-menu-show]").forEach((button) => button.addEventListener("click", () => {
+    const show = catalog.packages.find((item) => item.active && item.id === button.dataset.menuShow);
+    if (!show) return;
+    close(false);
+    showDetails(show);
+  }));
+  drawer.querySelectorAll<HTMLButtonElement>("[data-menu-service]").forEach((button) => button.addEventListener("click", () => {
+    const name = button.dataset.menuService;
+    if (!name || !moreShowNames().includes(name)) return;
+    close(false);
+    enquiryDetails(name);
+  }));
   drawer.querySelector<HTMLButtonElement>("#mobile-customer-account")?.addEventListener("click", () => { close(false); customerAccount(); });
   drawer.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.preventDefault(); close(); return; }
     if (event.key !== "Tab") return;
-    const focusable = [...drawer.querySelectorAll<HTMLElement>("button, a[href]")];
+    const focusable = [...drawer.querySelectorAll<HTMLElement>("button, a[href], summary")].filter((item) => item.getClientRects().length > 0);
     const first = focusable[0], last = focusable.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
