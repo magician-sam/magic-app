@@ -988,11 +988,14 @@ function enquiryDetails(name: string) {
     : photos.length
       ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
+  const characterChoice = /character/i.test(name) && (catalog.business.characterNames ?? []).length
+    ? '<button type="button" id="choose-character" class="outline">Choose a character ↗</button>' : '';
   openDialog(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}</div>${gallery}${characterChoice}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
   );
   on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
+  if (characterChoice) on(modal, "#choose-character", "click", () => chooseCharacter());
   if (/character/i.test(name)) wireCharacterGallery();
 }
 function chooseCharacter() {
