@@ -4,6 +4,8 @@ Updated 30 September 2026. This is the complete customer-facing idea list Sam su
 
 Sam's 30 September priority: finish the major site and Backstage features first. Do not ask about prices, hosting, or email during this phase. Recheck the public site in a fresh browser tab on desktop and phone after each meaningful release, then fix obvious design and usability problems without waiting for a design decision.
 
+Product direction: the customer website, future Android and iPhone customer apps, and the artist app must use the same event records, catalog rules, permissions and notification preferences. Keep business logic in shared server APIs and give each screen a device-appropriate interface. Do not build separate app-only booking rules that can drift from the site.
+
 ## Current delivery
 
 - Service enquiries: Open/Edit, Mark handled, Archive/Restore, owner/admin permanent deletion with exact-name confirmation, stale-edit protection and business isolation. Regression coverage uses temporary records only.
@@ -12,6 +14,7 @@ Sam's 30 September priority: finish the major site and Backstage features first.
 - Customer photo magnification: open show, character, guest-service and performer gallery photos in a full-screen viewer, with larger zoom levels and previous/next controls for phone and desktop.
 - Customer interest report: count anonymous clicks on show and service cards, additions to event boxes, and occasion shortcuts; display the top choices in Backstage Money & reports for marketing decisions. Counts are actions over the last 30 days, not unique customers or confirmed sales.
 - Fresh-window design audit: move real event photos into the first phone screen and make the homepage collage tappable; keep the booking actions and event box accessible.
+- Character discovery: searchable real-photo gallery, desktop type filters and a compact phone dropdown. A named character choice, when available in the business catalog, stays in the event box and request as a preference subject to confirmation.
 - Artist workflow: continue from ARTIST-WORKFLOW-STATUS.md; staff roles, assignment responses, calendars, preparation, payment records and saved notices already have implementations. Private after-event uploads and external scheduled reminders remain dependent on hosting/storage.
 
 ## Customer discovery and design
