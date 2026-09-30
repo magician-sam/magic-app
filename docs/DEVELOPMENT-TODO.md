@@ -2,6 +2,8 @@
 
 Updated 30 September 2026. This is the complete customer-facing idea list Sam supplied, alongside the current Backstage priority. Listed ideas are requests to evaluate and implement, not claims that every feature is live. Audit existing controls before duplicating them.
 
+Sam's 30 September priority: finish the major site and Backstage features first. Do not ask about prices, hosting, or email during this phase. Recheck the public site in a fresh browser tab on desktop and phone after each meaningful release, then fix obvious design and usability problems without waiting for a design decision.
+
 ## Current delivery
 
 - Service enquiries: Open/Edit, Mark handled, Archive/Restore, owner/admin permanent deletion with exact-name confirmation, stale-edit protection and business isolation. Regression coverage uses temporary records only.
@@ -70,6 +72,22 @@ Updated 30 September 2026. This is the complete customer-facing idea list Sam su
 - Calendar export for Google/Apple compatible calendars.
 - Visual map location confirmation and structured special instructions (allergies, noise, elevator, power, security).
 
+## Backstage and artist operations still to review
+
+- Audit that every public show, guest service, category, photo, video and customer record has an understandable owner control to add, edit, hide or remove it. Keep confirmed booking and payment history protected. The current panels already cover shows, categories, guest services, photos/videos, customer records and unused-account deletion; complete remaining gaps found in the audit.
+- Complete the artist workflow in ARTIST-WORKFLOW-STATUS.md, especially private after-event photos and real scheduled reminders. Existing artist login, assignment, confirmation/decline, calendar permission, availability warnings, checklist, agreed fees, completion notes and monthly report must remain scoped and tested.
+- Improve the sales pipeline from enquiry through quote, acceptance, owner confirmation, preparation, completion and feedback. Make the next action clear for staff, with one useful global search across events, customers, artists and shows.
+- Add equipment and costume inventory, transport assignments and costs, contract/document tracking, and a show-day view linked to each confirmed event. Reuse the existing preparation checklist and money records where possible.
+- Make event feedback easy after completion: private link, event details, rating, written comments and optional photos; link it to the event and show a manual resend control. Existing review consent must continue to govern any public display. Automatic reminder delivery is parked with email and hosting.
+- Review permissions, audit history, exports, backups, data retention and recoverable versus permanent deletion across all owner controls. The new anonymous visitor-interest report must show top clicked public choices without suggesting clicks are unique customers or sales.
+
+## Ownership, security and installed apps
+
+- Review third-party code, libraries, fonts, icons, APIs, templates, trademarks, privacy text and contributor rights before launch. Sam's own supplied photos do not need a separate ownership review.
+- Keep valuable Backstage logic and secrets on the server, enforce account and business permissions, and review rate limits and logging. A public website cannot be made impossible to copy; focus on protecting private workflows and data.
+- Revisit Android and Windows installation after the web experience is stable. Investigate the Android "harmful app" refusal and Windows Smart App Control block without asking Sam to disable device protections; distribute signed or store-trusted builds when feasible. The installable website remains the immediate low-friction option.
+- Offline editing and synchronization need a separate design for conflicts and private data; do not imply that the current online app works offline.
+
 ## Deferred dependencies and future expansion
 
 - Prices and live estimates: await Sam's real rates. Currency USD/LBP/SAR requires explicit currency and exchange-rate policy; do not invent rates or conversions.
@@ -78,6 +96,7 @@ Updated 30 September 2026. This is the complete customer-facing idea list Sam su
 - Outdoor weather warnings: later, with reliable event-location/weather integration.
 - FAQ assistant first using approved answers; AI event assistant later using real catalog and capacity constraints.
 - Email and phone popup notification tests remain postponed to the new host. Permission-based broadcasts for genuine new bundles/shows/updates, plus event-action messages, need configured delivery and opt-out controls.
+- Transport-free zones, outside-area fees, price estimates, and payment terms await Sam's later pricing discussion. Keep transport as "to be confirmed" until the zone and rate rules are approved.
 - Hostinger migration: follow HOSTINGER-KVM2-PLAN.md for database, private media, backups, HTTPS, jobs, monitoring and restore verification. Do not purchase or migrate without the actual server access and cutover readiness.
 
 ## Verification requirements
