@@ -757,8 +757,45 @@ function bundleIdeas() {
     { title: "Science & bubbles", note: "Hands-on curiosity meets big smiles.", shows: [science, bubbles] },
   ].filter((idea) => idea.shows.every(Boolean)).map((idea) => `<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${idea.title}</h3><p>${idea.note}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
 }
+function setupMobileSiteMenu() {
+  const header = app.querySelector<HTMLElement>(".site-header");
+  if (!header) return;
+  header.insertAdjacentHTML("beforeend", '<button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-controls="mobile-site-menu" aria-expanded="false"><span class="mobile-menu-toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Explore</span></button>');
+  header.insertAdjacentHTML("afterend", `<div class="mobile-menu-backdrop" id="mobile-menu-backdrop" aria-hidden="true"></div><aside class="mobile-site-menu" id="mobile-site-menu" aria-label="Explore Magic by Sam" aria-hidden="true" inert><div class="mobile-menu-head"><span><span aria-hidden="true">✦</span> Magic by Sam</span><button type="button" class="mobile-menu-close" aria-label="Close menu">×</button></div><div class="mobile-menu-scroll"><div class="mobile-menu-intro"><span class="mobile-menu-spark" aria-hidden="true">✧</span><span class="eyebrow">Your invitation to wonder</span><h2>Where shall we begin?</h2><p>Find the moment that feels like yours.</p></div><nav aria-label="Phone menu"><div class="mobile-menu-group"><span class="mobile-menu-group-title">Explore the magic</span><a href="#shows"><span><strong>All the shows</strong><small>Magic, science, bubbles & more</small></span><b aria-hidden="true">↗</b></a><a href="#party-shows"><span><strong>Characters & party fun</strong><small>Costumes, games and colourful acts</small></span><b aria-hidden="true">↗</b></a><a href="#offers"><span><strong>Offers & bundles</strong><small>More wonder together</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Make it yours</span><a href="#event-box"><span><strong>Your event box</strong><small>${basket.length + guestBasket.length} chosen ${basket.length + guestBasket.length === 1 ? "item" : "items"}</small></span><b aria-hidden="true">↗</b></a><a href="#rewards"><span><strong>Free magic show</strong><small>Invite friends, collect tokens</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Behind the wonder</span><a href="#performers"><span><strong>Meet the people</strong><small>The faces behind the magic</small></span><b aria-hidden="true">↗</b></a><a href="#how"><span><strong>How it works</strong><small>From an idea to your event</small></span><b aria-hidden="true">↗</b></a><button type="button" id="mobile-customer-account"><span><strong>My account</strong><small>Your bookings and rewards</small></span><b aria-hidden="true">↗</b></button></div></nav><p class="mobile-menu-signoff">A little wonder is waiting for you. <span aria-hidden="true">✦</span></p></div></aside>`);
+  const toggle = header.querySelector<HTMLButtonElement>("#mobile-menu-toggle")!;
+  const drawer = app.querySelector<HTMLElement>("#mobile-site-menu")!;
+  const backdrop = app.querySelector<HTMLElement>("#mobile-menu-backdrop")!;
+  const closeButton = drawer.querySelector<HTMLButtonElement>(".mobile-menu-close")!;
+  const close = (restoreFocus = true) => {
+    document.body.classList.remove("site-menu-open");
+    toggle.setAttribute("aria-expanded", "false");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.inert = true;
+    if (restoreFocus) toggle.focus();
+  };
+  toggle.addEventListener("click", () => {
+    document.body.classList.add("site-menu-open");
+    toggle.setAttribute("aria-expanded", "true");
+    drawer.removeAttribute("aria-hidden");
+    drawer.inert = false;
+    closeButton.focus();
+  });
+  closeButton.addEventListener("click", () => close());
+  backdrop.addEventListener("click", () => close());
+  drawer.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => link.addEventListener("click", () => close(false)));
+  drawer.querySelector<HTMLButtonElement>("#mobile-customer-account")?.addEventListener("click", () => { close(false); customerAccount(); });
+  drawer.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); close(); return; }
+    if (event.key !== "Tab") return;
+    const focusable = [...drawer.querySelectorAll<HTMLElement>("button, a[href]")];
+    const first = focusable[0], last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
+}
 function renderPublic() {
   saveEventBox();
+  document.body.classList.remove("site-menu-open");
   document.title = `${catalog.business.name} · Live shows for your celebration`;
   const defaultIntro = "A little wonder. A lot of happy memories. Magic, science and bubbles, brought together for your celebration.";
   const heroIntro = catalog.business.intro === defaultIntro
@@ -775,6 +812,7 @@ function renderPublic() {
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
           .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+  setupMobileSiteMenu();
   applyPublicSiteMedia();
   const mobilePhotos = app.querySelector<HTMLElement>(".mobile-hero-photos");
   if (mobilePhotos) app.querySelector(".hero-copy h1")?.after(mobilePhotos);
