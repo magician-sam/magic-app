@@ -11,6 +11,7 @@ Sam's 30 September priority: finish the major site and Backstage features first.
 - Event plans: save show choices on the visitor's own device for 30 days, restore or forget them, copy a catalog-only share link, ask about the chosen mix on WhatsApp, or call from a phone. Compare two or three catalog shows side by side using real descriptions and existing quote labels. Shared links contain no contact, venue or booking details.
 - Customer photo magnification: open show, character, guest-service and performer gallery photos in a full-screen viewer, with larger zoom levels and previous/next controls for phone and desktop.
 - Customer interest report: count anonymous clicks on show and service cards, additions to event boxes, and occasion shortcuts; display the top choices in Backstage Money & reports for marketing decisions. Counts are actions over the last 30 days, not unique customers or confirmed sales.
+- Fresh-window design audit: move real event photos into the first phone screen and make the homepage collage tappable; keep the booking actions and event box accessible.
 - Artist workflow: continue from ARTIST-WORKFLOW-STATUS.md; staff roles, assignment responses, calendars, preparation, payment records and saved notices already have implementations. Private after-event uploads and external scheduled reminders remain dependent on hosting/storage.
 
 ## Customer discovery and design

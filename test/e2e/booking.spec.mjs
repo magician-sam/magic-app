@@ -83,6 +83,19 @@ test("show photos enlarge and return to their details on phone and desktop", asy
     await expect(viewer).not.toBeVisible();
   }
 });
+test("phone entrance shows tappable live photos before the booking buttons", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const collage = page.locator(".mobile-hero-photos");
+  const booking = page.getByRole("link", { name: "Book your event ↗" });
+  await expect(collage).toBeVisible();
+  expect((await collage.boundingBox()).y).toBeLessThan((await booking.boundingBox()).y);
+  await collage.getByRole("button", { name: /Enlarge Sam performing magic/ }).click();
+  await expect(page.locator(".photo-lightbox")).toBeVisible();
+  await page.getByRole("button", { name: "Close photo viewer" }).click();
+  await expect(page.locator(".photo-lightbox")).not.toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
 test("customer request, owner quote, customer acceptance and owner confirmation", async ({
   browser,
 }) => {

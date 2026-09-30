@@ -2101,7 +2101,10 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
 .mobile-hero-photos { display: none; }
 .hero-gallery { min-width: 0; height: 440px; display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: repeat(2, 1fr); gap: 8px; position: relative; padding: 8px; padding-bottom: 34px; border-radius: 90px 90px 24px 24px; background: #e9dcf2; overflow: hidden; box-shadow: 0 14px 0 #e8dcf0; }
 .hero-gallery img { width: 100%; height: 100%; min-height: 0; object-fit: cover; border-radius: 15px; }
-.hero-gallery img:first-child { grid-row: span 2; object-position: center 35%; }
+.hero-gallery .hero-zoom:first-child { grid-row: span 2; }
+.hero-gallery .hero-zoom:first-child img { object-position: center 35%; }
+.hero-zoom { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 15px; overflow: hidden; background: #d5bee7; cursor: zoom-in; }
+.hero-zoom:focus-visible { outline: 3px solid #ffdb83; outline-offset: -3px; }
 .hero-gallery span { position: absolute; left: 20px; bottom: 8px; color: #352247; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
 .catalog-list { min-width: 0; }
 .catalog-list .show-search { margin-bottom: 24px; }
@@ -2146,9 +2149,10 @@ dialog:has(#f-character) .form-actions { position: sticky; z-index: 4; bottom: 0
   .hero .micro { color: #584b62; font-size: 12px; }
   .hero .stage { display: none; }
   .hero-gallery { display: none; }
-  .mobile-hero-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; position: relative; padding: 7px; padding-bottom: 32px; border-radius: 18px; background: #e9dcf2; overflow: hidden; }
-  .mobile-hero-photos img { width: 100%; height: clamp(145px, 43vw, 245px); object-fit: cover; border-radius: 12px; }
-  .mobile-hero-photos img:nth-child(2) { transform: translateY(10px); }
+  .mobile-hero-photos { display: grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: repeat(2, 82px); gap: 7px; position: relative; margin: 16px 0 12px; padding: 7px; padding-bottom: 27px; border-radius: 18px; background: #e9dcf2; overflow: hidden; }
+  .mobile-hero-photos .hero-zoom:first-child { grid-row: span 2; }
+  .mobile-hero-photos img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+  .mobile-hero-photos .hero-zoom:first-child img { object-position: center 35%; }
   .mobile-hero-photos span { position: absolute; left: 15px; bottom: 7px; font-size: 12px; font-weight: 800; letter-spacing: .02em; color: #352247; }
   .show-search { position: sticky; top: 0; z-index: 3; padding: 12px; box-shadow: 0 8px 22px #35224716; }
   .show-search input { flex-basis: 100%; font-size: 16px; }

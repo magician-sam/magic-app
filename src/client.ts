@@ -456,7 +456,7 @@ function setupPhotoZoom() {
   document.addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-zoom-photo]");
     if (!button || !document.body.classList.contains("customer-surface")) return;
-    const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid") ?? button.parentElement;
+    const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid, .hero-gallery, .mobile-hero-photos") ?? button.parentElement;
     const buttons = [...(gallery?.querySelectorAll<HTMLButtonElement>("[data-zoom-photo]") ?? [])];
     photos = buttons.map((item) => {
       const img = item.querySelector<HTMLImageElement>("img")!;
@@ -710,6 +710,19 @@ function renderPublic() {
           .map(showCard)
           .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   applyPublicSiteMedia();
+  const mobilePhotos = app.querySelector<HTMLElement>(".mobile-hero-photos");
+  if (mobilePhotos) app.querySelector(".hero-copy h1")?.after(mobilePhotos);
+  for (const gallery of app.querySelectorAll<HTMLElement>(".hero-gallery, .mobile-hero-photos")) {
+    for (const image of [...gallery.querySelectorAll<HTMLImageElement>("img")]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "hero-zoom";
+      button.dataset.zoomPhoto = "";
+      button.setAttribute("aria-label", `Enlarge ${image.alt}`);
+      image.replaceWith(button);
+      button.append(image);
+    }
+  }
   const comparisonTray = document.createElement("div");
   comparisonTray.id = "compare-tray";
   comparisonTray.className = "compare-tray";
