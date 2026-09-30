@@ -1,6 +1,7 @@
 import { canStaffAction, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
+import { experienceFor, recommendationReasons } from "./visitor-experience.js";
 import { siteMediaSlots } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
 import type { FollowupSettings } from "./followups.js";
@@ -435,8 +436,8 @@ function characterGallery() {
   const filters = themes.filter(([, pattern]) => photos.some((photo) => pattern.test(photo.caption)));
   return `<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? `<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => `<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${e(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => `<option value="${e(label)}">${e(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><p class="character-empty" hidden>No photos match this search. Try another costume.</p>` : '<p>Character photos are coming soon.</p>'}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
 }
-function wireCharacterGallery() {
-  const browser = modal.querySelector<HTMLElement>(".character-browser");
+function wireCharacterGallery(root: ParentNode = modal) {
+  const browser = root.querySelector<HTMLElement>(".character-browser");
   if (!browser) return;
   const search = browser.querySelector<HTMLInputElement>("#character-search");
   const mobileSelect = browser.querySelector<HTMLSelectElement>("#character-type");
@@ -463,6 +464,7 @@ function wireCharacterGallery() {
     if (count) count.textContent = `${visible} of ${figures.length} photos`;
     const empty = browser.querySelector<HTMLElement>(".character-empty");
     if (empty) empty.hidden = visible > 0;
+    browser.querySelector(".show-detail-gallery")?.dispatchEvent(new Event("gallerychange"));
   };
   search?.addEventListener("input", update);
   search?.addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
@@ -480,6 +482,91 @@ function wireCharacterGallery() {
 }
 function zoomableFigure(photo: { url: string; caption: string }) {
   return `<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
+}
+function setupPhotoRails(root: ParentNode) {
+  root.querySelectorAll<HTMLElement>(".show-detail-gallery").forEach((gallery) => {
+    const figures = [...gallery.querySelectorAll<HTMLElement>("figure")];
+    if (figures.length < 2) return;
+    gallery.classList.add("photo-rail");
+    const controls = document.createElement("div");
+    controls.className = "photo-rail-controls";
+    controls.innerHTML = '<button type="button" aria-label="Previous gallery photo">←</button><span aria-live="polite"></span><button type="button" aria-label="Next gallery photo">→</button>';
+    const thumbs = document.createElement("div");
+    thumbs.className = "photo-rail-thumbs";
+    thumbs.setAttribute("aria-label", "Choose a gallery photo");
+    figures.forEach((figure, index) => {
+      const image = figure.querySelector<HTMLImageElement>("img")!;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-label", `Show photo ${index + 1}: ${image.alt}`);
+      button.innerHTML = `<img src="${e(image.src)}" alt="" loading="lazy">`;
+      button.addEventListener("click", () => goTo(figure));
+      thumbs.append(button);
+    });
+    gallery.after(controls, thumbs);
+    const buttons = controls.querySelectorAll<HTMLButtonElement>("button");
+    const visible = () => figures.filter((figure) => !figure.hidden);
+    const current = () => visible().reduce((best, figure) => Math.abs(figure.getBoundingClientRect().left - gallery.getBoundingClientRect().left) < Math.abs(best.getBoundingClientRect().left - gallery.getBoundingClientRect().left) ? figure : best, visible()[0]);
+    const goTo = (figure: HTMLElement) => gallery.scrollTo({ left: gallery.scrollLeft + figure.getBoundingClientRect().left - gallery.getBoundingClientRect().left, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    const update = () => {
+      const items = visible(), selected = items.length ? current() : undefined;
+      const index = selected ? items.indexOf(selected) : -1;
+      controls.querySelector("span")!.textContent = items.length ? `${index + 1} / ${items.length} · Swipe to explore` : "No matching photos";
+      buttons[0].disabled = index <= 0;
+      buttons[1].disabled = index < 0 || index >= items.length - 1;
+      [...thumbs.querySelectorAll<HTMLButtonElement>("button")].forEach((button, i) => { button.hidden = figures[i].hidden; button.setAttribute("aria-pressed", String(figures[i] === selected)); });
+    };
+    buttons[0].addEventListener("click", () => { const items = visible(); const index = items.indexOf(current()); if (index > 0) goTo(items[index - 1]); });
+    buttons[1].addEventListener("click", () => { const items = visible(); const index = items.indexOf(current()); if (index < items.length - 1) goTo(items[index + 1]); });
+    gallery.addEventListener("scroll", update, { passive: true });
+    gallery.addEventListener("gallerychange", () => { gallery.scrollTo(0, 0); update(); });
+    update();
+  });
+}
+
+function detailPageLink(kind: "show" | "service", key: string) {
+  return `${location.origin}/b/${encodeURIComponent(catalog.business.slug)}/${kind}/${encodeURIComponent(key)}`;
+}
+function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "service", key: string) {
+  const detail = root.querySelector<HTMLElement>(".show-detail");
+  if (!detail) return;
+  const experience = experienceFor(name);
+  detail.dataset.experienceTheme = experience.theme;
+  const info = document.createElement("section");
+  info.className = "experience-story";
+  info.innerHTML = `<span class="eyebrow">${e(experience.heading)}</span><h3>What to look forward to</h3><p>${e(experience.experience)}</p><h4>Make it yours</h4><p>${e(experience.personal)}</p><p class="hint">The exact format, performer and availability are agreed before your booking is confirmed.</p>`;
+  const facts = detail.querySelector(".show-facts") ?? detail.querySelector(".show-detail-cta");
+  if (facts) facts.after(info); else detail.querySelector("p:last-of-type")?.after(info);
+  const videos = detail.querySelector(".show-video-gallery")?.closest("section");
+  if (videos) {
+    videos.classList.add("performance-preview");
+    videos.querySelector("h3")!.textContent = "See the show in action";
+    const gallery = videos.querySelector(".show-video-gallery")!;
+    const clips = [...gallery.children];
+    if (clips.length > 1) {
+      const more = document.createElement("details");
+      more.className = "more-performance-clips";
+      more.innerHTML = `<summary>More performance clips (${clips.length - 1})</summary><div class="show-video-gallery"></div>`;
+      clips.slice(1).forEach((clip) => more.querySelector("div")!.append(clip));
+      gallery.after(more);
+    }
+    info.before(videos);
+  }
+  setupPhotoRails(root);
+  const questions = document.createElement("section");
+  questions.className = "show-questions";
+  questions.innerHTML = '<h3>Before you choose</h3><details><summary>Can I combine this with another show?</summary><p>Yes. Add your favourites to the same event box. We review the whole selection together before sending your proposal.</p></details><details><summary>Can we adapt it to our celebration?</summary><p>Tell us about your audience, theme and the feeling you want. We discuss the available options and agree the exact format with you.</p></details><details><summary>When is the booking confirmed?</summary><p>Adding a show or sending a request does not reserve a date. We confirm the arrangements and agreed payment terms with you before confirming your booking.</p></details>';
+  const extras = (kind === "show" ? ["Characters", "Face Painting & Glitter", "Decoration"] : ["Balloon Twisting", "Animation", "Characters"]).filter((service) => service !== name && moreShowNames().includes(service));
+  if (extras.length) questions.insertAdjacentHTML("beforeend", `<h4>Explore a little extra</h4><div class="related-extras">${extras.map((service) => `<a href="${e(detailPageLink("service", service))}">${e(service)} ↗</a>`).join("")}</div>`);
+  detail.querySelector(".show-detail-footer")?.before(questions);
+  const share = document.createElement("div");
+  share.className = "show-share-actions";
+  share.innerHTML = `<a class="button outline small" href="${e(detailPageLink(kind, key))}">Open show page ↗</a><button type="button" class="outline small">Copy show link</button>`;
+  share.querySelector("button")!.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(detailPageLink(kind, key)); notify("Show link copied. Share it with your family or friends."); }
+    catch { openDialog("Share this show", field({ key: "show-link", label: "Copy this link", value: detailPageLink(kind, key), wide: true })); }
+  });
+  detail.querySelector(".show-detail-footer")?.before(share);
 }
 function setupPhotoZoom() {
   const lightbox = document.createElement("dialog");
@@ -593,6 +680,7 @@ function renderComparisonTray() {
   const tray = document.querySelector<HTMLElement>("#compare-tray");
   if (!tray) return;
   const chosen = comparisonIds.map((id) => catalog.packages.find((show) => show.id === id)).filter((show): show is Package => !!show);
+  tray.hidden = chosen.length === 0;
   tray.innerHTML = `<div><strong>Compare shows</strong><span>${chosen.length ? chosen.map((show) => e(publicShowName(show))).join(" · ") : "Choose two or three shows to see them together."}</span></div><button type="button" id="open-comparison" class="outline small" ${chosen.length < 2 ? "disabled" : ""}>Compare ${chosen.length || ""} shows</button>${chosen.length ? '<button type="button" id="clear-comparison" class="link small">Clear</button>' : ""}`;
   on(tray, "#open-comparison", "click", () => {
     openDialog("Compare your shows", `<div class="comparison-grid">${chosen.map((show) => {
@@ -607,18 +695,21 @@ function renderComparisonTray() {
   });
   on(tray, "#clear-comparison", "click", () => { comparisonIds = []; renderComparisonTray(); document.querySelectorAll<HTMLButtonElement>("[data-compare]").forEach((button) => { button.setAttribute("aria-pressed", "false"); button.textContent = "Compare this show"; }); });
 }
-function showDetails(p: Package) {
-  trackInterest("show_open", p.id);
+function showDetails(p: Package, inline = false) {
+  if (!inline) trackInterest("show_open", p.id);
   const photos = showPhotos(p);
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
   const videos = showVideos(p);
-  openDialog(
+  presentShowDetail(
     publicShowName(p),
     `<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${e(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? "All ages" : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? "<li>Electricity needed</li>" : ""}</ul>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+    inline,
   );
-  on(modal, "#detail-add", "click", () => {
+  const root = inline ? app : modal;
+  on(root, "#detail-add", "click", () => {
     if (togglePackage(p.id)) modal.close();
   });
+  enhanceShowDetail(root, publicShowName(p), "show", p.id);
 }
 function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices); }
 function siteMediaUrl(key: string) {
@@ -834,9 +925,62 @@ function setupMobileSiteMenu() {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   });
 }
+function presentShowDetail(title: string, content: string, inline: boolean) {
+  if (!inline) { openDialog(title, content); return; }
+  const target = app.querySelector("#standalone-show");
+  if (!target) return;
+  target.innerHTML = `<a class="show-page-back" href="/b/${encodeURIComponent(catalog.business.slug)}#shows">← All the shows</a><h1>${e(title)}</h1>${content}`;
+  document.title = `${title} · ${catalog.business.name}`;
+}
+function renderDetailLanding() {
+  const parts = location.pathname.split("/");
+  if (parts.length !== 5 || !["show", "service"].includes(parts[3])) return false;
+  let key: string;
+  try { key = decodeURIComponent(parts[4]); } catch { return false; }
+  const show = parts[3] === "show" ? catalog.packages.find((item) => item.active && item.id === key) : undefined;
+  const service = parts[3] === "service" && moreShowNames().includes(key) ? key : "";
+  if (!show && !service) return false;
+  const home = `/b/${encodeURIComponent(catalog.business.slug)}`;
+  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="${home}#shows">All the shows</a><button class="link" id="page-account">My account</button><a class="button outline small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main" class="standalone-layout"><article id="standalone-show" class="standalone-show"></article><aside id="event-box" class="event-box" aria-label="Your event box"></aside></main><section class="related-show-pages"><span class="eyebrow">Keep exploring</span><h2>More moments to make yours</h2><div>${catalog.packages.filter((item) => item.active && !item.bundleIds?.length && item.id !== show?.id).map((item) => `<a class="related-show-link" href="${e(detailPageLink("show", item.id))}"><strong>${e(publicShowName(item))}</strong><span>${e(publicShowTagline(item))} ↗</span></a>`).join("")}<a class="related-show-link" href="${home}#shows"><strong>See every show</strong><span>The full collection ↗</span></a></div></section><footer class="footer"><a href="${home}#shows">← Back to all the shows</a><span>${e(catalog.business.name)} · Make your event magical.</span></footer></div>`;
+  setupMobileSiteMenu();
+  app.querySelectorAll<HTMLAnchorElement>("#mobile-site-menu a[href^='#']").forEach((link) => link.href = home + link.getAttribute("href"));
+  on(app, "#page-account", "click", () => customerAccount());
+  if (show) showDetails(show, true); else enquiryDetails(service, true);
+  renderBox();
+  return true;
+}
+function polishVisitorCatalog() {
+  app.querySelectorAll<HTMLElement>(".show-card").forEach((card) => {
+    const name = card.querySelector("h3")?.textContent ?? "";
+    card.dataset.experienceTheme = experienceFor(name).theme;
+  });
+  const groups = [
+    ["sam-shows", "Sam’s signature shows", "Wonder, curiosity and daydreams — performed by Sam."],
+    ["party-shows", "Characters & party fun", "Colourful entrances, games and creative little extras."],
+    ["special-acts", "Big moments & special acts", "Distinctive performances for a celebration with personality."],
+  ];
+  for (const [id, title, note] of groups) {
+    const group = app.querySelector<HTMLElement>(`#${id}`);
+    if (!group) continue;
+    group.classList.add("catalog-chapter");
+    const count = group.querySelectorAll(".show-card").length;
+    group.querySelector("h3")?.insertAdjacentHTML("afterend", `<p class="catalog-chapter-note">${e(note)} <span>${count} ${count === 1 ? "show" : "shows"} to explore</span></p>`);
+    const jump = app.querySelector<HTMLAnchorElement>(`.show-jump a[href='#${id}']`);
+    if (jump) { jump.textContent = `${title} · ${count}`; }
+  }
+  app.querySelector("#shows .section-heading")?.insertAdjacentHTML("afterend", '<p class="catalog-reassurance">The whole collection is here. Scroll to explore every show, or jump to a section below.</p>');
+  if (catalog.reviews.length) {
+    const trust = document.createElement("section");
+    trust.className = "visitor-trust";
+    trust.innerHTML = `<div><span class="eyebrow">After the applause</span><h2>Real celebrations. Happy memories.</h2><a href="#customer-stories">Read our customer stories ↗</a></div><div class="trust-quotes">${catalog.reviews.slice(0, 2).map((review) => `<blockquote><span aria-label="${review.overall} out of 5 stars">${"★".repeat(review.overall)}</span><p>${e(review.text)}</p><small>Verified event review</small>${review.photo ? `<img src="${e(review.photo)}" alt="Customer-approved event memory" loading="lazy" referrerpolicy="no-referrer">` : ""}</blockquote>`).join("")}</div>`;
+    app.querySelector(".ribbon")?.after(trust);
+    app.querySelector(".review")?.closest("section")?.setAttribute("id", "customer-stories");
+  }
+}
 function renderPublic() {
   saveEventBox();
   document.body.classList.remove("site-menu-open");
+  if (renderDetailLanding()) return;
   document.title = `${catalog.business.name} · Live shows for your celebration`;
   const defaultIntro = "A little wonder. A lot of happy memories. Magic, science and bubbles, brought together for your celebration.";
   const heroIntro = catalog.business.intro === defaultIntro
@@ -852,7 +996,7 @@ function renderPublic() {
     )}</div></section>${guestCatalogGroups()}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">More together</span><h2>Offers & bundles</h2></div><p>Pick a pair of shows below, or make your own mix. We’ll send a personal quote.</p></div><div class="bundle-ideas">${bundleIdeas()}</div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Your favourite shows, together.</strong><p>Add two or more shows to your event box and ask for a bundle discount.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
-          .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+          .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to your celebration.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   setupMobileSiteMenu();
   applyPublicSiteMedia();
   const mobilePhotos = app.querySelector<HTMLElement>(".mobile-hero-photos");
@@ -907,6 +1051,7 @@ function renderPublic() {
   const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => `<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${e(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
   strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
   if (moments.length) document.querySelector(".ribbon")?.after(strip);
+  polishVisitorCatalog();
   renderBox();
   app.querySelectorAll<HTMLElement>(".review").forEach((card, index) => {
     const review = catalog.reviews[index];
@@ -988,7 +1133,7 @@ function renderPublic() {
   occasionShortcuts.innerHTML = `<p>What are we celebrating?</p><div role="group" aria-label="Start planning by occasion">${publicOccasions.slice(0, 6).map((occasion) => `<button type="button" class="outline small" data-start-occasion="${e(occasion)}">${e(occasion === "School event" ? "School" : occasion === "Corporate event" ? "Corporate" : occasion)}</button>`).join("")}</div>`;
   app.querySelector(".hero-copy .micro")!.before(occasionShortcuts);
   app.querySelector("#help-choose")!.textContent = "Design my event";
-  app.querySelector(".hero-copy .actions a")!.textContent = "Book your event ↗";
+  app.querySelector(".hero-copy .actions a")!.innerHTML = 'Book your event <span aria-hidden="true">↗</span>';
   on(app, "[data-start-occasion]", "click", (event) => { const occasion = (event.currentTarget as HTMLElement).dataset.startOccasion!; trackInterest("occasion", occasion); helpChoose(occasion); });
   on(app, "#help-choose", "click", () => helpChoose());
   on(app, "#privacy", "click", () =>
@@ -1014,32 +1159,7 @@ function enquiryCard(name: string) {
       : /children.?s workshops?|kids.? workshops?/i.test(name)
         ? "Hands-on activities · by request"
         : "Guest entertainment · by request";
-  const specialDescription = /carnival games?/i.test(name)
-    ? "Playful games for big smiles. See the photos."
-    : /children.?s workshops?|kids.? workshops?/i.test(name)
-      ? "Creative and science activities for curious kids."
-      : /decoration|balloon decor/i.test(name)
-        ? "Balloon backdrops and themed setups, made for your day."
-      : /live music/i.test(name)
-        ? "Live performers and colorful parades for your event."
-      : ([
-          [/character/i, "Favourite costumes make a big entrance."],
-          [/animation/i, "Lively party activities that keep guests involved."],
-          [/face paint|glitter/i, "Colourful looks for your party guests."],
-          [/balloon twist/i, "Playful balloon creations for the celebration."],
-          [/clown/i, "Big laughs and cheerful party moments."],
-          [/juggl/i, "Fast-moving tricks and colourful props."],
-          [/bmx/i, "Bicycle tricks for a high-energy moment."],
-          [/stilt/i, "A towering welcome guests will notice."],
-          [/led dancing/i, "Glowing costumes bring energy to the party."],
-          [/dog show/i, "A playful performance for animal-loving guests."],
-          [/aerial|acrobat|chair balance/i, "A standout act for a memorable moment."],
-          [/football/i, "Football-themed entertainment for your event."],
-          [/fire show/i, "A dramatic act for suitable venues."],
-          [/caricatur/i, "A personal keepsake made at the event."],
-          [/mime|human statue/i, "Visual entertainment that surprises your guests."],
-          [/circus parade/i, "A lively entrance full of colour and movement."],
-        ] as const).find(([match]) => match.test(name))?.[1] ?? "Ask us what this act could bring to your day.";
+  const specialDescription = experienceFor(name).experience;
   const icon = ([
     [/carnival games?/i, "🎯"],
     [/children.?s workshops?|kids.? workshops?/i, "🧪"],
@@ -1061,8 +1181,8 @@ function enquiryCard(name: string) {
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
   return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
-function enquiryDetails(name: string) {
-  trackInterest("service_open", name);
+function enquiryDetails(name: string, inline = false) {
+  if (!inline) trackInterest("service_open", name);
   const photos = guestPhotos(name);
   const videos = guestVideos(name);
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
@@ -1079,13 +1199,16 @@ function enquiryDetails(name: string) {
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? '<button type="button" id="choose-character" class="outline">Choose a character ↗</button>' : '';
-  openDialog(
+  presentShowDetail(
     name,
     `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    inline,
   );
-  on(modal, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
-  if (characterChoice) on(modal, "#choose-character", "click", () => chooseCharacter());
-  if (/character/i.test(name)) wireCharacterGallery();
+  const root = inline ? app : modal;
+  on(root, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
+  if (characterChoice) on(root, "#choose-character", "click", () => chooseCharacter());
+  if (/character/i.test(name)) wireCharacterGallery(root);
+  enhanceShowDetail(root, name, "service", name);
 }
 function chooseCharacter() {
   const names = characterChoiceNames();
@@ -1332,6 +1455,7 @@ function helpChoose(initialOccasion = "") {
     ["❤️", "Create a personal moment"], ["🔥", "A high-energy party"],
   ];
   const answers = { occasion: publicOccasions.includes(initialOccasion) ? initialOccasion : "", guests: "", feeling: "", audience: "", setting: "" };
+  let suggestedIds: string[] | null = null;
   const steps = [
     { title: "What are you celebrating?", choices: occasions, key: "occasion" },
     { title: "How many guests?", choices: guestGroups, key: "guests" },
@@ -1353,7 +1477,7 @@ function helpChoose(initialOccasion = "") {
       Number(answers.feeling === "A high-energy party" && category(p) === "science") * 3;
     const audienceAge = answers.audience === "Children under 6" ? 4 : answers.audience === "Children 6–12" ? 9 : answers.audience === "Teens and adults" ? 18 : null;
     const ranked = catalog.packages
-      .filter((p) => !p.bundleIds?.length && !p.checkoutExtra && (answers.setting !== "Outdoors" || !p.indoorOnly) && (audienceAge === null || (p.minAge <= audienceAge && p.maxAge >= audienceAge)))
+      .filter((p) => p.active && !p.bundleIds?.length && !p.checkoutExtra && (answers.setting !== "Outdoors" || !p.indoorOnly) && (audienceAge === null || (p.minAge <= audienceAge && p.maxAge >= audienceAge)))
       .sort((a, b) => score(b) - score(a));
     const featured: Package[] = [];
     for (const p of ranked) {
@@ -1364,6 +1488,7 @@ function helpChoose(initialOccasion = "") {
       if (featured.length === 3) break;
       if (!featured.includes(p)) featured.push(p);
     }
+    if (suggestedIds) featured.splice(0, featured.length, ...suggestedIds.map((id) => ranked.find((show) => show.id === id)).filter((show): show is Package => !!show));
     const ideas = answers.occasion === "School event"
       ? ["Juggling", "Clown", "Balloon Twisting", "Children's Workshops"]
       : answers.feeling === "A high-energy party"
@@ -1378,9 +1503,16 @@ function helpChoose(initialOccasion = "") {
       "Design your event",
       `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)} · ${e(answers.audience)} · ${e(answers.setting)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
-        return `<article class="chooser-result">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(publicPackageLabel(p.name))}</h3><small>${e(price(p))}</small><p class="recommendation-reason">${e(p.category === "magic" ? "A shared moment of surprise for your celebration." : p.category === "science" ? "A chance for curious guests to discover something new." : "Playful visual moments for your guests.")} ${answers.setting === "Outdoors" ? "Listed for outdoor venues, subject to setup checks." : "Matched to your audience preference."}</p><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button></div></article>`;
+        const alternatives = ranked;
+        return `<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(publicShowName(p))}</h3><small>${e(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => `<li>${e(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? `<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => `<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${e(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
       }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? `<h3>Something extra?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => `<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
+    modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", `<p class="chooser-fit-note">For ${e(answers.guests)} guests, we’ll confirm the setup with you. Swap a suggestion without changing shows already in your event box.</p>`);
+    on(modal, "[data-swap-show]", "change", (event) => {
+      const select = event.currentTarget as HTMLSelectElement;
+      suggestedIds = featured.map((show) => show.id === select.dataset.swapShow ? select.value : show.id === select.value ? select.dataset.swapShow! : show.id);
+      showResults();
+    });
     on(modal, "[data-recommend]", "click", (ev) => {
       const key = (ev.currentTarget as HTMLElement).dataset.recommend!;
       if (togglePackage(key)) {
@@ -1405,7 +1537,7 @@ function helpChoose(initialOccasion = "") {
     modal.querySelectorAll<HTMLButtonElement>("[data-recommend]").forEach((button) => { if (basket.includes(button.dataset.recommend!)) button.textContent = "✓ Added · remove"; });
     modal.querySelectorAll<HTMLButtonElement>("[data-guest-idea]").forEach((button) => { if (guestBasket.includes(button.dataset.guestIdea!)) button.textContent = "✓ " + button.dataset.guestIdea + " · remove"; });
     continueButton.addEventListener("click", () => { void requestForm(); });
-    on(modal, "#chooser-restart", "click", () => showStep(0));
+    on(modal, "#chooser-restart", "click", () => { suggestedIds = null; showStep(0); });
     on(modal, "#chooser-all", "click", () => {
       modal.close();
       document.querySelector("#shows")?.scrollIntoView({ behavior: "smooth" });
@@ -1479,7 +1611,7 @@ function customerAuth(orderAfter = false, register = true) {
       ];
   openDialog(
     register ? (orderAfter ? "Your shows are saved" : "Your next happy memory starts here") : "Welcome back to the fun",
-    (register && orderAfter ? `<p class="signup-progress"><strong>1 of 2 · Create your account</strong><span>Your ${basket.length + guestBasket.length} chosen show${basket.length + guestBasket.length === 1 ? " is" : "s are"} still in your event box. Next, tell us about your day.</span></p>` : "") + formBody(
+    (orderAfter ? `<div class="signup-progress"><strong>1 of 2 · ${register ? "Create your account" : "Sign in"}</strong><span>Your choices are saved. Next, tell us about your event.</span><ul class="signup-selections" aria-label="Your selected shows">${selectionNames().map((name) => `<li>${e(name)}</li>`).join("")}</ul><p>Keep your event details, proposals and rewards together in your own account.</p></div>` : "") + formBody(
       fields,
       '<p class="privacy">Your account shows only your own events. Keep your sign-in name and password safe. Phone verification is not connected yet.</p>',
       register ? (orderAfter ? "Create account & continue →" : "Create my customer account") : (orderAfter ? "Sign in & continue →" : "Sign in"),
@@ -5122,7 +5254,7 @@ async function renderEvent() {
     requested:
       "Your idea is in the box! We’ll review the details and check availability.",
     availability_pending:
-      "We’re checking who can be there to make your day special.",
+      "We’re checking who can be there to make your event special.",
     quoted:
       "A few happy possibilities, made just for you. Choose your favourite below.",
     accepted:
@@ -5130,7 +5262,7 @@ async function renderEvent() {
     confirmed:
       "It’s happening! Your event is confirmed. Let the countdown begin.",
     completed:
-      "Thank you for sharing your day with us. Tell us how it went below.",
+      "Thank you for sharing your celebration with us. Tell us how it went below.",
     cancelled:
       b.declined ? "Sam cannot take this request. Please contact us to discuss another date or show." : "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
@@ -5145,7 +5277,7 @@ async function renderEvent() {
     )
     .join(
       "",
-    )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${day(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? "Indoor" : "Outdoor"} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? '<button id="event-details" class="outline small">Update venue & audience details</button>' : ""}</section>${b.quotes.length ? `<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => `<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? `<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? `<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? `<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? "Your preferred plan ✓" : "Confirmed plan ✓"}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? `<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your day</h2><ul class="timeline">${data.timetable.map((t) => `<li><time>${t.at}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? `<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? `<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? `<span class="badge">${e(p.name)} reviewed ✓</span>` : `<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
+    )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${day(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? "Indoor" : "Outdoor"} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? '<button id="event-details" class="outline small">Update venue & audience details</button>' : ""}</section>${b.quotes.length ? `<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => `<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? `<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? `<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? `<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? "Your preferred plan ✓" : "Confirmed plan ✓"}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? `<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your event</h2><ul class="timeline">${data.timetable.map((t) => `<li><time>${t.at}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? `<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? `<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? `<span class="badge">${e(p.name)} reviewed ✓</span>` : `<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
   if (b.giftDetails) {
     const gift = document.createElement("section");
     gift.className = "gift-card";
