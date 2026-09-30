@@ -14,7 +14,7 @@ Product direction: the customer website, future Android and iPhone customer apps
 - Customer photo magnification: open show, character, guest-service and performer gallery photos in a full-screen viewer, with larger zoom levels and previous/next controls for phone and desktop.
 - Customer interest report: count anonymous clicks on show and service cards, additions to event boxes, and occasion shortcuts; display the top choices in Backstage Money & reports for marketing decisions. Counts are actions over the last 30 days, not unique customers or confirmed sales.
 - Fresh-window design audit: move real event photos into the first phone screen and make the homepage collage tappable; keep the booking actions and event box accessible.
-- Character discovery: searchable real-photo gallery, desktop type filters and a compact phone dropdown. A named character choice, when available in the business catalog, stays in the event box and request as a preference subject to confirmation.
+- Character discovery: searchable real-photo gallery, desktop type filters and a compact phone dropdown. Visitors can select a configured character or a real photo's costume caption; the choice stays in the event box and request as a preference subject to confirmation.
 - Artist workflow: continue from ARTIST-WORKFLOW-STATUS.md; staff roles, assignment responses, calendars, preparation, payment records and saved notices already have implementations. Private after-event uploads and external scheduled reminders remain dependent on hosting/storage.
 
 ## Customer discovery and design
