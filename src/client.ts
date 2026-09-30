@@ -1723,7 +1723,7 @@ function renderDashboard() {
       .filter((b) => b.status !== "cancelled" && b.status !== "completed" && b.date >= localToday())
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
       .slice(0, 6);
-    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${["owner", "admin", "manager", "accountant", "assistant"].includes(state.user.role) ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new") ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new").length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
+    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${["owner", "admin", "manager", "accountant", "assistant"].includes(state.user.role) ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new" && !item.archivedAt) ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new" && !item.archivedAt).length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
       state.reminders
         .filter((r) => !r.done)
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -1764,13 +1764,50 @@ function renderDashboard() {
   else renderSettings(content);
   wireDashboard(content);
 }
-function renderEnquiries(root: Element) {
+function renderEnquiries(root: Element, showArchived = false) {
   const enquiries = [...state!.enquiries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  root.innerHTML = `<p class="hint">These requests are enquiries, not confirmed bookings. Contact the customer, then mark the enquiry as handled.</p>${enquiries.map((item) => `<article class="panel service-enquiry"><div class="section-heading"><div><span class="eyebrow">${e(item.status === "new" ? "New enquiry" : "Contacted")}</span><h3>${e(item.service)}</h3></div><small>${e(new Date(item.createdAt).toLocaleString("en-GB"))}</small></div><p><strong>${e(item.name)}</strong> · <a href="tel:${e(item.phone.replace(/[^\d+]/g, ""))}">${e(item.phone)}</a></p>${item.date || item.location ? `<p>${item.date ? e(day(item.date)) : "Date to confirm"} · ${e(item.location || "Location to confirm")}</p>` : ""}${item.notes ? `<p>${e(item.notes)}</p>` : ""}${item.status === "new" ? `<button class="outline small" data-enquiry-contacted="${e(item.id)}">Mark contacted</button>` : ""}</article>`).join("") || empty("No enquiries yet", "When someone asks about a service, their request will appear here.")}`;
+  root.innerHTML = `<p class="hint">These are enquiries, not confirmed bookings. Archive keeps a request for later; permanent deletion removes it.</p><div class="actions"><button id="enquiry-archive-filter" class="outline small">${showArchived ? "Show active enquiries" : "Show archived enquiries"} (${enquiries.filter((item) => showArchived ? !item.archivedAt : !!item.archivedAt).length})</button></div>${enquiries.filter((item) => !!item.archivedAt === showArchived).map((item) => `<article class="panel service-enquiry"><div class="section-heading"><div><span class="eyebrow">${e(item.archivedAt ? "Archived" : item.status === "new" ? "New enquiry" : "Handled")}</span><h3>${e(item.service)}</h3></div><small>${e(new Date(item.createdAt).toLocaleString("en-GB"))}</small></div><p><strong>${e(item.name)}</strong> · <a href="tel:${e(item.phone.replace(/[^\d+]/g, ""))}">${e(item.phone)}</a></p>${item.date || item.location ? `<p>${item.date ? e(day(item.date)) : "Date to confirm"} · ${e(item.location || "Location to confirm")}</p>` : ""}${item.notes ? `<p>${e(item.notes)}</p>` : ""}<div class="actions"><button class="outline small" data-enquiry-edit="${e(item.id)}">Open / Edit</button>${item.status === "new" && !item.archivedAt ? `<button class="outline small" data-enquiry-contacted="${e(item.id)}">Mark handled</button>` : ""}<button class="outline small" data-enquiry-archive="${e(item.id)}">${item.archivedAt ? "Restore" : "Archive"}</button>${["owner", "admin"].includes(state!.user.role) ? `<button class="danger small" data-enquiry-remove="${e(item.id)}">Delete permanently</button>` : ""}</div></article>`).join("") || empty(showArchived ? "No archived enquiries" : "No active enquiries", "Service requests appear here when visitors contact you.")}`;
+  on(root, "#enquiry-archive-filter", "click", () => renderEnquiries(root, !showArchived));
   on(root, "[data-enquiry-contacted]", "click", async (event) => {
     const key = (event.currentTarget as HTMLElement).dataset.enquiryContacted!;
-    await api(`/manage/enquiries/${key}/contacted`, "POST", {});
+    const item = state!.enquiries.find((entry) => entry.id === key)!;
+    await api(`/manage/enquiries/${key}/contacted`, "POST", { revision: item.revision ?? 0 });
     await loadDashboard();
+  });
+  on(root, "[data-enquiry-archive]", "click", async (event) => {
+    const key = (event.currentTarget as HTMLElement).dataset.enquiryArchive!;
+    const item = state!.enquiries.find((entry) => entry.id === key)!;
+    await api(`/manage/enquiries/${key}/archive`, "POST", { archived: !item.archivedAt, revision: item.revision ?? 0 });
+    await loadDashboard();
+  });
+  on(root, "[data-enquiry-edit]", "click", (event) => {
+    const key = (event.currentTarget as HTMLElement).dataset.enquiryEdit!;
+    const item = state!.enquiries.find((entry) => entry.id === key)!;
+    const fields: Field[] = [
+      { key: "service", label: "Service", value: item.service, required: true },
+      { key: "name", label: "Customer name", value: item.name, required: true },
+      { key: "phone", label: "Phone", value: item.phone, required: true },
+      { key: "date", label: "Event date (if known)", type: "date", value: item.date },
+      { key: "location", label: "Location", value: item.location },
+      { key: "notes", label: "Enquiry details", type: "textarea", value: item.notes, wide: true },
+    ];
+    openDialog("Edit service enquiry", formBody(fields, '<p class="privacy">Editing this request does not create a booking or send a message.</p>', "Save enquiry"));
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/manage/enquiries/${key}`, "PUT", { ...formValues(data, fields), revision: item.revision ?? 0 });
+      modal.close();
+      await loadDashboard();
+    });
+  });
+  on(root, "[data-enquiry-remove]", "click", (event) => {
+    const key = (event.currentTarget as HTMLElement).dataset.enquiryRemove!;
+    const item = state!.enquiries.find((entry) => entry.id === key)!;
+    openDialog("Delete enquiry permanently?", `<p>This removes the enquiry and its saved contact details permanently. It cannot be undone. Existing bookings are separate.</p><p><strong>${e(item.name)} · ${e(item.service)}</strong></p><form><label for="delete-enquiry-name">Type the customer's exact name to confirm</label><input id="delete-enquiry-name" name="name" required autocomplete="off"><div class="form-error" role="alert"></div><div class="form-actions"><button class="danger" type="submit">Delete permanently</button></div></form>`);
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/manage/enquiries/${key}`, "DELETE", { name: String(data.get("name") ?? ""), revision: item.revision ?? 0 });
+      modal.close();
+      await loadDashboard();
+      notify("Enquiry permanently deleted.");
+    });
   });
 }
 function wireDashboard(root: ParentNode) {

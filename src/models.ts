@@ -228,6 +228,9 @@ export interface Referral {
   note: string;
 }
 export interface ServiceEnquiry {
+  revision?: number;
+  archivedAt?: string;
+  updatedAt?: string;
   id: string;
   service: string;
   name: string;

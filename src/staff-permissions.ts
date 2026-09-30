@@ -54,6 +54,8 @@ export function staffRouteAllowed(role: Role, method: string, fullPath: string) 
   if (method === "PUT" && path === "/notices") return role !== "accountant";
   const routes: [string, RegExp, StaffAction][] = [
     ["POST", /^\/enquiries\/[^/]+\/contacted$/, "customers"],
+    ["POST", /^\/enquiries\/[^/]+\/archive$/, "customers"],
+    ["PUT", /^\/enquiries\/[^/]+$/, "customers"],
     ["POST", /^\/bookings\/[^/]+\/quotes$/, "quotes"],
     ["POST", /^\/bookings\/[^/]+\/(status|accept)$/, "status"],
     ["POST", /^\/bookings\/[^/]+\/availability$/, "availability"],

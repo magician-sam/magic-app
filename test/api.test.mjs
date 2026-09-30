@@ -218,6 +218,40 @@ test("visitors can enquire about guest services and only staff can see their det
   assert.equal((await request("/manage/state")).data.enquiries.find((item) => item.id === created.data.id).status, "contacted");
   assert.equal((await request("/public/test/enquiries", "POST", { ...input, phone: "123" }, null)).status, 400);
 });
+test("enquiries can be edited, handled, archived, restored and permanently deleted safely", async () => {
+  const input = { service: "Decoration", name: "Temporary enquiry test", phone: "+96170123456", date: "", location: "Test venue", notes: "Private test details" };
+  const created = await request("/public/test/enquiries", "POST", input, null);
+  assert.equal(created.status, 201);
+  const key = created.data.id;
+  const path = `/manage/enquiries/${key}`;
+  assert.equal((await request(path, "PUT", { ...input, revision: 0 }, performerCookie)).status, 403);
+  assert.equal((await request(path, "PUT", { ...input, revision: 0 }, otherCookie)).status, 404);
+  const edited = await request(path, "PUT", { ...input, location: "Edited venue", revision: 0 });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.data.revision, 1);
+  assert.equal((await request(path, "PUT", { ...input, revision: 0 })).status, 409);
+  assert.equal((await request(path + "/contacted", "POST", { revision: 1 })).status, 200);
+  const archived = await request(path + "/archive", "POST", { archived: true, revision: 2 });
+  assert.equal(archived.status, 200);
+  assert.ok(archived.data.archivedAt);
+  assert.equal((await request(path + "/archive", "POST", { archived: false, revision: 2 })).status, 409);
+  const restored = await request(path + "/archive", "POST", { archived: false, revision: 3 });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.data.archivedAt, undefined);
+  assert.equal(restored.data.status, "contacted");
+  assert.equal(restored.data.location, "Edited venue");
+  assert.equal((await request(path, "DELETE", { name: input.name, revision: 4 }, assistant)).status, 403);
+  assert.equal((await request(path, "DELETE", { name: input.name, revision: 4 }, otherCookie)).status, 404);
+  assert.equal((await request(path, "DELETE", { name: "Wrong name", revision: 4 })).status, 400);
+  assert.equal((await request(path, "DELETE", { name: input.name, revision: 3 })).status, 409);
+  assert.equal((await request(path, "DELETE", { name: input.name, revision: 4 })).status, 200);
+  assert.equal(await store.get(business.id, "enquiries", key), undefined);
+  const audit = (await store.all(business.id, "audit")).filter((entry) => entry.entityId === key);
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].action, "enquiry.permanently-deleted");
+  assert.equal(audit[0].before, null);
+  assert.equal(audit[0].after, null);
+});
 test("gallery publication requires valid approved images and remains business scoped", async () => {
   const original = await store.get(business.id, "packages", "magic");
   const gallery = [
@@ -1693,6 +1727,14 @@ test("staff roles enforce direct-route permissions and redact write responses", 
     sessions[role] = await login(role + "@example.test");
   }
   const info = await newRequest({ date: "2029-05-20", notes: "Private preparation", surpriseDetails: { guestName: "Guest", secret: "PRIVATE-SURPRISE", proposal: true, howWeMet: "Personal story", specialMoment: "Private moment" } });
+  const enquiry = await request("/public/test/enquiries", "POST", { service: "Decoration", name: "Role enquiry test", phone: "+96170123456", date: "", location: "", notes: "" }, null);
+  assert.equal(enquiry.status, 201);
+  const enquiryPath = `/manage/enquiries/${enquiry.data.id}`;
+  assert.equal((await request(enquiryPath, "PUT", { service: "Decoration", name: "Role enquiry test", phone: "+96170123456", date: "", location: "Sales updated", notes: "", revision: 0 }, sessions.sales)).status, 200);
+  assert.equal((await request(enquiryPath + "/archive", "POST", { archived: true, revision: 1 }, sessions.manager)).status, 200);
+  assert.equal((await request(enquiryPath + "/archive", "POST", { archived: false, revision: 2 }, sessions.sales)).status, 200);
+  for (const session of Object.values(sessions)) assert.equal((await request(enquiryPath, "DELETE", { name: "Role enquiry test", revision: 3 }, session)).status, 403);
+  assert.equal((await request(enquiryPath, "PUT", {}, sessions.accountant)).status, 403);
   await propose(info.id);
   let salesDraft = await current(info.id);
   assert.equal((await request(`/manage/bookings/${info.id}/quotes`, "POST", {

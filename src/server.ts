@@ -1077,8 +1077,47 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const req = request as Authed;
     requireThat(req.user.role !== "performer", "Not allowed to manage enquiries.", 403);
     const enquiry = await owned<ServiceEnquiry>(req.business.id, "enquiries", String(req.params.id));
-    const next: ServiceEnquiry = { ...enquiry, status: "contacted" };
+    const revision = z.number().int().min(0).default(0).parse(req.body.revision);
+    requireThat(revision === (enquiry.revision ?? 0), "This enquiry changed. Refresh before saving.", 409);
+    const next: ServiceEnquiry = { ...enquiry, status: "contacted", revision: revision + 1, updatedAt: new Date().toISOString() };
     res.json(await writeRecord(req, "enquiries", next, "contacted"));
+  });
+  writes.put("/api/manage/enquiries/:id", async (request, res) => {
+    const req = request as Authed;
+    requireThat(req.user.role !== "performer", "Not allowed to manage enquiries.", 403);
+    const old = await owned<ServiceEnquiry>(req.business.id, "enquiries", String(req.params.id));
+    const input = z.object({
+      service: short.min(2).max(100), name: short.min(2).max(120),
+      phone: customerSchema.shape.phone, date: z.union([date, z.literal("")]),
+      location: short.max(240), notes: z.string().trim().max(1500),
+      revision: z.number().int().min(0),
+    }).parse(req.body);
+    requireThat(input.revision === (old.revision ?? 0), "This enquiry changed. Refresh before saving.", 409);
+    res.json(await writeRecord(req, "enquiries", { ...old, ...input, revision: input.revision + 1, updatedAt: new Date().toISOString() }, "edited"));
+  });
+  writes.post("/api/manage/enquiries/:id/archive", async (request, res) => {
+    const req = request as Authed;
+    requireThat(req.user.role !== "performer", "Not allowed to manage enquiries.", 403);
+    const old = await owned<ServiceEnquiry>(req.business.id, "enquiries", String(req.params.id));
+    const input = z.object({ archived: z.boolean(), revision: z.number().int().min(0) }).parse(req.body);
+    requireThat(input.revision === (old.revision ?? 0), "This enquiry changed. Refresh before saving.", 409);
+    res.json(await writeRecord(req, "enquiries", { ...old, archivedAt: input.archived ? new Date().toISOString() : undefined, revision: input.revision + 1, updatedAt: new Date().toISOString() }, input.archived ? "archived" : "restored"));
+  });
+  writes.delete("/api/manage/enquiries/:id", async (request, res) => {
+    const req = request as Authed;
+    requireThat(["owner", "admin"].includes(req.user.role), "Only the owner or admin can permanently delete enquiries.", 403);
+    const old = await owned<ServiceEnquiry>(req.business.id, "enquiries", String(req.params.id));
+    const input = z.object({ name: z.string(), revision: z.number().int().min(0) }).parse(req.body);
+    requireThat(input.revision === (old.revision ?? 0), "This enquiry changed. Refresh before deleting.", 409);
+    requireThat(input.name === old.name, "Type the enquiry customer's exact name to confirm.", 400);
+    await store.transaction(async () => {
+      await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='enquiries' AND id=?").run(req.business.id, old.id);
+      const audits = await store.all<{ id: string; entityId: string }>(req.business.id, "audit");
+      for (const audit of audits.filter((entry) => entry.entityId === old.id))
+        await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='audit' AND id=?").run(req.business.id, audit.id);
+      await store.audit(req.business.id, req.user.email, "enquiry.permanently-deleted", old.id, null, null);
+    });
+    res.json({ ok: true });
   });
   writes.put("/api/manage/business", async (request, res) => {
     const req = request as Authed;
