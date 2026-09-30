@@ -356,10 +356,10 @@ const portfolioShowPhotos: Record<string, { url: string; caption: string; approv
   ],
 };
 const characterPhotos = [
-  { url: "/portfolio/characters-rabbits.jpg", caption: "Red and grey rabbit characters" },
-  { url: "/portfolio/characters-teddy.jpg", caption: "Teddy bear character" },
-  { url: "/portfolio/characters-gorillas.jpg", caption: "Black and grey gorilla characters" },
-  { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda and polar bear characters" },
+  { url: "/portfolio/characters-rabbits.jpg", caption: "Red Rabbit & Grey Rabbit" },
+  { url: "/portfolio/characters-teddy.jpg", caption: "Teddy Bear" },
+  { url: "/portfolio/characters-gorillas.jpg", caption: "Black Gorilla & Grey Gorilla" },
+  { url: "/portfolio/characters-panda-bear.jpg", caption: "Panda & Polar Bear" },
 ];
 const guestPhotoGroups = [
   { match: /animation/i, photos: [["../presentation/kids-animation", "Children enjoying an activity session"]] },
@@ -414,7 +414,13 @@ function guestVideos(name: string) {
 }
 function characterChoiceNames() {
   const configured = catalog.business.characterNames ?? [];
-  return configured.length ? configured : [...new Set(guestPhotos("Characters").map((photo) => photo.caption).filter(Boolean))];
+  const pictured: Record<string, string[]> = {
+    "/portfolio/characters-rabbits.jpg": ["Red Rabbit", "Grey Rabbit"],
+    "/portfolio/characters-teddy.jpg": ["Teddy Bear"],
+    "/portfolio/characters-gorillas.jpg": ["Black Gorilla", "Grey Gorilla"],
+    "/portfolio/characters-panda-bear.jpg": ["Panda", "Polar Bear"],
+  };
+  return configured.length ? configured : [...new Set(guestPhotos("Characters").flatMap((photo) => pictured[photo.url] ?? [photo.caption]).filter(Boolean))];
 }
 function characterGallery() {
   const photos = guestPhotos("Characters");
