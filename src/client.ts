@@ -792,6 +792,8 @@ function setupMobileSiteMenu() {
     toggle.setAttribute("aria-expanded", "false");
     drawer.setAttribute("aria-hidden", "true");
     drawer.inert = true;
+    drawer.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((section) => { section.open = false; });
+    drawer.querySelector(".mobile-menu-scroll")?.scrollTo(0, 0);
     if (restoreFocus) toggle.focus();
   };
   toggle.addEventListener("click", () => {
@@ -803,6 +805,12 @@ function setupMobileSiteMenu() {
   });
   closeButton.addEventListener("click", () => close());
   backdrop.addEventListener("click", () => close());
+  drawer.querySelectorAll<HTMLDetailsElement>(".mobile-menu-group > .mobile-menu-branch").forEach((section) => section.addEventListener("toggle", () => {
+    if (!section.open) return;
+    drawer.querySelectorAll<HTMLDetailsElement>(".mobile-menu-group > .mobile-menu-branch").forEach((other) => {
+      if (other !== section) other.open = false;
+    });
+  }));
   drawer.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => link.addEventListener("click", () => close(false)));
   drawer.querySelectorAll<HTMLButtonElement>("[data-menu-show]").forEach((button) => button.addEventListener("click", () => {
     const show = catalog.packages.find((item) => item.active && item.id === button.dataset.menuShow);
