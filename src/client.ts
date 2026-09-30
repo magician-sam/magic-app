@@ -112,7 +112,7 @@ function restoreEventBox() {
     selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
     requestBundleDiscount = saved.requestBundleDiscount === true;
     chosenOccasion = publicOccasions.includes(saved.chosenOccasion) ? saved.chosenOccasion : "";
-    characterPreference = guestBasket.includes("Characters") && (catalog.business.characterNames ?? []).includes(saved.characterPreference) ? saved.characterPreference : "";
+    characterPreference = guestBasket.includes("Characters") && characterChoiceNames().includes(saved.characterPreference) ? saved.characterPreference : "";
   } catch { /* Ignore expired or invalid drafts. */ }
 }
 function toggleGuest(name: string) {
@@ -411,6 +411,10 @@ function guestVideos(name: string) {
   const saved = (catalog?.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en"));
   const hidden = new Set(saved?.hiddenVideoUrls ?? []);
   return [...new Set([...guestBuiltInVideos(name).filter((url) => !hidden.has(url)), ...(saved?.videos ?? [])])].slice(0, 6);
+}
+function characterChoiceNames() {
+  const configured = catalog.business.characterNames ?? [];
+  return configured.length ? configured : [...new Set(guestPhotos("Characters").map((photo) => photo.caption).filter(Boolean))];
 }
 function characterGallery() {
   const photos = guestPhotos("Characters");
@@ -988,7 +992,7 @@ function enquiryDetails(name: string) {
     : photos.length
       ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
-  const characterChoice = /character/i.test(name) && (catalog.business.characterNames ?? []).length
+  const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? '<button type="button" id="choose-character" class="outline">Choose a character ↗</button>' : '';
   openDialog(
     name,
@@ -999,20 +1003,20 @@ function enquiryDetails(name: string) {
   if (/character/i.test(name)) wireCharacterGallery();
 }
 function chooseCharacter() {
-  const names = catalog.business.characterNames ?? [];
+  const names = characterChoiceNames();
   openDialog(
     "Who’s joining the party?",
     formBody(
       [
         {
           key: "character",
-          label: "Choose a character",
+          label: "Choose a character or costume idea",
           type: "select",
           options: options(names),
           required: true,
         },
       ],
-      `<p>Pick a character you love. We’ll check the costume and your date.</p>${characterGallery()}`,
+      `<p>Pick a costume you love. These are ideas from real events; we’ll check the exact costume and your date.</p>${characterGallery()}`,
       "Ask about this character →",
     ),
   );
