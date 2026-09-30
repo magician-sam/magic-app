@@ -1,4 +1,5 @@
 import { canStaffAction, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
+import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
 import { siteMediaSlots } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
@@ -74,6 +75,16 @@ let basket: string[] = [];
 let guestBasket: string[] = [];
 const publicOccasions = ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas", "Private party", "Just because"];
 let chosenOccasion = "";
+let comparisonIds: string[] = [];
+function savedPlanExists() {
+  try {
+    const key = 'saved-event-plan:' + catalog.business.slug;
+    const saved = JSON.parse(localStorage.getItem(key) ?? '{}');
+    if (Number(saved.expiresAt) > Date.now()) return true;
+    localStorage.removeItem(key);
+  } catch { /* Storage may be disabled or contain an invalid old value. */ }
+  return false;
+}
 function publicShowName(p: Package) {
   if (p.bundleIds?.length) return p.name;
   return ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[p.category.toLowerCase()] ?? p.name;
@@ -89,7 +100,12 @@ function saveEventBox() {
 }
 function restoreEventBox() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem('event-box:' + catalog.business.slug) ?? '{}');
+    const current = sessionStorage.getItem('event-box:' + catalog.business.slug);
+    let saved = current ? JSON.parse(current) : {};
+    if (!current) {
+      const local = JSON.parse(localStorage.getItem('saved-event-plan:' + catalog.business.slug) ?? '{}');
+      if (Number(local.expiresAt) > Date.now()) saved = local;
+    }
     basket = Array.isArray(saved.basket) ? [...new Set<string>(saved.basket)].filter((id) => catalog.packages.some((p) => p.id === id)) : [];
     guestBasket = Array.isArray(saved.guestBasket) ? [...new Set<string>(saved.guestBasket)].filter((name) => moreShowNames().includes(name)) : [];
     selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
@@ -431,7 +447,25 @@ function showCard(p: Package) {
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(publicShowName(p))}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(publicShowName(p))}</button></h3><small class="show-subtitle">${e(publicShowTagline(p))}</small><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(publicShowName(p))}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(publicShowName(p))}</button></h3><small class="show-subtitle">${e(publicShowTagline(p))}</small><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? "✓ Selected to compare" : "Compare this show"}</button></div></article>`;
+}
+function renderComparisonTray() {
+  const tray = document.querySelector<HTMLElement>("#compare-tray");
+  if (!tray) return;
+  const chosen = comparisonIds.map((id) => catalog.packages.find((show) => show.id === id)).filter((show): show is Package => !!show);
+  tray.innerHTML = `<div><strong>Compare shows</strong><span>${chosen.length ? chosen.map((show) => e(publicShowName(show))).join(" · ") : "Choose two or three shows to see them together."}</span></div><button type="button" id="open-comparison" class="outline small" ${chosen.length < 2 ? "disabled" : ""}>Compare ${chosen.length || ""} shows</button>${chosen.length ? '<button type="button" id="clear-comparison" class="link small">Clear</button>' : ""}`;
+  on(tray, "#open-comparison", "click", () => {
+    openDialog("Compare your shows", `<div class="comparison-grid">${chosen.map((show) => {
+      const image = showPhotos(show)[0];
+      const included = show.bundleIds?.length ? show.bundleIds.map((id) => catalog.packages.find((part) => part.id === id)).filter((part): part is Package => !!part).map((part) => publicShowName(part)).join(" + ") : "One show; combine it with others in your event box.";
+      return `<article class="comparison-card">${image ? `<img src="${e(image.url)}" alt="" loading="lazy">` : ""}<h3>${e(publicShowName(show))}</h3><p>${e(show.description)}</p><p><strong>Included:</strong> ${e(included)}</p><p><strong>Quote:</strong> ${e(price(show))}</p><button type="button" class="outline small" data-compare-add="${e(show.id)}">${basket.includes(show.id) ? "✓ In my event" : "＋ Add to my event"}</button></article>`;
+    }).join("")}</div><p class="hint">We’ll confirm the right format, venue needs, availability and price with you.</p>`);
+    on(modal, "[data-compare-add]", "click", (event) => {
+      const id = (event.currentTarget as HTMLElement).dataset.compareAdd!;
+      if (togglePackage(id)) (event.currentTarget as HTMLButtonElement).textContent = basket.includes(id) ? "✓ In my event" : "＋ Add to my event";
+    });
+  });
+  on(tray, "#clear-comparison", "click", () => { comparisonIds = []; renderComparisonTray(); document.querySelectorAll<HTMLButtonElement>("[data-compare]").forEach((button) => { button.setAttribute("aria-pressed", "false"); button.textContent = "Compare this show"; }); });
 }
 function showDetails(p: Package) {
   const photos = showPhotos(p);
@@ -477,6 +511,26 @@ function renderBox() {
   const node = document.querySelector("#event-box")!;
   const count = chosen.length + guestBasket.length;
   node.innerHTML = `<span class="eyebrow">A celebration, your way</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Good things come together here.</p>${count ? chosen.map((p) => `<div class="box-item"><span>${e(publicShowName(p))}<br><small>${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(publicShowName(p))}">×</button></div>`).join("") + guestBasket.map((name) => `<div class="box-item"><span>${e(name)}<br><small>Availability & price to confirm</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>A little empty. Full of possibilities.<br><small>Add a show to start the fun.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  const planActions = document.createElement("div");
+  planActions.className = "plan-actions";
+  const phone = (catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "")).replace(/\D/g, "").replace(/^00/, "");
+  const selectedText = selectionNames().filter(Boolean).join(", ");
+  planActions.innerHTML = `${count ? `<button type="button" class="outline small" id="save-plan">Save for later</button><button type="button" class="outline small" id="share-plan">Copy a link to share</button>${phone ? `<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’m planning ${chosenOccasion ? `a ${chosenOccasion.toLowerCase()} and considering` : "an event with"} ${selectedText}. Could you help me check availability?`)}" target="_blank" rel="noopener noreferrer">Ask on WhatsApp ↗</a><a class="button outline small mobile-call-link" href="tel:+${e(phone)}">Call us</a>` : ""}` : ""}${savedPlanExists() ? `<button type="button" class="link small" id="restore-plan">Restore saved plan</button><button type="button" class="link small" id="forget-plan">Forget saved copy</button>` : ""}<small>Saved plans stay on this device for 30 days. Shared links include only show choices.</small>`;
+  node.querySelector("#request")!.after(planActions);
+  on(planActions, "#save-plan", "click", () => {
+    try {
+      localStorage.setItem('saved-event-plan:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, chosenOccasion, expiresAt: Date.now() + 30 * 86400_000 }));
+      renderBox();
+      notify("Your event choices are saved on this device for 30 days.");
+    } catch { notify("This browser could not save your plan. You can still copy a share link."); }
+  });
+  on(planActions, "#restore-plan", "click", () => { try { sessionStorage.removeItem('event-box:' + catalog.business.slug); restoreEventBox(); renderPublic(); notify("Saved event choices restored."); } catch { notify("Saved plan could not be restored."); } });
+  on(planActions, "#forget-plan", "click", () => { localStorage.removeItem('saved-event-plan:' + catalog.business.slug); renderBox(); notify("Saved copy removed from this device."); });
+  on(planActions, "#share-plan", "click", async () => {
+    const link = planLink(location.href, catalog.business.slug, { shows: basket, guests: guestBasket, occasion: chosenOccasion });
+    try { await navigator.clipboard.writeText(link); notify("A link to your event choices was copied."); }
+    catch { openDialog("Share your event choices", field({ key: "plan-link", label: "Copy this link", value: link, wide: true })); }
+  });
   document.querySelector('.mobile-event-bar')?.remove();
   document.body.classList.toggle('has-event-selection', count > 0);
   if (count) {
@@ -580,6 +634,22 @@ function renderPublic() {
           .map(showCard)
           .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>From “what if”<br>to “wow!”</h2><div class="step"><span>01</span><b>Dream it up</b><p>Pick your shows and tell us about your celebration.</p></div><div class="step"><span>02</span><b>Make it yours</b><p>We check the details and put your proposal together.</p></div><div class="step"><span>03</span><b>Let the fun begin</b><p>Once approved and confirmed, it’s time to look forward to the big day.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">Meet the makers of happy</span><h2>People with a little extra sparkle.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>Happy memories, in their words.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   applyPublicSiteMedia();
+  const comparisonTray = document.createElement("div");
+  comparisonTray.id = "compare-tray";
+  comparisonTray.className = "compare-tray";
+  comparisonTray.setAttribute("aria-live", "polite");
+  app.querySelector("#shows .show-jump")?.after(comparisonTray);
+  renderComparisonTray();
+  on(app, "[data-compare]", "click", (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const id = button.dataset.compare!;
+    if (comparisonIds.includes(id)) comparisonIds = comparisonIds.filter((key) => key !== id);
+    else if (comparisonIds.length >= 3) { notify("Compare up to three shows at a time."); return; }
+    else comparisonIds.push(id);
+    button.setAttribute("aria-pressed", String(comparisonIds.includes(id)));
+    button.textContent = comparisonIds.includes(id) ? "✓ Selected to compare" : "Compare this show";
+    renderComparisonTray();
+  });
   if (!moreShowNames().includes("Characters")) app.querySelector(".site-nav a[href='#characters']")?.remove();
   for (const group of ["party-shows", "special-acts"])
     if (!app.querySelector(`#${group}`)) app.querySelector(`.show-jump a[href='#${group}']`)?.remove();
@@ -1002,6 +1072,7 @@ async function requestForm() {
     );
     modal.close();
     sessionStorage.removeItem("event-box:" + catalog.business.slug);
+    try { localStorage.removeItem('saved-event-plan:' + catalog.business.slug); } catch { /* Optional saved copy. */ }
     location.href = result.path;
   });
 }
@@ -4989,7 +5060,17 @@ async function start() {
     : (await api<{ slug: string }>("/default-business")).slug;
   catalog = await api<Catalog>(`/public/${encodeURIComponent(slug)}`);
   restoreEventBox();
+  const sharedPlan = readPlanLink(location.search, catalog.business.slug, catalog.packages.map((show) => show.id), moreShowNames(), publicOccasions);
+  if (sharedPlan) {
+    basket = [...new Set([...basket, ...sharedPlan.shows])];
+    guestBasket = [...new Set([...guestBasket, ...sharedPlan.guests])];
+    if (sharedPlan.occasion) chosenOccasion = sharedPlan.occasion;
+    const cleaned = new URL(location.href);
+    for (const key of ["plan-for", "plan-show", "plan-guest", "plan-occasion"]) cleaned.searchParams.delete(key);
+    history.replaceState(null, "", cleaned.href);
+  }
   renderPublic();
+  if (sharedPlan) document.querySelector("#event-box")?.scrollIntoView();
   offerNotification();
   setInterval(() => { if (!document.hidden) offerNotification(); }, 60_000);
   const linkOptions = new URLSearchParams(location.search);

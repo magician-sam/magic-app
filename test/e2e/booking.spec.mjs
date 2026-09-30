@@ -1,4 +1,25 @@
 import { test, expect } from "@playwright/test";
+test("a visitor can compare real shows and restore a saved event plan", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-compare="magic"]').click();
+  await page.locator('[data-compare="science"]').click();
+  await page.getByRole("button", { name: "Compare 2 shows", exact: true }).click();
+  const comparison = page.getByRole("dialog");
+  await expect(comparison.getByRole("heading", { name: "Compare your shows" })).toBeVisible();
+  await expect(comparison.locator(".comparison-card")).toHaveCount(2);
+  await expect(comparison).not.toContainText("m²");
+  await comparison.getByRole("button", { name: "Close dialog" }).click();
+  await page.locator('#shows [data-add="magic"]').click();
+  await page.locator("#save-plan").click();
+  await page.locator('#event-box [data-remove="magic"]').click();
+  await expect(page.locator("#event-box")).not.toContainText("Magic Show");
+  await page.locator("#restore-plan").click();
+  await expect(page.locator("#event-box")).toContainText("Magic Show");
+  await page.reload();
+  await expect(page.locator("#event-box")).toContainText("Magic Show");
+  await page.locator("#forget-plan").click();
+  await expect(page.locator("#restore-plan")).toHaveCount(0);
+});
 test("occasion shortcut builds a mixed event and keeps it through the account step", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-start-occasion="School event"]').click();

@@ -583,6 +583,20 @@ small,
 .event-box > button {
   width: 100%;
 }
+.plan-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.plan-actions > .button, .plan-actions > button { display: grid; place-items: center; min-height: 44px; padding: 9px 12px; white-space: normal; text-align: center; font-size: 12px; }
+.plan-actions > small { grid-column: 1 / -1; color: #695879; line-height: 1.45; }
+.compare-tray { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 0 24px; padding: 14px 18px; border: 1px solid #e1d3ec; border-radius: 18px; background: #faf5ff; }
+.compare-tray > div { display: grid; flex: 1 1 220px; gap: 3px; }
+.compare-tray span { font-size: 13px; color: #685879; }
+.compare-toggle { margin-top: 4px; min-height: 40px; }
+.comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; }
+.comparison-card { min-width: 0; padding: 12px; border: 1px solid #e1d3ec; border-radius: 17px; background: #fff; }
+.comparison-card img { width: 100%; aspect-ratio: 4 / 3; border-radius: 11px; object-fit: cover; }
+.comparison-card h3 { font: 650 22px/1.16 var(--font-playful); }
+.comparison-card p { font-size: 14px; line-height: 1.5; }
+.mobile-call-link { display: none !important; }
+@media (max-width: 700px) { .mobile-call-link { display: grid !important; } }
 .box-note {
   font-size: 11px !important;
   margin: 15px 0 0;
