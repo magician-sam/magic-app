@@ -29,11 +29,14 @@ const tables = {
     "expires",
     "used",
   ],
+  referral_codes: ["code", "business_id", "account_id"],
+  interest_clicks: ["business_id", "kind", "item_key", "day", "count"],
+  rate_limits: ["id", "count", "expires"],
 } as const;
 type Table = keyof typeof tables;
 const snapshotSchema = z
   .object({
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     createdAt: z.iso.datetime(),
     tables: z.record(
       z.string(),
@@ -54,7 +57,7 @@ export async function snapshot(store: Store) {
         .prepare(`SELECT ${columns.join(",")} FROM ${table} ORDER BY rowid`)
         .all();
     return snapshotSchema.parse({
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       tables: data,
     });
@@ -62,6 +65,11 @@ export async function snapshot(store: Store) {
 }
 export async function restoreSnapshot(store: Store, input: unknown) {
   const data = snapshotSchema.parse(input);
+  if (data.version === 1) {
+    // Older encrypted backups predate these tables; restore them as empty.
+    for (const name of ["referral_codes", "interest_clicks", "rate_limits"])
+      data.tables[name] ??= [];
+  }
   if (
     JSON.stringify(Object.keys(data.tables).sort()) !==
     JSON.stringify(Object.keys(tables).sort())

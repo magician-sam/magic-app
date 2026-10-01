@@ -2344,6 +2344,8 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 .customer-surface .show-card .show-body > .eyebrow { display: inline-block; padding: 4px 9px; margin-bottom: 10px; border-radius: 20px; background: var(--experience-wash); color: var(--experience-accent); }
 .customer-surface .show-card .show-subtitle { color: var(--experience-accent); }
 .customer-surface .show-card .show-art { background-color: var(--experience-wash); }
+.customer-surface .show-card .show-art:not(.has-cover) { background-image: radial-gradient(ellipse at 18% 25%, #ffffffcc, transparent 55%), radial-gradient(ellipse at 90% 85%, var(--experience-edge), transparent 60%); }
+.customer-surface .show-card .show-art:not(.has-cover) .art-icon { color: var(--experience-accent); }
 .customer-surface .show-card .show-body > button.outline { border-color: var(--experience-edge); }
 .experience-story { margin: 22px 0; padding: 22px; border: 1px solid var(--experience-edge); border-radius: 20px; background: var(--experience-wash); }
 .experience-story .eyebrow { color: var(--experience-accent); }

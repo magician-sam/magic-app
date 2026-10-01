@@ -1,6 +1,7 @@
 import { guestServiceNames } from "./guest-services.js";
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
+import { snapshot } from "./snapshots.js";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
 import { limitedStaff, staffRouteAllowed, canSeeArtistPay, canStaffAction, staffResponse } from "./staff-permissions.js";
@@ -2690,6 +2691,21 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       rows,
       added: input.commit ? rows.filter((c) => !c.duplicate).length : 0,
     });
+  });
+  app.get("/api/manage/full-database-export", async (request, res) => {
+    const req = request as Authed;
+    requireThat(["owner", "admin"].includes(req.user.role), "Only the owner can download a database backup.", 403);
+    const data = await store.transaction(async () => {
+      const businesses = await store.db.prepare("SELECT id FROM businesses").all();
+      requireThat(businesses.length === 1 && businesses[0].id === req.business.id,
+        "Full database download requires a dedicated database for this business. Use the business export or the database provider for a shared database.", 403);
+      await store.audit(req.business.id, req.user.email, "database.backup-downloaded", req.business.id, null, { format: "full-snapshot-v2" });
+      return snapshot(store);
+    });
+    res.set("Cache-Control", "private, no-store")
+      .set("Content-Disposition", 'attachment; filename="magic-full-database.json"')
+      .set("X-Content-Type-Options", "nosniff")
+      .json(data);
   });
   app.get("/api/manage/export", async (request, res) => {
     const req = request as Authed;
