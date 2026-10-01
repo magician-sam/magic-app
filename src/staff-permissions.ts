@@ -44,6 +44,7 @@ export function staffRouteAllowed(role: Role, method: string, fullPath: string) 
   if (!limitedStaff(role)) return true;
   const path = fullPath.split("?")[0].replace(/^\/api\/manage/, "");
   if (method === "GET") {
+    if (path === "/office-tasks") return ["manager", "accountant"].includes(role);
     if (path === "/state" || /^\/bookings\/[^/]+\/checks$/.test(path)) return true;
     if (/^\/bookings\/[^/]+\/act-plan$/.test(path)) return canSeeArtistPay(role);
     if (/^\/customers\/[^/]+\/history$/.test(path)) return canStaffAction(role, "history");
@@ -51,6 +52,7 @@ export function staffRouteAllowed(role: Role, method: string, fullPath: string) 
     return false;
   }
   if (method === "POST" && path === "/password") return true;
+  if (method === "PUT" && /^\/office-tasks\/[^/]+$/.test(path)) return ["manager", "accountant"].includes(role);
   if (method === "PUT" && path === "/notices") return role !== "accountant";
   const routes: [string, RegExp, StaffAction][] = [
     ["POST", /^\/enquiries\/[^/]+\/contacted$/, "customers"],

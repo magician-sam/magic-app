@@ -1,4 +1,6 @@
 import { guestServiceNames } from "./guest-services.js";
+import { auditContext, deviceContext } from "./audit-context.js";
+import { officeTasks } from "./office-tasks.js";
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
 import { snapshot } from "./snapshots.js";
@@ -790,7 +792,11 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         const sendJson = res.json.bind(res);
         res.json = (body: unknown) => sendJson(staffResponse(body, user.role));
       }
-      next();
+      auditContext.run({
+        userId: user.id, role: user.role, requestId: randomUUID(),
+        method: req.method, path: req.originalUrl.split("?")[0],
+        ...deviceContext(req),
+      }, () => next());
     } catch (error) {
       next(error);
     }
@@ -850,6 +856,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     res.json(await rewardSettings(store, req.business.id));
   });
   staffNotices(app, store);
+  officeTasks(app, store);
   customerRecovery(app, store, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);

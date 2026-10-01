@@ -203,6 +203,7 @@ export interface Review {
   createdAt: string;
 }
 export interface Audit {
+  context?: import("./audit-context.js").AuditContext;
   id: string;
   actor: string;
   action: string;

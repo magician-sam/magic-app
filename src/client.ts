@@ -1,4 +1,5 @@
 import { canStaffAction, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
+import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
 import { experienceFor, recommendationReasons } from "./visitor-experience.js";
@@ -146,6 +147,7 @@ async function api<T = Record<string, unknown>>(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  if (path.startsWith("/manage")) Object.assign(headers, staffDeviceHeaders());
   if (location.pathname === "/event")
     headers["X-Event-Token"] = location.hash.slice(1);
   const result = await fetch(`/api${path}`, {
@@ -157,6 +159,17 @@ async function api<T = Record<string, unknown>>(
   if (!result.ok)
     throw new Error(data.error ?? "Something went wrong. Please try again.");
   return data as T;
+}
+function staffDeviceHeaders(): Record<string, string> {
+  try {
+    let deviceId = localStorage.getItem("magic-staff-device-id");
+    if (!deviceId || !/^[a-zA-Z0-9-]{16,80}$/.test(deviceId)) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("magic-staff-device-id", deviceId);
+    }
+    const name = localStorage.getItem("magic-staff-device-name") ?? "";
+    return { "X-Magic-Device-Id": deviceId, ...(name ? { "X-Magic-Device-Name": name } : {}) };
+  } catch { return {}; }
 }
 function on(
   root: ParentNode,
@@ -3633,9 +3646,59 @@ async function editRewards() {
     notify("Reward settings saved.");
   });
 }
+async function loadOfficeTasks(root: Element) {
+  const panel = document.createElement("section");
+  panel.className = "panel";
+  panel.innerHTML = "<h3>Office to-do list</h3><p>Loading tasks…</p>";
+  root.append(panel);
+  try {
+    const data = await api<{ tasks: OfficeTask[]; people: { id: string; name: string }[] }>("/manage/office-tasks");
+    if (!panel.isConnected) return;
+    let showArchived = false;
+    const edit = (task?: OfficeTask) => {
+      const fields: Field[] = [
+        { key: "title", label: "Task", value: task?.title, required: true, wide: true },
+        { key: "notes", label: "Notes", value: task?.notes, type: "textarea", wide: true },
+        { key: "status", label: "Status", value: task?.status ?? "open", type: "select", options: options(["open", "in_progress", "done", "archived"]) },
+        { key: "priority", label: "Priority", value: task?.priority ?? "normal", type: "select", options: options(["low", "normal", "high"]) },
+        { key: "dueDate", label: "Due date", value: task?.dueDate, type: "date" },
+        { key: "assignedUserId", label: "Assigned to", value: task?.assignedUserId, type: "select", options: [{ value: "", label: "Unassigned" }, ...data.people.map(person => ({ value: person.id, label: person.name }))] },
+        { key: "bookingId", label: "Related event", value: task?.bookingId, type: "select", options: [{ value: "", label: "General office task" }, ...state!.bookings.map(booking => ({ value: booking.id, label: `${booking.occasion} · ${booking.date}` }))] },
+      ];
+      openDialog(task ? "Edit office task" : "New office task", formBody(fields, '<p class="privacy">Archive keeps the task and its change history. Changes from another computer are checked before saving.</p>'));
+      submit(modal.querySelector("form")!, async form => {
+        const next = await api<OfficeTask>(`/manage/office-tasks/${task?.id ?? "new"}`, "PUT", { ...formValues(form, fields), revision: task?.revision ?? 0 });
+        data.tasks = [...data.tasks.filter(item => item.id !== next.id), next];
+        modal.close(); await loadDashboard(); notify("Office task saved.");
+      });
+    };
+    const draw = () => {
+      panel.innerHTML = `<div class="row"><h3>Office to-do list</h3><button class="small" data-new-task>＋ Add task</button></div><p class="muted">Plan office work, assign it to staff and keep event preparation together.</p><label class="check"><input type="checkbox" data-archived-tasks ${showArchived ? "checked" : ""}> Show archived tasks</label>${data.tasks.filter(task => showArchived || task.status !== "archived").sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(task => `<div class="row"><div><h3>${e(task.title)}</h3><p>${e(pretty(task.status))} · ${e(pretty(task.priority))}${task.dueDate ? ` · Due ${e(task.dueDate)}` : ""}</p><p class="muted">${e(data.people.find(person => person.id === task.assignedUserId)?.name ?? "Unassigned")}${task.bookingId ? ` · ${e(state!.bookings.find(booking => booking.id === task.bookingId)?.occasion ?? "Linked event")}` : ""}</p><p>${e(task.notes)}</p></div><button class="outline small" data-edit-task="${e(task.id)}">Edit task</button></div>`).join("") || '<p class="muted">No tasks here yet.</p>'}`;
+      on(panel, "[data-new-task]", "click", () => edit());
+      on(panel, "[data-edit-task]", "click", ev => edit(data.tasks.find(task => task.id === (ev.currentTarget as HTMLElement).dataset.editTask)));
+      on(panel, "[data-archived-tasks]", "change", ev => { showArchived = (ev.currentTarget as HTMLInputElement).checked; draw(); });
+    };
+    draw();
+  } catch (error) { if (panel.isConnected) panel.innerHTML = `<h3>Office to-do list</h3><p role="alert">${e(error instanceof Error ? error.message : "Tasks could not load.")}</p>`; }
+}
 function renderSettings(root: Element) {
+  const devicePanel = `<section class="panel"><h3>This work device</h3><p class="muted">Name this browser, for example Office reception or Sam's laptop. Saved changes record your login and device ID. Clearing browser storage creates a new ID; device labels are self-reported.</p><button class="outline small" id="name-work-device">Name this device</button></section>`;
+  const bindDevice = () => on(root, "#name-work-device", "click", () => {
+    let value = "";
+    try { value = localStorage.getItem("magic-staff-device-name") ?? ""; } catch { /* Saving reports the storage limitation below. */ }
+    openDialog("Name this work device", formBody([{ key: "name", label: "Device name", value, required: true }], "", "Save device name"));
+    submit(modal.querySelector("form")!, async (data) => {
+      const name = String(data.get("name") ?? "").trim();
+      if (!name || name.length > 80 || Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error("Use a name of 1–80 characters.");
+      try { localStorage.setItem("magic-staff-device-name", name); }
+      catch { throw new Error("Browser storage is unavailable. Device names cannot be saved here."); }
+      modal.close(); notify("Device name saved for this browser.");
+    });
+  });
   if (limitedStaff(state!.user.role)) {
     root.innerHTML = `<section class="panel"><h2>Your ${e(pretty(state!.user.role))} account</h2><p>${e(state!.user.name)} · ${e(state!.user.email)}</p><p class="hint">${e(roleDescriptions[state!.user.role])}</p><button class="outline small" id="change-password">Change my password</button></section>`;
+    root.insertAdjacentHTML("beforeend", devicePanel); bindDevice();
+    if (["manager", "accountant"].includes(state!.user.role)) void loadOfficeTasks(root);
     on(root, "#change-password", "click", () => changePassword());
     return;
   }
@@ -3644,8 +3707,10 @@ function renderSettings(root: Element) {
     on(root, "#change-password", "click", () => changePassword());
     return;
   }
-  root.innerHTML = `<div class="two-col"><section class="panel"><h3>Your business, your personality</h3><p>${e(state!.business.name)}</p><p class="muted">${e(state!.business.intro)}</p><button class="outline small" id="edit-business">Edit business details</button><button class="outline small" id="edit-rewards">Edit rewards and points</button><button class="outline small" id="edit-questions">Edit booking questions</button><button class="outline small" id="customer-resets">Customer password help</button><p class="privacy">Booking timezone: ${e(state!.business.timezone)} · Currency: ${e(state!.business.currency)}. Changing these for historical records requires a migration.</p><h3>Keep a copy</h3><p class="muted">Export this business’s records, including booking history. Keep customer exports private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a><p class="privacy">Full database backups also contain account login records. Keep them private. Available only for a dedicated single-business database.</p><a href="/api/manage/full-database-export" class="button outline small" download>Download full database backup</a></section><section class="panel"><h3>People backstage</h3><button class="small outline" id="change-password">Change my password</button><p class="privacy">Other businesses cannot see your customer records. Authorized platform support access requires a reason and is logged.</p>${state!.users.map((u) => `<div class="row"><div><h3>${e(u.name)}</h3><p>${e(u.email)} · ${e(u.role)}</p></div><button class="small outline" data-edit-user="${u.id}">Edit</button>${u.id !== state!.user.id ? `<button class="small danger" data-remove-user="${u.id}">Remove access</button>` : ""}</div>`).join("")}<button class="outline small" id="add-user">＋ Add login</button>${state!.user.role === "admin" ? '<button class="outline small" id="add-business">＋ Separate business</button>' : ""}</section></div><section class="panel"><h3>Change history</h3><p class="muted">Who changed what, and when. The latest 200 entries are shown; exports include the full history.</p>${state!.audit.map((a) => `<details><summary>${e(a.at.replace("T", " ").slice(0, 19))} · ${e(a.actor)} · ${e(a.action)}</summary><div class="audit-detail">Before: ${e(JSON.stringify(a.before, null, 2))}<br>After: ${e(JSON.stringify(a.after, null, 2))}</div></details>`).join("") || '<p class="muted">Saved changes will appear here.</p>'}</section>`;
+  root.innerHTML = `<div class="two-col"><section class="panel"><h3>Your business, your personality</h3><p>${e(state!.business.name)}</p><p class="muted">${e(state!.business.intro)}</p><button class="outline small" id="edit-business">Edit business details</button><button class="outline small" id="edit-rewards">Edit rewards and points</button><button class="outline small" id="edit-questions">Edit booking questions</button><button class="outline small" id="customer-resets">Customer password help</button><p class="privacy">Booking timezone: ${e(state!.business.timezone)} · Currency: ${e(state!.business.currency)}. Changing these for historical records requires a migration.</p><h3>Keep a copy</h3><p class="muted">Export this business’s records, including booking history. Keep customer exports private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a><p class="privacy">Full database backups also contain account login records. Keep them private. Available only for a dedicated single-business database.</p><a href="/api/manage/full-database-export" class="button outline small" download>Download full database backup</a></section><section class="panel"><h3>People backstage</h3><button class="small outline" id="change-password">Change my password</button><p class="privacy">Other businesses cannot see your customer records. Authorized platform support access requires a reason and is logged.</p>${state!.users.map((u) => `<div class="row"><div><h3>${e(u.name)}</h3><p>${e(u.email)} · ${e(u.role)}</p></div><button class="small outline" data-edit-user="${u.id}">Edit</button>${u.id !== state!.user.id ? `<button class="small danger" data-remove-user="${u.id}">Remove access</button>` : ""}</div>`).join("")}<button class="outline small" id="add-user">＋ Add login</button>${state!.user.role === "admin" ? '<button class="outline small" id="add-business">＋ Separate business</button>' : ""}</section></div><section class="panel"><h3>Change history</h3><p class="muted">Who changed what, and when. Times use ${e(state!.business.timezone)}. The latest 200 entries are shown; exports include the full history.</p>${state!.audit.map((a) => `<details><summary>${e(new Date(a.at).toLocaleString("en-GB", { timeZone: state!.business.timezone }))} · ${e(a.actor)} · ${e(a.action)}</summary><div class="audit-detail">Record: ${e(a.entityId)}<br>${a.context ? `User: ${e(a.context.userId)} · ${e(a.context.role)}<br>Device: ${e(a.context.deviceName || "Unnamed device")} · ${e(a.context.deviceId || "Not provided")}<br>Browser-reported device (not verified hardware identity)<br>Request: ${e(a.context.requestId)} · ${e(a.context.method)} ${e(a.context.path)}<br>Browser: ${e(a.context.userAgent)}<br>` : "Device details were not recorded for this older change.<br>"}Before: ${e(JSON.stringify(a.before, null, 2))}<br>After: ${e(JSON.stringify(a.after, null, 2))}</div></details>`).join("") || '<p class="muted">Saved changes will appear here.</p>'}</section>`;
   on(root, "#customer-resets", "click", () => customerResetQueue());
+  root.insertAdjacentHTML("afterbegin", devicePanel); bindDevice();
+  void loadOfficeTasks(root);
   on(root, "#edit-questions", "click", () => editQuestions());
   on(root, "#edit-rewards", "click", () => editRewards());
   on(root, "#edit-business", "click", () => editBusiness());
@@ -4157,7 +4222,7 @@ function addUser() {
       key: "role",
       label: "Access level",
       type: "select",
-      options: options(["sales", "manager", "accountant", "performer", "assistant", "owner"]),
+      options: options(["sales", "manager", "accountant", "performer", "assistant", "owner"]).map(item => ({ ...item, label: item.value === "manager" ? "Work Admin" : item.value === "accountant" ? "Accounting Admin" : item.label })),
     },
     {
       key: "performerId",
@@ -5499,3 +5564,7 @@ async function start() {
 start().catch((error) => {
   app.innerHTML = `<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });
+
+
+
+

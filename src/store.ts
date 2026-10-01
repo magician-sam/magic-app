@@ -1,4 +1,5 @@
 import { Database } from "./database.js";
+import { auditContext } from "./audit-context.js";
 import type { Client } from "@libsql/client/web";
 import { randomUUID } from "node:crypto";
 import type { Audit, Business, Package } from "./models.js";
@@ -88,6 +89,7 @@ export class Store {
       at: new Date().toISOString(),
       before,
       after,
+      ...(auditContext.getStore() ? { context: { ...auditContext.getStore()! } } : {}),
     });
   }
   async business(value: string, bySlug = false): Promise<Business | undefined> {
