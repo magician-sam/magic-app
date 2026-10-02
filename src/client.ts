@@ -268,11 +268,16 @@ function formValues(data: FormData, fields: Field[]): Record<string, unknown> {
     ]),
   );
 }
-async function resizedPhoto(file: File): Promise<Blob> {
+async function resizedPhoto(file: File, format = "image/jpeg"): Promise<Blob> {
   if (file.size > 20_000_000) throw new Error("Choose a photo under 20 MB.");
-  const localUrl = URL.createObjectURL(file);
-  try {
-    const image = new Image();
+  // Data images are allowed by the site's image policy; blob image URLs are not.
+  const localUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Unable to read this photo."));
+    reader.onerror = () => reject(new Error("Unable to read this photo."));
+    reader.readAsDataURL(file);
+  });
+  const image = new Image();
     image.src = localUrl;
     await image.decode();
     const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
@@ -282,12 +287,9 @@ async function resizedPhoto(file: File): Promise<Blob> {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Unable to prepare this photo.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const photo = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    const photo = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, format, 0.82));
     if (!photo || photo.size > 3_000_000) throw new Error("This photo is too large after resizing.");
     return photo;
-  } finally {
-    URL.revokeObjectURL(localUrl);
-  }
 }
 function choices(
   name: string,
@@ -4150,13 +4152,6 @@ function editBusiness() {
       wide: true,
     },
     {
-      key: "logo",
-      label: "Logo image",
-      value: b.logo ?? "",
-      help: "Use /sam-logo.png for your supplied original, or an HTTPS image link. Leave blank to remove.",
-      wide: true,
-    },
-    {
       key: "otherShowNames",
       label: "More Shows enquiries (one per line)",
       type: "textarea",
@@ -4191,10 +4186,48 @@ function editBusiness() {
       value: b.whatsapp,
     },
   ];
-  openDialog("Make it feel like you", formBody(fields));
-  submit(modal.querySelector("form")!, async (data) => {
+  const logoControl = `<section class="logo-upload wide"><h3>Your logo</h3><div id="logo-preview" class="logo-preview">${b.logo ? `<img src="${e(b.logo)}" alt="Current business logo">` : '<span class="muted">No logo selected</span>'}</div><label class="button outline small" for="business-logo-upload">Upload logo</label><input id="business-logo-upload" type="file" accept="image/png,image/jpeg,image/webp" ${state!.uploadsEnabled ? "" : "disabled"}><button type="button" class="outline small" id="remove-business-logo">Remove logo</button><p class="hint">PNG, JPEG or WebP. Transparent backgrounds are preserved. Choose a file, then Save changes to publish.${state!.uploadsEnabled ? "" : " Uploads need connected media storage."}</p><p id="logo-upload-status" role="status" aria-live="polite"></p><details><summary>Use an existing image link instead</summary>${field({ key: "logo", label: "Logo image link", value: b.logo ?? "", help: "Use /sam-logo.png or a public HTTPS image link. Leave blank to remove.", wide: true })}</details></section>`;
+  openDialog("Make it feel like you", formBody(fields).replace(field(fields[1]), field(fields[1]) + logoControl));
+  const businessForm = modal.querySelector<HTMLFormElement>("form")!;
+  const logoField = businessForm.querySelector<HTMLInputElement>("#f-logo")!;
+  const logoPreview = businessForm.querySelector<HTMLElement>("#logo-preview")!;
+  const logoStatus = businessForm.querySelector<HTMLElement>("#logo-upload-status")!;
+  const logoPicker = businessForm.querySelector<HTMLInputElement>("#business-logo-upload")!;
+  const saveButton = businessForm.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  const removeButton = businessForm.querySelector<HTMLButtonElement>("#remove-business-logo")!;
+  let uploadingLogo = false;
+  const previewLogo = () => {
+    const value = logoField.value.trim();
+    const safe = value.startsWith("https://") || (value.startsWith("/") && !value.startsWith("//"));
+    logoPreview.innerHTML = value && safe ? `<img src="${e(value)}" alt="Selected business logo">` : '<span class="muted">No logo selected</span>';
+  };
+  on(businessForm, "#f-logo", "input", previewLogo);
+  on(businessForm, "#remove-business-logo", "click", () => {
+    logoField.value = ""; logoPicker.value = ""; previewLogo();
+    logoStatus.textContent = "Logo removed from this draft. Save changes to update the website.";
+  });
+  on(businessForm, "#business-logo-upload", "change", async () => {
+    const file = logoPicker.files?.[0];
+    if (!file) return;
+    uploadingLogo = true; logoPicker.disabled = true; saveButton.disabled = true; removeButton.disabled = true;
+    try {
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Choose a PNG, JPEG or WebP logo.");
+      logoStatus.textContent = "Preparing and uploading your logo…";
+      const photo = await resizedPhoto(file, "image/png");
+      const response = await fetch("/api/manage/upload-photo", { method: "POST", headers: { "Content-Type": "image/png", ...staffDeviceHeaders() }, body: photo });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Logo upload failed.");
+      if (!businessForm.isConnected) return;
+      logoField.value = result.url; previewLogo();
+      logoStatus.textContent = "Logo ready. Save changes to publish it.";
+    } catch (error) { if (businessForm.isConnected) logoStatus.textContent = error instanceof Error ? error.message : "Logo upload failed."; }
+    finally { uploadingLogo = false; logoPicker.disabled = false; saveButton.disabled = false; removeButton.disabled = false; }
+  });
+  submit(businessForm, async (data) => {
+    if (uploadingLogo) throw new Error("Wait for your logo upload to finish.");
     await api("/manage/business", "PUT", {
       ...formValues(data, fields),
+      logo: String(data.get("logo") ?? "").trim(),
       otherShowNames: String(data.get("otherShowNames") ?? "")
         .split("\n")
         .map((name) => name.trim())

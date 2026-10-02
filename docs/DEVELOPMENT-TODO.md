@@ -135,3 +135,5 @@ Product direction: the customer website, future Android and iPhone customer apps
 - Use temporary records; never delete real enquiries or send customer messages during unapproved tests.
 - Record implementation and deployment evidence per completed item; never mark the entire list complete because one release passed.
 
+
+2 October: business logo editor now includes file selection, preview, removal and optional existing-link entry beside the welcome text. PNG output preserves transparency. The shared image preparation now reads allowed data images rather than CSP-blocked blob URLs. Temporary local receiver verified PNG preparation/upload response, save, reload and remove-preview without touching live business records. Typecheck/lint passed.

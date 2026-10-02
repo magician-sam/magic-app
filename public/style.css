@@ -2423,3 +2423,15 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
   .show-share-actions > * { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .customer-surface .show-card[data-experience-theme] { transition: none; } }
+.logo-preview {
+  display: grid;
+  place-items: center;
+  min-height: 110px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #ded4eb;
+  border-radius: 16px;
+  background: #f8f5fb;
+}
+.logo-preview img { max-width: 100%; max-height: 140px; object-fit: contain; }
+.logo-upload input[type="file"] { display: block; max-width: 100%; margin: 12px 0; }
