@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { snapshot } from "./snapshots.js";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
-import { limitedStaff, staffRouteAllowed, canSeeArtistPay, canStaffAction, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
+import { limitedStaff, staffRouteAllowed, canSeeArtistPay, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
 import { siteMediaSlots } from "./site-media.js";
 import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
