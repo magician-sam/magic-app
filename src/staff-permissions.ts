@@ -1,7 +1,7 @@
 import type { Role, User } from "./models.js";
 
 export type StaffAction = "events" | "quotes" | "status" | "staffing" | "money" | "catalog" | "customers" | "followups" | "availability" | "checklist" | "history" | "links" | "referrals" | "reviews" | "extraAnswers" | "officeTasks" | "businessExport";
-export const configurableStaffActions: readonly StaffAction[] = ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"];
+export const configurableStaffActions = ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"] as const;
 const actions: Record<Role, readonly StaffAction[]> = {
   owner: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
   admin: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
