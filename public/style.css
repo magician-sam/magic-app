@@ -2339,6 +2339,15 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 [data-experience-theme="party"] { --experience-accent: #934965; --experience-wash: #fff1f5; --experience-edge: #efc6d5; }
 [data-experience-theme="energy"] { --experience-accent: #936029; --experience-wash: #fff6e8; --experience-edge: #ecd1a2; }
 [data-experience-theme="spectacle"] { --experience-accent: #4f4a8f; --experience-wash: #f1f0ff; --experience-edge: #cecaed; }
+[data-experience-theme="hospitality"] { --experience-accent: #46613c; --experience-wash: #f1f6e9; --experience-edge: #cbd9b7; }
+[data-experience-theme="sweet"] { --experience-accent: #994561; --experience-wash: #fff0f2; --experience-edge: #efbecb; }
+[data-experience-theme="nightlife"] { --experience-accent: #6543a0; --experience-wash: #f2edff; --experience-edge: #d1c1ee; }
+[data-experience-theme="sound"] { --experience-accent: #286d86; --experience-wash: #eaf6fb; --experience-edge: #b8d9e7; }
+.customer-surface #event-extras { padding: 26px 20px; border: 1px solid #e7d6be; border-radius: 24px; background: linear-gradient(135deg, #fcf4e8, #fffdf9 65%); }
+.customer-surface #event-extras > h3 { color: #664f38; }
+.customer-surface #event-extras .show-art:not(.has-cover) .art-icon { font-size: 64px; filter: drop-shadow(0 10px 12px #38244b15); }
+.customer-surface #event-extras .show-art:not(.has-cover) { min-height: 190px; }
+@media (max-width: 600px) { .customer-surface #event-extras { padding: 20px 12px; } }
 .customer-surface .show-card[data-experience-theme] { border-color: var(--experience-edge); background: linear-gradient(165deg, #fffdf9 35%, var(--experience-wash)); box-shadow: 0 5px 20px #34204407; transition: box-shadow .2s ease, border-color .2s ease; }
 .customer-surface .show-card[data-experience-theme]:hover { box-shadow: 0 10px 26px #34204412; }
 .customer-surface .show-card .show-body > .eyebrow { display: inline-block; padding: 4px 9px; margin-bottom: 10px; border-radius: 20px; background: var(--experience-wash); color: var(--experience-accent); }

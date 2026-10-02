@@ -137,3 +137,9 @@ Product direction: the customer website, future Android and iPhone customer apps
 
 
 2 October: business logo editor now includes file selection, preview, removal and optional existing-link entry beside the welcome text. PNG output preserves transparency. The shared image preparation now reads allowed data images rather than CSP-blocked blob URLs. Temporary local receiver verified PNG preparation/upload response, save, reload and remove-preview without touching live business records. Typecheck/lint passed.
+
+## 2026-10-02 catalogue review
+- Added Food & Beverages, Cakes, DJ and Sound System to the live business catalogue using Backstage. All can be hidden/restored and have media managed in Backstage.
+- Added a visible finishing-touches chapter and nested phone-menu branch, separate category colours/icons and tailored service copy. Full catalogue retained.
+- Live admin and visitor desktop/phone checks continued; prices, hosting and email deferred as requested.
+

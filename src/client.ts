@@ -549,7 +549,7 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
   detail.dataset.experienceTheme = experience.theme;
   const info = document.createElement("section");
   info.className = "experience-story";
-  info.innerHTML = `<span class="eyebrow">${e(experience.heading)}</span><h3>What to look forward to</h3><p>${e(experience.experience)}</p><h4>Make it yours</h4><p>${e(experience.personal)}</p><p class="hint">The exact format, performer and availability are agreed before your booking is confirmed.</p>`;
+  info.innerHTML = `<span class="eyebrow">${e(experience.heading)}</span><h3>What to look forward to</h3><p>${e(experience.experience)}</p><h4>Make it yours</h4><p>${e(experience.personal)}</p><p class="hint">The exact service details and availability are agreed before your booking is confirmed.</p>`;
   const facts = detail.querySelector(".show-facts") ?? detail.querySelector(".show-detail-cta");
   if (facts) facts.after(info); else detail.querySelector("p:last-of-type")?.after(info);
   const videos = detail.querySelector(".show-video-gallery")?.closest("section");
@@ -576,7 +576,7 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
   detail.querySelector(".show-detail-footer")?.before(questions);
   const share = document.createElement("div");
   share.className = "show-share-actions";
-  share.innerHTML = `<a class="button outline small" href="${e(detailPageLink(kind, key))}">Open show page ↗</a><button type="button" class="outline small">Copy show link</button>`;
+  share.innerHTML = `<a class="button outline small" href="${e(detailPageLink(kind, key))}">Open details page ↗</a><button type="button" class="outline small">Copy page link</button>`;
   share.querySelector("button")!.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(detailPageLink(kind, key)); notify("Show link copied. Share it with your family or friends."); }
     catch { openDialog("Share this show", field({ key: "show-link", label: "Copy this link", value: detailPageLink(kind, key), wide: true })); }
@@ -843,9 +843,11 @@ function samProfile() {
 function guestCatalogGroups() {
   const names = moreShowNames();
   const party = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Decoration", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
+  const extras = names.filter((name) => /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
   const groups = [
     { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
-    { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name)) },
+    { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name) && !extras.includes(name)) },
+    { id: "event-extras", title: "The finishing touches", names: extras },
   ];
   return groups.filter((group) => group.names.length).map((group) => `<section class="show-group" id="${group.id}"><h3>${group.title}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
 }
@@ -869,7 +871,8 @@ function mobileMenuMarkup() {
   const partyNames = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Decoration", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
   const services = moreShowNames();
   const party = services.filter((name) => partyNames.includes(name));
-  const special = services.filter((name) => !partyNames.includes(name));
+  const extras = services.filter((name) => /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
+  const special = services.filter((name) => !partyNames.includes(name) && !extras.includes(name));
   const showButtons = (items: Package[]) => items.map((show) => `<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${e(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
   const serviceButtons = (items: string[]) => items.map((name) => `<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${e(name)}</span><b aria-hidden="true">↗</b></button>`).join("");
   const branch = (title: string, note: string, children: string, nested = false) => `<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${title}</strong><small>${note}</small></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
@@ -877,6 +880,7 @@ function mobileMenuMarkup() {
     shows.length ? branch("Sam’s shows", "Magic, science & bubbles", showButtons(shows), true) : "",
     party.length ? branch("Characters & party fun", "Colourful extras for your event", serviceButtons(party), true) : "",
     special.length ? branch("Special acts", "More ways to amaze", serviceButtons(special), true) : "",
+    extras.length ? branch("The finishing touches", "Food, cakes, music & sound", serviceButtons(extras), true) : "",
     '<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>',
   ].join("");
   const offers = bundles.length
@@ -973,15 +977,17 @@ function polishVisitorCatalog() {
     ["sam-shows", "Sam’s signature shows", "Wonder, curiosity and daydreams — performed by Sam."],
     ["party-shows", "Characters & party fun", "Colourful entrances, games and creative little extras."],
     ["special-acts", "Big moments & special acts", "Distinctive performances for a celebration with personality."],
+    ["event-extras", "The finishing touches", "Something delicious. Your favourite music. Every detail, together."],
   ];
   for (const [id, title, note] of groups) {
     const group = app.querySelector<HTMLElement>(`#${id}`);
     if (!group) continue;
     group.classList.add("catalog-chapter");
     const count = group.querySelectorAll(".show-card").length;
-    group.querySelector("h3")?.insertAdjacentHTML("afterend", `<p class="catalog-chapter-note">${e(note)} <span>${count} ${count === 1 ? "show" : "shows"} to explore</span></p>`);
+    group.querySelector("h3")?.insertAdjacentHTML("afterend", `<p class="catalog-chapter-note">${e(note)} <span>${count} ${id === "event-extras" ? (count === 1 ? "service" : "services") : (count === 1 ? "show" : "shows")} to explore</span></p>`);
     const jump = app.querySelector<HTMLAnchorElement>(`.show-jump a[href='#${id}']`);
     if (jump) { jump.textContent = `${title} · ${count}`; }
+    else if (id === "event-extras") app.querySelector(".show-jump")?.insertAdjacentHTML("beforeend", `<a href="#${id}">${e(title)} · ${count}</a>`);
   }
   app.querySelector("#shows .section-heading")?.insertAdjacentHTML("afterend", '<p class="catalog-reassurance">The whole collection is here. Scroll to explore every show, or jump to a section below.</p>');
   if (catalog.reviews.length) {
@@ -1173,9 +1179,16 @@ function enquiryCard(name: string) {
       ? "Games & activities · by request"
       : /children.?s workshops?|kids.? workshops?/i.test(name)
         ? "Hands-on activities · by request"
-        : "Guest entertainment · by request";
+        : /food|beverage|f&b/i.test(name) ? "Food & drinks · by request"
+          : /cake/i.test(name) ? "Celebration cakes · by request"
+            : /\bdj\b|sound system|audio equipment/i.test(name) ? "Music & sound · by request"
+              : "Guest entertainment · by request";
   const specialDescription = experienceFor(name).experience;
   const icon = ([
+    [/food|beverage|f&b/i, "🍽️"],
+    [/cake/i, "🎂"],
+    [/\bdj\b/i, "🎧"],
+    [/sound system|audio equipment/i, "🔊"],
     [/carnival games?/i, "🎯"],
     [/children.?s workshops?|kids.? workshops?/i, "🧪"],
     [/decoration|balloon decor/i, "🎈"],
@@ -1194,7 +1207,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><small class="show-subtitle">${e(experienceFor(name).heading)}</small><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See show details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><small class="show-subtitle">${e(experienceFor(name).heading)}</small><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
 }
 function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
@@ -1202,21 +1215,23 @@ function enquiryDetails(name: string, inline = false) {
   const videos = guestVideos(name);
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
   const isDecoration = /decoration|balloon decor/i.test(name);
+  const isEventExtra = /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name);
   const intro = isDecoration
     ? "Tell us your theme, colors, date and venue. We will plan the setup and confirm the design and price with you."
     : isActivity
       ? "Tell us the ages, guest count, date and venue. We will confirm the activities, setup and price for your event."
-      : `Ask us about ${name} for your event. We will check the performer, availability, venue needs and price before confirming anything.`;
+      : isEventExtra ? experienceFor(name).personal
+        : `Ask us about ${name} for your event. We will check the performer, availability, venue needs and price before confirming anything.`;
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
       ? `<section><h3>${isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
-      : '<p class="show-media-empty">Photos and videos for this show are coming soon.</p>';
+      : '<p class="show-media-empty">Share your ideas with us. We’ll help plan the details for your event.</p>';
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? '<button type="button" id="choose-character" class="outline">Choose a character ↗</button>' : '';
   presentShowDetail(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    `<div class="show-detail"><p class="eyebrow">${isDecoration ? "Event styling" : isActivity ? "Games & workshops" : isEventExtra ? "Event services" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;

@@ -2,6 +2,10 @@ import type { Package } from "./models.js";
 
 export function experienceFor(name: string) {
   const entries = [
+    [/food|beverage|f&b/i, "hospitality", "A feast for your celebration", "Bring your guests together over food, drinks and a menu that suits your occasion.", "Share your guest count, menu ideas and dietary requirements. We confirm catering and serving arrangements with you."],
+    [/cake/i, "sweet", "Make a wish. Make it yours.", "A celebration cake adds a personal centrepiece and a sweet moment to remember.", "Tell us your theme, preferred flavours and guest count. Design, size and delivery are agreed with you."],
+    [/\bdj\b/i, "nightlife", "Your crowd. Your soundtrack.", "From a warm welcome to the dance floor, set the mood with music chosen for your celebration.", "Share your favourite music and the atmosphere you want. We confirm the DJ, playlist preferences and event arrangements."],
+    [/sound system|audio equipment/i, "sound", "Let every moment be heard", "Sound equipment helps bring speeches, performances and music to life at your event.", "Tell us about your venue, guest count and microphone needs. We confirm equipment, setup and technical support."],
     [/science/i, "science", "Curiosity takes centre stage", "Experiments and discoveries bring a sense of wonder to the celebration.", "Tell us the audience’s ages and interests so we can discuss a suitable format."],
     [/workshop/i, "science", "Little hands, bright ideas", "Creative or science activities give children a chance to explore and take part.", "Tell us the ages and interests of the children. We agree the workshop topic and materials with you."],
     [/bubble/i, "bubbles", "A little more daydream", "A visual celebration of bubbles, from delicate floating moments to bigger surprises.", "Let us know who is attending and the atmosphere you would like."],
