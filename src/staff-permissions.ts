@@ -38,12 +38,24 @@ export const roleDescriptions: Record<Role, string> = {
   assistant: "Legacy assistant access to customers, event details, availability and follow-ups.",
   performer: "View assigned jobs, reply to assignments, manage personal availability and record job completion. Company calendar access is optional.",
 };
-export function staffViews(role: Role): readonly string[] | undefined {
+export function staffViews(userOrRole: User | Role): readonly string[] | undefined {
+  const user = typeof userOrRole === "string" ? { role: userOrRole } : userOrRole;
+  const role = user.role;
   if (role === "performer") return ["today", "notices", "bookings", "calendar", "settings"];
-  if (role === "sales") return ["today", "notices", "bookings", "enquiries", "calendar", "customers", "reminders", "settings"];
-  if (role === "accountant") return ["today", "bookings", "money", "settings"];
-  if (role === "manager") return ["today", "notices", "bookings", "enquiries", "calendar", "customers", "packages", "guest-shows", "guest-photos", "offers", "performers", "money", "reminders", "reviews", "settings"];
-  return undefined;
+  if (!limitedStaff(role)) return undefined;
+  const can = (action: StaffAction) => userCanStaffAction(user, action);
+  const views = new Set(["today", "settings"]);
+  if (can("events") || can("quotes") || can("status") || can("staffing") || can("availability") || can("checklist") || can("extraAnswers") || can("money")) {
+    views.add("bookings");
+    views.add("calendar");
+  }
+  if (can("customers")) { views.add("enquiries"); views.add("customers"); }
+  if (can("followups")) views.add("reminders");
+  if (can("catalog")) { views.add("packages"); views.add("guest-shows"); views.add("guest-photos"); views.add("offers"); views.add("performers"); }
+  if (can("money")) views.add("money");
+  if (can("reviews")) views.add("reviews");
+  if (role !== "accountant") views.add("notices");
+  return [...views];
 }
 
 // New staff roles use a closed route list. Unknown and future endpoints remain owner-only.
@@ -55,6 +67,7 @@ export function staffRouteAllowed(userOrRole: User | Role, method: string, fullP
   const path = fullPath.split("?")[0].replace(/^\/api\/manage/, "");
   if (method === "GET") {
     if (path === "/office-tasks") return allowed("officeTasks");
+    if (path === "/export") return allowed("businessExport");
     if (path === "/state" || /^\/bookings\/[^/]+\/checks$/.test(path)) return true;
     if (/^\/bookings\/[^/]+\/act-plan$/.test(path)) return allowed("staffing") || allowed("money");
     if (/^\/customers\/[^/]+\/history$/.test(path)) return allowed("history");
@@ -87,7 +100,6 @@ export function staffRouteAllowed(userOrRole: User | Role, method: string, fullP
     ["POST", /^\/reviews\/[^/]+\/moderate$/, "reviews"],
     ["POST", /^\/money(?:\/[^/]+\/correct)?$/, "money"],
   ];
-  if (method === "GET" && path === "/export") return allowed("businessExport");
   return routes.some(([verb, pattern, action]) => verb === method && pattern.test(path) && allowed(action));
 }
 
