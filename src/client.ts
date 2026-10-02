@@ -4319,8 +4319,8 @@ function changePassword() {
   });
 }
 function editUser(key: string) {
-  const u = state!.users.find((u) => u.id === key)!;
-  const fields: Field[] = [
+  const u = state!.users.find((user) => user.id === key)!;
+  const coreFields: Field[] = [
     { key: "name", label: "Name", value: u.name, required: true },
     {
       key: "email",
@@ -4336,7 +4336,7 @@ function editUser(key: string) {
       value: u.role,
       options: options(
         u.role === "admin" ? ["admin"] : ["owner", "manager", "sales", "accountant", "assistant", "performer"],
-      ),
+      ).map((item) => ({ ...item, label: item.value === "manager" ? "Work Admin" : item.value === "accountant" ? "Accounting Admin" : item.label })),
     },
     {
       key: "performerId",
@@ -4350,15 +4350,50 @@ function editUser(key: string) {
     },
     { key: "viewCompanyCalendar", label: "Let this artist see the company calendar (dates and status only)", type: "checkbox", value: u.viewCompanyCalendar, wide: true },
   ];
+  const permissionLabels: Record<StaffAction, string> = {
+    events: "Edit event details",
+    quotes: "Create and replace proposals",
+    status: "Accept, refuse, cancel and complete events",
+    staffing: "Assign artists and edit running orders",
+    money: "Record and correct payments, refunds and expenses",
+    catalog: "Edit shows, packages, artists and media",
+    customers: "Edit customers and enquiries",
+    followups: "Manage follow-ups and reminders",
+    availability: "Manage availability",
+    checklist: "Edit event checklists",
+    history: "Edit customer contact history",
+    links: "Create private event links",
+    referrals: "Manage referrals",
+    reviews: "Moderate reviews",
+    extraAnswers: "Edit extra booking answers",
+    officeTasks: "Manage office tasks",
+    businessExport: "Download the business data export",
+  };
+  const configurableRole = ["manager", "sales", "accountant"].includes(u.role);
+  const permissionFields: Field[] = configurableRole
+    ? configurableStaffActions.map((action) => ({
+        key: `permission_${action}`,
+        label: permissionLabels[action],
+        type: "checkbox",
+        value: u.permissions?.[action] ?? canStaffAction(u.role, action),
+        wide: true,
+      }))
+    : [];
   openDialog(
     "Edit backstage access",
     formBody(
-      fields,
-      '<p class="privacy">Saving ends this person’s existing sessions so the updated access takes effect immediately.</p>',
+      coreFields,
+      `${configurableRole ? `<fieldset class="wide"><legend>Custom permissions</legend><p class="privacy">These controls override the role defaults for this person only. Owner-only account controls and full database backups cannot be delegated.</p>${permissionFields.map(field).join("")}</fieldset>` : ""}<p class="privacy">Saving ends this person’s existing sessions so the updated access takes effect immediately.</p>`,
     ),
   );
   submit(modal.querySelector("form")!, async (data) => {
-    await api(`/manage/users/${key}`, "PUT", formValues(data, fields));
+    const payload = formValues(data, coreFields);
+    if (["manager", "sales", "accountant"].includes(String(payload.role))) {
+      payload.permissions = Object.fromEntries(
+        configurableStaffActions.map((action) => [action, data.has(`permission_${action}`)]),
+      );
+    }
+    await api(`/manage/users/${key}`, "PUT", payload);
     modal.close();
     if (key === state!.user.id) {
       state = undefined;
