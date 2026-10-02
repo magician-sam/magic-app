@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { snapshot } from "./snapshots.js";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
-import { limitedStaff, staffRouteAllowed, canSeeArtistPay, canStaffAction, staffResponse } from "./staff-permissions.js";
+import { limitedStaff, staffRouteAllowed, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
 import { siteMediaSlots } from "./site-media.js";
 import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
@@ -199,7 +199,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   }
   function canManage(req: Authed) {
     requireThat(
-      ["owner", "admin"].includes(req.user.role) || (limitedStaff(req.user.role) && staffRouteAllowed(req.user.role, req.method, req.originalUrl)),
+      ["owner", "admin"].includes(req.user.role) || (limitedStaff(req.user.role) && staffRouteAllowed(req.user, req.method, req.originalUrl)),
       "Your access level does not permit this action.",
       403,
     );
@@ -787,7 +787,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       }
       (req as Authed).user = user;
       (req as Authed).business = business;
-      requireThat(staffRouteAllowed(user.role, req.method, req.originalUrl), "Your access level does not permit this action.", 403);
+      requireThat(staffRouteAllowed(user, req.method, req.originalUrl), "Your access level does not permit this action.", 403);
       if (limitedStaff(user.role)) {
         const sendJson = res.json.bind(res);
         res.json = (body: unknown) => sendJson(staffResponse(body, user.role));
@@ -1078,7 +1078,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     result.noticeStates = (await store.all<StaffNoticeState>(bid, "staffNoticeStates"))
       .filter((notice) => notice.userId === req.user.id && visibleRevisions.get(notice.bookingId) === notice.revision);
     result.actPlans = [];
-    if (canSeeArtistPay(req.user.role)) {
+    if (["owner", "admin"].includes(req.user.role) || userCanStaffAction(req.user, "staffing") || userCanStaffAction(req.user, "money")) {
       result.actPlans = (await store.all<ActPlan>(bid, "actPlans")).map((plan) => req.user.role === "accountant" ? { ...plan, notes: "" } : plan);
     }
     if (["owner", "admin"].includes(req.user.role)) {
@@ -1344,6 +1344,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         role: z.enum(["owner", "manager", "sales", "accountant", "assistant", "performer"]),
         performerId: short.optional(),
         viewCompanyCalendar: z.boolean().default(false),
+        permissions: z.record(z.enum(configurableStaffActions), z.boolean()).optional(),
       })
       .parse(req.body);
     if (input.role === "performer")
@@ -1368,8 +1369,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       input.role,
       input.performerId,
     );
-    if (input.role === "performer" && input.viewCompanyCalendar) {
-      user.viewCompanyCalendar = true;
+    if (input.permissions && ["manager", "sales", "accountant"].includes(input.role)) user.permissions = input.permissions;
+    if (input.role === "performer" && input.viewCompanyCalendar) user.viewCompanyCalendar = true;
+    if (input.permissions || user.viewCompanyCalendar) {
       await store.db.prepare("UPDATE users SET data=? WHERE id=?")
         .run(JSON.stringify(user), user.id);
     }
@@ -1427,6 +1429,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         role: z.enum(["owner", "manager", "sales", "accountant", "assistant", "performer", "admin"]),
         performerId: short.optional(),
         viewCompanyCalendar: z.boolean().default(false),
+        permissions: z.record(z.enum(configurableStaffActions), z.boolean()).optional(),
       })
       .parse(req.body);
     const row = await store.db
@@ -1460,7 +1463,8 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         "Choose a performer profile.",
       );
     const next = { ...old, ...input, email: input.email.toLowerCase(),
-      viewCompanyCalendar: input.role === "performer" && input.viewCompanyCalendar };
+      viewCompanyCalendar: input.role === "performer" && input.viewCompanyCalendar,
+      permissions: ["manager", "sales", "accountant"].includes(input.role) ? input.permissions : undefined };
     await store.transaction(async () => {
       await store.db
         .prepare("UPDATE users SET email=?,data=? WHERE id=?")
@@ -2385,7 +2389,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       paymentTerms: short.min(3),
       reason: short.min(3),
     }).parse(req.body);
-    requireThat(input.receivedAmount === 0 || canStaffAction(req.user.role, "money"), "Ask the owner or accountant to record received payments first.", 403);
+    requireThat(input.receivedAmount === 0 || userCanStaffAction(req.user, "money"), "Ask the owner or accountant to record received payments first.", 403);
     const old = await owned<Booking>(req.business.id, "bookings", String(req.params.id));
     requireThat(old.revision === input.revision, "This event changed. Refresh before accepting.", 409);
     requireThat(!["confirmed", "completed", "cancelled"].includes(old.status), "This event is already closed or confirmed.", 409);

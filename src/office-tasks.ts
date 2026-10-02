@@ -3,6 +3,7 @@ import type { Express, Request } from "express";
 import type { Store } from "./store.js";
 import { id } from "./store.js";
 import type { User, Business } from "./models.js";
+import { userCanStaffAction } from "./staff-permissions.js";
 import { writeRoutes } from "./write-routes.js";
 
 export interface OfficeTask {
@@ -17,7 +18,7 @@ const inputSchema = z.object({
   revision: z.number().int().min(0),
 }).strict();
 type StaffRequest = Request & { user: User; business: Business };
-const allowed = (user: User) => ["owner", "admin", "manager", "accountant"].includes(user.role);
+const allowed = (user: User) => ["owner", "admin"].includes(user.role) || userCanStaffAction(user, "officeTasks");
 export function officeTasks(app: Express, store: Store) {
   app.get("/api/manage/office-tasks", async (request, res) => {
     const req = request as StaffRequest;
