@@ -4388,7 +4388,7 @@ function editUser(key: string) {
   );
   submit(modal.querySelector("form")!, async (data) => {
     const payload = formValues(data, coreFields);
-    if (["manager", "sales", "accountant"].includes(String(payload.role))) {
+    if (["manager", "sales", "accountant"].includes(String(payload.role)) && permissionFields.length) {
       payload.permissions = Object.fromEntries(
         configurableStaffActions.map((action) => [action, data.has(`permission_${action}`)]),
       );
