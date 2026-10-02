@@ -1,4 +1,4 @@
-import { canStaffAction, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
+import { canStaffAction, userCanStaffAction, configurableStaffActions, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
 import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
@@ -2186,10 +2186,10 @@ function stats() {
 function bookingRow(b: Booking) {
   return `<div class="row"><div class="date-tile">${e(new Date(`${b.date}T12:00:00`).toLocaleDateString("en", { month: "short" }))}<b>${e(b.date.slice(8))}</b></div><div class="row-main"><h3>${e(b.name)}</h3><p>${e(b.time)} · ${e(b.location)}</p></div>${badge(b.status)}<button class="small outline" data-booking="${b.id}">Open event ↗</button>${b.status === "cancelled" && ["owner", "admin"].includes(state!.user.role) ? `<button class="small danger" data-permanent-event="${e(b.id)}">Delete permanently</button>` : ""}</div>`;
 }
-function staffCan(action: StaffAction) { return !!state && canStaffAction(state.user.role, action); }
+function staffCan(action: StaffAction) { return !!state && userCanStaffAction(state.user, action); }
 function renderDashboard() {
   if (!state) return;
-  const views = staffViews(state.user.role);
+  const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
   app.innerHTML = `<div class="dashboard"><aside class="sidebar">${brand()}<nav aria-label="Dashboard">${navItems
@@ -2310,7 +2310,7 @@ function renderEnquiries(root: Element, showArchived = false) {
 function wireDashboard(root: ParentNode) {
   if (limitedStaff(state!.user.role)) {
     root.querySelectorAll("[data-delete], #import").forEach((node) => node.remove());
-    const views = staffViews(state!.user.role)!;
+    const views = staffViews(state!.user)!;
     root.querySelectorAll<HTMLElement>("[data-go]").forEach((node) => { if (!views.includes(node.dataset.go!)) node.remove(); });
     if (!staffCan("availability")) root.querySelectorAll('[data-edit^="blocks:"]').forEach((node) => node.remove());
     if (!staffCan("events")) root.querySelectorAll('.toolbar a[href^="/b/"]').forEach((node) => node.remove());
@@ -3698,7 +3698,8 @@ function renderSettings(root: Element) {
   if (limitedStaff(state!.user.role)) {
     root.innerHTML = `<section class="panel"><h2>Your ${e(pretty(state!.user.role))} account</h2><p>${e(state!.user.name)} · ${e(state!.user.email)}</p><p class="hint">${e(roleDescriptions[state!.user.role])}</p><button class="outline small" id="change-password">Change my password</button></section>`;
     root.insertAdjacentHTML("beforeend", devicePanel); bindDevice();
-    if (["manager", "accountant"].includes(state!.user.role)) void loadOfficeTasks(root);
+    if (staffCan("businessExport")) root.insertAdjacentHTML("beforeend", '<section class="panel"><h3>Business export</h3><p class="muted">Your owner has allowed this account to download the business data export. Keep it private.</p><a href="/api/manage/export" class="button outline small" download>Download business export</a></section>');
+    if (staffCan("officeTasks")) void loadOfficeTasks(root);
     on(root, "#change-password", "click", () => changePassword());
     return;
   }
