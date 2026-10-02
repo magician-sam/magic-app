@@ -1,17 +1,24 @@
-import type { Role } from "./models.js";
+import type { Role, User } from "./models.js";
 
-export type StaffAction = "events" | "quotes" | "status" | "staffing" | "money" | "catalog" | "customers" | "followups" | "availability" | "checklist" | "history" | "links" | "referrals" | "reviews" | "extraAnswers";
+export type StaffAction = "events" | "quotes" | "status" | "staffing" | "money" | "catalog" | "customers" | "followups" | "availability" | "checklist" | "history" | "links" | "referrals" | "reviews" | "extraAnswers" | "officeTasks" | "businessExport";
+export const configurableStaffActions: readonly StaffAction[] = ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"];
 const actions: Record<Role, readonly StaffAction[]> = {
-  owner: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers"],
-  admin: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers"],
-  manager: ["events", "quotes", "status", "staffing", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "reviews", "extraAnswers"],
+  owner: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
+  admin: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
+  manager: ["events", "quotes", "status", "staffing", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "reviews", "extraAnswers", "officeTasks"],
   sales: ["events", "quotes", "customers", "followups", "history", "links", "extraAnswers"],
-  accountant: ["money"],
+  accountant: ["money", "officeTasks"],
   assistant: ["events", "customers", "followups", "availability", "checklist", "history", "links"],
   performer: ["availability", "checklist"],
 };
 export function canStaffAction(role: Role, action: StaffAction) {
   return actions[role]?.includes(action) ?? false;
+}
+export function userCanStaffAction(user: Pick<User, "role" | "permissions">, action: StaffAction) {
+  if (user.role === "owner" || user.role === "admin") return canStaffAction(user.role, action);
+  if (!limitedStaff(user.role)) return canStaffAction(user.role, action);
+  const override = user.permissions?.[action];
+  return typeof override === "boolean" ? override : canStaffAction(user.role, action);
 }
 export function limitedStaff(role: Role) {
   return ["manager", "sales", "accountant"].includes(role);
@@ -40,19 +47,22 @@ export function staffViews(role: Role): readonly string[] | undefined {
 }
 
 // New staff roles use a closed route list. Unknown and future endpoints remain owner-only.
-export function staffRouteAllowed(role: Role, method: string, fullPath: string) {
+export function staffRouteAllowed(userOrRole: User | Role, method: string, fullPath: string) {
+  const user = typeof userOrRole === "string" ? { role: userOrRole } : userOrRole;
+  const role = user.role;
   if (!limitedStaff(role)) return true;
+  const allowed = (action: StaffAction) => userCanStaffAction(user, action);
   const path = fullPath.split("?")[0].replace(/^\/api\/manage/, "");
   if (method === "GET") {
-    if (path === "/office-tasks") return ["manager", "accountant"].includes(role);
+    if (path === "/office-tasks") return allowed("officeTasks");
     if (path === "/state" || /^\/bookings\/[^/]+\/checks$/.test(path)) return true;
-    if (/^\/bookings\/[^/]+\/act-plan$/.test(path)) return canSeeArtistPay(role);
-    if (/^\/customers\/[^/]+\/history$/.test(path)) return canStaffAction(role, "history");
-    if (path === "/custom-fields") return canStaffAction(role, "extraAnswers");
+    if (/^\/bookings\/[^/]+\/act-plan$/.test(path)) return allowed("staffing") || allowed("money");
+    if (/^\/customers\/[^/]+\/history$/.test(path)) return allowed("history");
+    if (path === "/custom-fields") return allowed("extraAnswers");
     return false;
   }
   if (method === "POST" && path === "/password") return true;
-  if (method === "PUT" && /^\/office-tasks\/[^/]+$/.test(path)) return ["manager", "accountant"].includes(role);
+  if (method === "PUT" && /^\/office-tasks\/[^/]+$/.test(path)) return allowed("officeTasks");
   if (method === "PUT" && path === "/notices") return role !== "accountant";
   const routes: [string, RegExp, StaffAction][] = [
     ["POST", /^\/enquiries\/[^/]+\/contacted$/, "customers"],
@@ -77,7 +87,8 @@ export function staffRouteAllowed(role: Role, method: string, fullPath: string) 
     ["POST", /^\/reviews\/[^/]+\/moderate$/, "reviews"],
     ["POST", /^\/money(?:\/[^/]+\/correct)?$/, "money"],
   ];
-  return routes.some(([verb, pattern, action]) => verb === method && pattern.test(path) && canStaffAction(role, action));
+  if (method === "GET" && path === "/export") return allowed("businessExport");
+  return routes.some(([verb, pattern, action]) => verb === method && pattern.test(path) && allowed(action));
 }
 
 // Apply to every staff JSON response, including records returned after a write.
