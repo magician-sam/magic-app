@@ -9,6 +9,7 @@ export interface User {
   role: Role;
   performerId?: string;
   viewCompanyCalendar?: boolean;
+  permissions?: Record<string, boolean>;
 }
 export interface Business {
   id: string;
