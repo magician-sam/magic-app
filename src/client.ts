@@ -892,6 +892,7 @@ function setupMobileSiteMenu() {
   const header = app.querySelector<HTMLElement>(".site-header");
   if (!header) return;
   header.insertAdjacentHTML("beforeend", '<button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-controls="mobile-site-menu" aria-expanded="false"><span class="mobile-menu-toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Explore</span></button>');
+  header.insertAdjacentHTML("beforeend", `<a class="phone-event-shortcut" href="#event-box" aria-label="Your event, ${basket.length + guestBasket.length} selected items"><svg width="17" height="20" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h14l1 13H2L3 8Z"/><path d="M6 9V6a4 4 0 0 1 8 0v3"/></svg><b>${basket.length + guestBasket.length}</b></a>`);
   header.insertAdjacentHTML("afterend", mobileMenuMarkup());
   const toggle = header.querySelector<HTMLButtonElement>("#mobile-menu-toggle")!;
   const drawer = app.querySelector<HTMLElement>("#mobile-site-menu")!;

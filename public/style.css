@@ -2444,3 +2444,71 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 }
 .logo-preview img { max-width: 100%; max-height: 140px; object-fit: contain; }
 .logo-upload input[type="file"] { display: block; max-width: 100%; margin: 12px 0; }
+/* Customer phone refresh: contemporary app chrome, photography and clear actions. */
+.phone-event-shortcut { display: none; }
+@media (max-width: 700px) {
+  body.customer-surface { background: #f7f8fc; color: #25243b; --font-body: "Outfit", "Segoe UI", sans-serif; --font-playful: "Outfit", "Segoe UI", sans-serif; --font-display: "Outfit", "Segoe UI", sans-serif; }
+  .customer-surface .wrap { padding: 0 16px; }
+  .customer-surface h2, .customer-surface h3, .customer-surface .dialog-heading h2 { font-family: "Outfit", sans-serif; font-weight: 700; letter-spacing: -.035em; }
+  .customer-surface .site-header { position: sticky; top: 0; z-index: 12; margin: 0 -16px; padding: 10px 16px; min-height: 66px; background: #f7f8fcf5; backdrop-filter: blur(16px); border-bottom: 1px solid #e8e6f0; gap: 8px; }
+  .customer-surface .brand { font-size: 17px; font-weight: 750; }
+  .customer-surface .brand-logo { width: 34px; height: 34px; }
+  .customer-surface .mobile-menu-toggle { min-height: 44px; padding: 10px 12px; border-radius: 12px; background: #fff; color: #38265e; border: 1px solid #ded8ed; }
+  .customer-surface .phone-event-shortcut { display: flex; gap: 3px; align-items: center; justify-content: center; flex: 0 0 44px; min-height: 44px; border-radius: 12px; color: #fff; background: #6741d9; text-decoration: none; font-size: 15px; }
+  .customer-surface .hero { margin: 14px 0 20px; padding: 24px 20px; border-radius: 26px; background: radial-gradient(ellipse at 90% 5%, #7046cb, transparent 65%), #25203d; color: #fff; }
+  .customer-surface .hero .eyebrow { width: fit-content; background: #ffffff12; color: #e3d8ff; padding: 7px 10px; font-size: 9px; border: 1px solid #ffffff20; border-radius: 8px; }
+  .customer-surface .hero h1 { font: 750 clamp(32px, 9vw, 42px)/1.06 "Outfit", sans-serif; letter-spacing: -.045em; color: #fff; margin: 12px 0; }
+  .customer-surface .hero h1 em { font-family: "Berkshire Swash", cursive; font-weight: 400; font-style: normal; color: #d2baff; margin: 0; }
+  .customer-surface .hero p { color: #e7e2f0; font-size: 15px; line-height: 1.5; margin: 12px 0; }
+  .customer-surface .mobile-hero-photos { display: block; height: 206px; margin: 18px -8px 14px; padding: 0; border-radius: 18px; background: #171329; box-shadow: 0 12px 30px #0003; }
+  .customer-surface .mobile-hero-photos .hero-zoom:first-child { display: block; width: 100%; height: 100%; }
+  .customer-surface .mobile-hero-photos .hero-zoom:first-child img { border-radius: 18px; object-position: center 35%; }
+  .customer-surface .mobile-hero-photos .hero-zoom:nth-child(2), .customer-surface .mobile-hero-photos .hero-zoom:nth-child(3) { position: absolute; bottom: 12px; width: 60px; height: 60px; border: 3px solid #fff; border-radius: 16px; padding: 0; box-shadow: 0 3px 12px #0004; }
+  .customer-surface .mobile-hero-photos .hero-zoom:nth-child(2) { right: 80px; }
+  .customer-surface .mobile-hero-photos .hero-zoom:nth-child(3) { right: 12px; }
+  .customer-surface .mobile-hero-photos span { left: 12px; bottom: 12px; max-width: 115px; color: #fff; padding: 7px; border-radius: 8px; background: #241d43c9; font-size: 10px; }
+  .customer-surface .hero-copy .actions { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; margin-top: 14px; }
+  .customer-surface .hero-copy .actions > * { min-height: 48px; padding: 10px 6px; font-size: 13px; border-radius: 12px; white-space: normal; }
+  .customer-surface .hero-copy .actions a { background: #fff; color: #39205f; box-shadow: none; }
+  .customer-surface .hero-copy .actions button { color: #fff; border: 1px solid #a18acb; background: #ffffff0b; }
+  .customer-surface .hero .micro { color: #c8bfdc; font-size: 11px; }
+  .customer-surface .hero .contact-link { color: #e2d5ff; font-size: 12px; }
+  .customer-surface .hero .install-link { color: #e2d5ff; background: transparent; border: none; padding: 4px 0; font-size: 11px; }
+  .customer-surface .occasion-shortcuts { margin: 16px 0 12px; }
+  .customer-surface .occasion-shortcuts p { font-size: 12px; }
+  .customer-surface .occasion-shortcuts > div { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+  .customer-surface .occasion-shortcuts button { min-height: 40px; padding: 7px 3px; border-radius: 10px; border: 1px solid #ffffff24; background: #ffffff0d; color: #fff; font-size: 12px; }
+  .customer-surface .ribbon { border: none; margin: 12px 0; padding: 6px 0; gap: 12px; }
+  .customer-surface .section { padding-top: 28px; padding-bottom: 28px; }
+  .customer-surface .catalog-chapter > h3 { font-size: 25px; font-weight: 750; }
+  .customer-surface .catalog-chapter-note { font-size: 13px; line-height: 1.5; }
+  .customer-surface .catalog-chapter-note span { border-radius: 6px; }
+  .customer-surface .show-jump { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .customer-surface .show-jump a { display: flex; align-items: center; min-height: 48px; padding: 10px; border-radius: 12px; background: #fff; border: 1px solid #e0dced; line-height: 1.3; }
+  .customer-surface .cards { grid-template-columns: 1fr; gap: 18px; }
+  .customer-surface .show-card { display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; box-shadow: 0 8px 24px #28234508; }
+  .customer-surface .show-card .show-art { width: 100%; height: 210px; min-height: 210px; border-radius: 0; }
+  .customer-surface .show-card .show-art.has-cover img { object-fit: cover; object-position: center 30%; }
+  .customer-surface .show-card .show-body { padding: 18px; }
+  .customer-surface .show-card h3 { font: 750 25px/1.1 "Outfit", sans-serif; margin-bottom: 6px; }
+  .customer-surface .show-card .show-subtitle { font: 600 14px/1.4 "Outfit", sans-serif; }
+  .customer-surface .show-card .show-body p { font-size: 14px; line-height: 1.55; }
+  .customer-surface .show-card .show-body > .eyebrow { padding: 5px 8px; border-radius: 7px; font-size: 10px; letter-spacing: .06em; }
+  .customer-surface .show-card .show-body > button { border-radius: 11px; }
+  .customer-surface .show-card button[data-add], .customer-surface .show-card button[data-add-guest] { background: var(--experience-accent); color: #fff; border-color: var(--experience-accent); min-height: 46px; font-weight: 650; }
+  .customer-surface .show-card button.secondary[data-add], .customer-surface .show-card button.secondary[data-add-guest] { background: var(--experience-wash); color: var(--experience-accent); }
+  .customer-surface .event-box, .customer-surface .bundle-idea { border-radius: 18px; }
+  .customer-surface #event-extras { padding: 20px 12px; background: #fff; border-color: #e3deec; }
+  .customer-surface .mobile-event-bar { padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); background: #fffffff5; backdrop-filter: blur(16px); border-top: 1px solid #e2deee; box-shadow: 0 -4px 18px #28234509; }
+  .customer-surface .mobile-event-bar small { margin-top: 2px; font-size: 11px; }
+  .customer-surface .mobile-event-bar button { min-height: 44px; padding: 10px 18px; border-radius: 12px; background: #6741d9; }
+  body.customer-surface.has-event-selection { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .customer-surface #main, .customer-surface .show-group, .customer-surface #event-box { scroll-margin-top: 80px; }
+  .customer-surface .mobile-menu-intro h2 { font: 750 29px/1.1 "Outfit", sans-serif; }
+  .customer-surface .mobile-menu-branch summary { border-radius: 12px; }
+  .customer-surface .dialog-heading { background: #fff; }
+  .customer-surface .experience-story h3 { font: 700 23px/1.2 "Outfit", sans-serif; }
+  .customer-surface button:focus-visible, .customer-surface a:focus-visible { outline: 3px solid #b39afa; outline-offset: 3px; }
+}
+
+@media (max-width: 700px) { .customer-surface .show-card[hidden] { display: none; } }

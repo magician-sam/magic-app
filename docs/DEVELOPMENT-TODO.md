@@ -143,3 +143,9 @@ Product direction: the customer website, future Android and iPhone customer apps
 - Added a visible finishing-touches chapter and nested phone-menu branch, separate category colours/icons and tailored service copy. Full catalogue retained.
 - Live admin and visitor desktop/phone checks continued; prices, hosting and email deferred as requested.
 
+
+## 2026-10-02 modern customer phone interface
+- Customer-only phone design: Outfit typography with a magical headline accent, dark violet photo hero, compact occasion grid, sticky Explore/event header, full-width service photography, category-coloured primary actions and slimmer safe-area event bar.
+- All 34 catalogue cards remain on the page. Backstage styling and operations unchanged.
+- Preview checked at 320 and 390 pixels; no horizontal overflow. Tested nested menu, add/remove choices, event shortcut and account step retaining selections.
+
