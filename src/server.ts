@@ -1344,7 +1344,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         role: z.enum(["owner", "manager", "sales", "accountant", "assistant", "performer"]),
         performerId: short.optional(),
         viewCompanyCalendar: z.boolean().default(false),
-        permissions: z.record(z.enum(configurableStaffActions as [string, ...string[]]), z.boolean()).optional(),
+        permissions: z.record(z.enum(configurableStaffActions), z.boolean()).optional(),
       })
       .parse(req.body);
     if (input.role === "performer")
@@ -1429,7 +1429,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         role: z.enum(["owner", "manager", "sales", "accountant", "assistant", "performer", "admin"]),
         performerId: short.optional(),
         viewCompanyCalendar: z.boolean().default(false),
-        permissions: z.record(z.enum(configurableStaffActions as [string, ...string[]]), z.boolean()).optional(),
+        permissions: z.record(z.enum(configurableStaffActions), z.boolean()).optional(),
       })
       .parse(req.body);
     const row = await store.db
