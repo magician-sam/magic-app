@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 import { snapshot } from "./snapshots.js";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
-import { limitedStaff, staffRouteAllowed, canSeeArtistPay, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
+import { limitedStaff, staffRouteAllowed, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
 import { siteMediaSlots } from "./site-media.js";
 import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
@@ -1078,7 +1078,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     result.noticeStates = (await store.all<StaffNoticeState>(bid, "staffNoticeStates"))
       .filter((notice) => notice.userId === req.user.id && visibleRevisions.get(notice.bookingId) === notice.revision);
     result.actPlans = [];
-    if (canSeeArtistPay(req.user.role) || userCanStaffAction(req.user, "staffing") || userCanStaffAction(req.user, "money")) {
+    if (["owner", "admin"].includes(req.user.role) || userCanStaffAction(req.user, "staffing") || userCanStaffAction(req.user, "money")) {
       result.actPlans = (await store.all<ActPlan>(bid, "actPlans")).map((plan) => req.user.role === "accountant" ? { ...plan, notes: "" } : plan);
     }
     if (["owner", "admin"].includes(req.user.role)) {
