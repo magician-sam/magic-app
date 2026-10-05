@@ -18,6 +18,12 @@ test('customer extraction rejects broadcasts, preserves missing adult names and 
   assert.equal(customer.chatIds.length,2);assert.equal(customer.history[0].completionVerified,false);assert.equal(customer.offersConsent,false);
   assert.ok(!JSON.stringify(result).includes(texts[0]));
   assert.doesNotThrow(()=>extract([contacts[0]],[{...rows[0],content:'I want magic show on 2026-99-99'}]));
+  const quoteRows=[{...rows[0],content:'How much is it?'},{...rows[0],direction:'outgoing',message_id:'quote',content:'My magic show price is 200$',timestamp_local:'2026-10-05T10:05:00'}];
+  assert.equal(extract([contacts[0]],quoteRows).accepted.length,1);
+  const formRows=[{...rows[0],direction:'outgoing',content:'I need date location and age of the kids'},{...rows[0],message_id:'audio',content:'Audio',timestamp_local:'2026-10-05T10:05:00'}];
+  assert.equal(extract([contacts[0]],formRows).accepted.length,1);
+  const audioQuote=[{...rows[0],content:'Audio'},quoteRows[1]];
+  assert.equal(extract([contacts[0]],audioQuote).review.length,1);
 });
 test('lean customer import is scoped, retry-safe, preserves existing consent and requires complete extraction before cleanup',async()=>{
   const store=new Store(':memory:'),business=await store.createBusiness('Test','lean-test'),other=await store.createBusiness('Other','lean-other');
