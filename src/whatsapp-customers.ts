@@ -4,16 +4,52 @@ import type { Store } from "./store.js";
 import type { Customer } from "./models.js";
 import { customerSchema, normalizePhone, requireThat } from "./domain.js";
 import { writeRoutes } from "./write-routes.js";
+import { DateTime } from "luxon";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const fields=z.array(z.string().max(100)).max(12).default([]);
 const historySchema = z.object({ enquiryDate: z.iso.date(), lastDiscussed: z.iso.date(), eventDateCandidates: z.array(z.iso.date()).max(50), eventDateTextCandidates:fields,timeCandidates:fields,venueCandidates:fields,childNameCandidates:fields,outcomeClues:fields, services: z.array(z.string().max(60)).max(20), status: z.literal("enquiry_unverified"), evidenceIds: z.array(z.string().max(80)).max(8), dateNeedsReview: z.boolean(), completionVerified: z.literal(false) }).strict();
 const candidateSchema = z.object({ id: z.string().regex(/^[a-f0-9]{32}$/), sourceHash: hash, chatIds: z.array(z.string().max(100)).min(1).max(30), name: z.string().min(2).max(200), phone: z.string().regex(/^\+[1-9]\d{6,14}$/), nameNeedsReview: z.boolean(), displayNameCandidates: z.array(z.string().max(200)).max(3), children: z.array(z.never()).max(0), history: z.array(historySchema).min(1).max(1000), qualification: z.enum(["supported_enquiry", "needs_customer_review"]), offersConsent: z.literal(false) }).strict();
 type Candidate = z.infer<typeof candidateSchema> & { customerId?: string; importedAt?: string };
+const historicalDateSchema=z.object({date:z.iso.date(),mention:z.string().max(80),yearInferred:z.boolean(),dayMonthAmbiguous:z.boolean(),occasion:z.enum(["birthday","event"]),cancelMentioned:z.boolean(),enquiryDate:z.iso.date(),evidenceId:z.string().max(100),completionVerified:z.literal(false)}).strict();
+type HistoricalDate=z.infer<typeof historicalDateSchema> & {verifiedDate?:string;verifiedAt?:string};
 function owned(req: Request) { requireThat(["owner", "admin"].includes(req.user.role), "Only the owner can manage WhatsApp customer extraction.", 403);return req; }
 
 export function whatsappCustomers(app: Express, store: Store) {
   const writes = writeRoutes(app, store);
+  writes.post("/api/manage/whatsapp/customers/event-dates",async(request,res)=>{
+    const req=owned(request),input=z.object({sourceHash:hash,contacts:z.array(z.object({id:z.string().regex(/^[a-f0-9]{32}$/),dates:z.array(historicalDateSchema).min(1).max(30)}).strict()).min(1).max(10)}).strict().parse(req.body);
+    let saved=0,reminders=0;
+    for(const item of input.contacts){
+      const before=await store.get<Candidate & {historicalDates?:HistoricalDate[]}>(req.business.id,"whatsappCustomerReview",item.id);
+      requireThat(before&&before.sourceHash===input.sourceHash,"Source enquiry contact not found.",404);
+      if(before.historicalDates){continue;}
+      const today=DateTime.now().setZone(req.business.timezone).toISODate()!;
+      requireThat(item.dates.every(d=>d.date<today),"Use past event dates only.");
+      await store.put(req.business.id,"whatsappCustomerReview",{...before,historicalDates:item.dates});saved++;
+      if(before.customerId){const customer=await store.get<Customer>(req.business.id,"customers",before.customerId);
+        if(customer&&!customer.doNotContact){const reminder={id:`wa-date-review-${item.id}`,customerId:customer.id,bookingId:"",title:`Review past event dates · ${customer.name}`,date:today,done:false,revision:1,marketing:true,dateNeedsReview:true,whatsappCandidateId:item.id,draft:"Verify the past event date in WhatsApp customers before planning an anniversary follow-up. An enquiry is not proof an event happened."};await store.put(req.business.id,"reminders",reminder);reminders++;}
+      }
+    }
+    await store.audit(req.business.id,req.user.email,"whatsapp.past-date-candidates-imported",input.sourceHash,null,{saved,reminders});res.json({saved,reminders});
+  });
+  writes.post("/api/manage/whatsapp/customers/:id/event-date",async(request,res)=>{
+    const req=owned(request),key=String(req.params.id),input=z.object({candidateDate:z.iso.date(),eventDate:z.iso.date(),verified:z.literal(true)}).strict().parse(req.body);
+    const before=await store.get<Candidate & {historicalDates?:HistoricalDate[]}>(req.business.id,"whatsappCustomerReview",key);
+    requireThat(before?.customerId,"Review and add this customer first.",409);
+    const index=before.historicalDates?.findIndex(d=>d.date===input.candidateDate)??-1;requireThat(index>=0,"Date candidate not found.",404);
+    const customer=await store.get<Customer>(req.business.id,"customers",before.customerId);requireThat(customer&&!customer.doNotContact,"Customer contact preferences prevent follow-up.",409);
+    const today=DateTime.now().setZone(req.business.timezone).startOf("day"),source=DateTime.fromISO(input.eventDate,{zone:req.business.timezone});requireThat(source.isValid&&source<today,"Choose a valid past event date.");
+    let anniversary:DateTime=source.set({year:today.year});if(!anniversary.isValid)anniversary=DateTime.fromObject({year:today.year,month:2,day:28},{zone:req.business.timezone});if(anniversary<today)anniversary=anniversary.plus({years:1});
+    const due=anniversary.minus({days:30}),reminderId=`wa-anniversary-${key}-${input.candidateDate}`;
+    const existing=await store.get<{done:boolean;eventDate:string}>(req.business.id,"reminders",reminderId);
+    if(existing?.eventDate===input.eventDate){res.json({date:anniversary.toISODate(),alreadyPlanned:true});return;}
+    const dates=[...before.historicalDates!];dates[index]={...dates[index],verifiedDate:input.eventDate,verifiedAt:new Date().toISOString()};
+    await store.put(req.business.id,"whatsappCustomerReview",{...before,historicalDates:dates});
+    await store.put(req.business.id,"reminders",{id:reminderId,customerId:customer.id,bookingId:"",title:`Past event anniversary · ${input.eventDate}`,date:(due<today?today:due).toISODate()!,done:false,revision:1,marketing:true,dateNeedsReview:false,eventDate:input.eventDate,draft:`Hello ${customer.name}, we enjoyed celebrating with you previously. Are you planning another event around ${anniversary.toFormat("d LLLL")}?`});
+    const review=await store.get<{id:string;revision:number}>(req.business.id,"reminders",`wa-date-review-${key}`);if(review)await store.put(req.business.id,"reminders",{...review,done:true,revision:review.revision+1});
+    await store.audit(req.business.id,req.user.email,"whatsapp.past-event-date-verified",key,{candidateDate:input.candidateDate},{eventDate:input.eventDate,anniversary:anniversary.toISODate(),reminderId});res.json({date:anniversary.toISODate()});
+  });
   writes.post("/api/manage/whatsapp/customers/phonebook", async(request,res)=>{
     const req=owned(request),input=z.object({sourceHash:hash,matches:z.array(z.object({id:z.string().regex(/^[a-f0-9]{32}$/),phone:z.string().regex(/^\+[1-9]\d{6,14}$/),label:z.string().trim().min(2).max(200).regex(/\p{L}/u)}).strict()).min(1).max(25)}).strict().parse(req.body);
     let updated=0,customerNames=0,skipped=0;
@@ -39,7 +75,7 @@ export function whatsappCustomers(app: Express, store: Store) {
   app.get("/api/manage/whatsapp/customers", async (request, res) => {
     const req=owned(request), rows=await store.all<Candidate>(req.business.id,"whatsappCustomerReview");
     const q=String(req.query.q??"").toLowerCase().slice(0,100), offset=Math.max(0,Number(req.query.offset)||0);
-    const matched=rows.filter(c=>`${c.name} ${c.phone}`.toLowerCase().includes(q));
+    const matched=rows.filter(c=>`${c.name} ${c.phone}`.toLowerCase().includes(q)&&(!(req.query.dates==="1")||!!(c as Candidate & {historicalDates?:HistoricalDate[]}).historicalDates?.length));
     const raw=await store.db.prepare("SELECT count(*) AS total FROM records WHERE business_id=? AND kind IN ('whatsappMessages','whatsappReview')").get(req.business.id);
     res.set("Cache-Control","private, no-store").json({ total:matched.length, offset, candidates:matched.slice(offset,offset+25), supported:rows.filter(c=>c.customerId).length, needsReview:rows.filter(c=>!c.customerId).length, chatTextRecords:Number(raw?.total??0), migrations:await store.all(req.business.id,"whatsappCustomerMigrations") });
   });
@@ -109,3 +145,5 @@ export function whatsappCustomers(app: Express, store: Store) {
     res.json(record);
   });
 }
+
+

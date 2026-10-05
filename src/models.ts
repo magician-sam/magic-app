@@ -173,6 +173,7 @@ export interface MoneyEntry {
   date: string;
 }
 export interface Reminder {
+  dateNeedsReview?: boolean;
   draft?: string;
   marketing?: boolean;
   generatedKey?: string;

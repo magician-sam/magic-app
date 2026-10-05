@@ -3361,6 +3361,7 @@ async function editFollowupSettings() {
   }
 }
 function reviewFollowup(reminder: Reminder) {
+  if(reminder.dateNeedsReview){openDialog("Check the past event date","<p>This reminder is for reviewing the local WhatsApp date evidence. Open WhatsApp customers, confirm the date of an event that actually happened, then plan its anniversary follow-up. A party date is not automatically a child's birthday.</p>");return;}
   const customer = state!.customers.find((c) => c.id === reminder.customerId);
   if (!customer) return;
   if (

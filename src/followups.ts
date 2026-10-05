@@ -308,6 +308,7 @@ export function followups(app: Express, store: Store) {
       String(req.params.id),
     );
     requireThat(reminder, "Reminder not found", 404);
+    requireThat(!reminder.dateNeedsReview,"Verify the historical event date in WhatsApp customers first.",409);
     requireThat(
       !reminder.done && input.revision === (reminder.revision ?? 0),
       "This follow-up changed or is already completed.",
