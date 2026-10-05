@@ -7,7 +7,7 @@ import { writeRoutes } from "./write-routes.js";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const fields=z.array(z.string().max(100)).max(12).default([]);
-const historySchema = z.object({ enquiryDate: z.iso.date(), lastDiscussed: z.iso.date(), eventDateCandidates: z.array(z.iso.date()).max(50), eventDateTextCandidates:fields,timeCandidates:fields,venueCandidates:fields,childNameCandidates:fields, services: z.array(z.string().max(60)).max(20), status: z.literal("enquiry_unverified"), evidenceIds: z.array(z.string().max(80)).max(8), dateNeedsReview: z.boolean(), completionVerified: z.literal(false) }).strict();
+const historySchema = z.object({ enquiryDate: z.iso.date(), lastDiscussed: z.iso.date(), eventDateCandidates: z.array(z.iso.date()).max(50), eventDateTextCandidates:fields,timeCandidates:fields,venueCandidates:fields,childNameCandidates:fields,outcomeClues:fields, services: z.array(z.string().max(60)).max(20), status: z.literal("enquiry_unverified"), evidenceIds: z.array(z.string().max(80)).max(8), dateNeedsReview: z.boolean(), completionVerified: z.literal(false) }).strict();
 const candidateSchema = z.object({ id: z.string().regex(/^[a-f0-9]{32}$/), sourceHash: hash, chatIds: z.array(z.string().max(100)).min(1).max(30), name: z.string().min(2).max(200), phone: z.string().regex(/^\+[1-9]\d{6,14}$/), nameNeedsReview: z.boolean(), displayNameCandidates: z.array(z.string().max(200)).max(3), children: z.array(z.never()).max(0), history: z.array(historySchema).min(1).max(1000), qualification: z.enum(["supported_enquiry", "needs_customer_review"]), offersConsent: z.literal(false) }).strict();
 type Candidate = z.infer<typeof candidateSchema> & { customerId?: string; importedAt?: string };
 function owned(req: Request) { requireThat(["owner", "admin"].includes(req.user.role), "Only the owner can manage WhatsApp customer extraction.", 403);return req; }
@@ -40,13 +40,13 @@ export function whatsappCustomers(app: Express, store: Store) {
         if(matches.length>1){next.qualification="needs_customer_review";review++;}
         else {
           const existing=matches[0];
-          const customer=existing??{...customerSchema.parse({name:candidate.name,phone:candidate.phone,source:"whatsapp_enquiry",offersConsent:false,notes:"Imported historical WhatsApp enquiry. Adult identity and event completion need review. A chat timestamp is not an event date."}),id:`wa-${candidate.id}`};
+          const customer=existing??{...customerSchema.parse({name:candidate.name,phone:candidate.phone,source:"whatsapp_enquiry",kind:"unknown",offersConsent:false,notes:"Imported historical WhatsApp enquiry. Adult identity and event completion need review. A chat timestamp is not an event date."}),id:`wa-${candidate.id}`};
           if(!existing){await store.put(req.business.id,"customers",customer);customers.push(customer);created++;}else linked++;
           next.customerId=customer.id;
           // Only useful business summaries are stored; no source messages or nearby replies.
           for(const [index,entry] of candidate.history.entries()) {
             const summary=["Historical WhatsApp enquiry — event completion is unverified.", entry.services.length?`Discussed services: ${entry.services.join(", ")}.`:"Services need review.",entry.eventDateCandidates.length?`Possible event dates (verify): ${entry.eventDateCandidates.join(", ")}.`:"Event date unknown; this entry's date is the enquiry date.",entry.eventDateTextCandidates.length?`Date mentions (verify year/day/month): ${entry.eventDateTextCandidates.join(", ")}.`:"",entry.timeCandidates.length?`Time mentions (verify): ${entry.timeCandidates.join(", ")}.`:"",entry.venueCandidates.length?`Venue mentions (verify): ${entry.venueCandidates.join(", ")}.`:"",entry.childNameCandidates.length?`Child names (verify; not adult identity): ${entry.childNameCandidates.join(", ")}.`:"", candidate.nameNeedsReview?"Adult contact name unknown; do not use a child's name as the adult's identity.":"Adult name needs identity review."].filter(Boolean).join(" ");
-            await store.put(req.business.id,"contactHistory",{id:`wa-${candidate.id}-${index}`,customerId:customer.id,bookingId:"",date:entry.enquiryDate,channel:"whatsapp",direction:"inbound",summary,archived:false,revision:1,createdAt:next.importedAt,updatedAt:next.importedAt});
+            await store.put(req.business.id,"contactHistory",{id:`wa-${candidate.id}-${index}`,customerId:customer.id,bookingId:"",date:entry.enquiryDate,channel:"whatsapp",direction:"inbound",summary:summary+(entry.outcomeClues.length?` ${entry.outcomeClues.join(". ")}.`:""),archived:false,revision:1,createdAt:next.importedAt,updatedAt:next.importedAt});
           }
         }
       }else review++;

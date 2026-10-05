@@ -3781,6 +3781,7 @@ function editRecord(kind: string, key: string, duplicate = false) {
           "organization",
           "planner",
           "venue",
+          "unknown",
         ]),
         value: item.kind ?? "family",
       }),

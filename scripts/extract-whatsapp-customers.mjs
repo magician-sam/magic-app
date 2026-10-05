@@ -76,7 +76,16 @@ export function extract(contacts, messages) {
       const included = relevant.concat(evidence);
       const eventDates = [...new Set(included.flatMap(r=>explicitDates(r.content)))];
       const requested = [...new Set(included.flatMap(r=>serviceNames(r.content)))];
+      const outcomeClues=[];
+      const lastEvidence=Date.parse(evidence.at(-1).timestamp_local);
+      for(const row of session){
+        if(Date.parse(row.timestamp_local)-lastEvidence>7*86400000||supplier.test(row.content)||unrelated.test(row.content))continue;
+        if(/\b(?:thank you|thanks|merci)\b/iu.test(row.content)&&/\b(?:show|performance|kids loved|children loved|birthday|party)\b/iu.test(row.content))outcomeClues.push('After-event feedback mentioned (verify completion and date)');
+        if(!/\?|\bnot confirmed\b|\bconfirm (?:it|the|this|my)\b/iu.test(row.content)&&/\b(?:we confirm|booking is confirmed|confirmed for|i confirm the booking)\b/iu.test(row.content))outcomeClues.push('Confirmation mentioned (verify final agreement)');
+        if(/\b(?:cancel (?:my|our|the) (?:booking|event|party)|booking (?:is |was )?cancelled|event (?:is |was )?cancelled)\b/iu.test(row.content))outcomeClues.push('Cancellation mentioned (verify which event)');
+      }
       history.push({ enquiryDate:evidence[0].timestamp_local.slice(0,10), lastDiscussed:evidence.at(-1).timestamp_local.slice(0,10), eventDateCandidates:eventDates, ...fieldCandidates(evidence), services:requested,
+        outcomeClues:[...new Set(outcomeClues)],
         status:'enquiry_unverified', evidenceIds:[...new Set(evidence.map(r=>r.message_id))].slice(0,8),
         dateNeedsReview:!eventDates.length, completionVerified:false });
     }

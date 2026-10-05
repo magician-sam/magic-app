@@ -1,8 +1,16 @@
 type Api=(path:string,method?:string,body?:unknown)=>Promise<unknown>;
-type History={enquiryDate:string;eventDateCandidates:string[];eventDateTextCandidates?:string[];timeCandidates?:string[];venueCandidates?:string[];childNameCandidates?:string[];services:string[]};
+type History={enquiryDate:string;eventDateCandidates:string[];eventDateTextCandidates?:string[];timeCandidates?:string[];venueCandidates?:string[];childNameCandidates?:string[];outcomeClues?:string[];services:string[]};
 type Candidate={id:string;name:string;phone:string;nameNeedsReview:boolean;customerId?:string;qualification:string;history:History[]};
 const escape=(v:unknown)=>String(v??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[x]!);
-function download(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+async function download(root:Element,blob:Blob,name:string){
+  root.querySelector("#wc-backup-copy")?.remove();
+  const previous=root.querySelector<HTMLAnchorElement>("#wc-backup-ready");if(previous){URL.revokeObjectURL(previous.href);previous.remove();}
+  const compressed=await new Response(blob.stream().pipeThrough(new CompressionStream("gzip"))).blob();
+  const a=document.createElement("a");a.href=URL.createObjectURL(compressed);a.download=name+".gz";a.id="wc-backup-ready";a.className="button outline small";a.textContent="Save prepared recovery backup to PC";root.querySelector("#wc-backup-progress")!.after(a);
+  const bytes=new Uint8Array(await compressed.arrayBuffer());let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
+  const fallback=document.createElement("details");fallback.id="wc-backup-copy";fallback.innerHTML='<summary>If saving is unavailable: copy recovery data</summary><label>Compressed recovery data (gzip base64)<textarea id="wc-backup-data" readonly rows="4"></textarea></label><p>This is the complete compressed backup. Keep it private and verify it before removing chat text.</p>';
+  fallback.querySelector<HTMLTextAreaElement>("textarea")!.value=btoa(binary);a.after(fallback);
+}
 export async function renderWhatsAppCustomers(root:Element,api:Api,changed:()=>Promise<void>){
   root.innerHTML=`<section class="panel"><span class="eyebrow">Useful details. Private history.</span><h2>Your WhatsApp customers</h2><p>Customer numbers and concise enquiry history, with adult names kept separate from children's names. Unknown names stay unknown. Chat text belongs in your local backup.</p><div id="wc-stats" aria-live="polite"></div><p class="hint">An enquiry date records when someone asked. Possible event dates need checking; no booking, payment or completed event is inferred. Marketing permission stays off unless the customer explicitly agrees.</p></section><section class="panel"><form id="wc-search-form" class="toolbar"><label>Find a contact<input id="wc-search" placeholder="Name or number"></label><button class="small">Search</button></form><div id="wc-list"></div></section><section class="panel"><details><summary>Local backup & customer import tools</summary><p>Download and verify the full recovery backup on your PC before removing online chat text. The backup includes account data: keep it private.</p><button id="wc-backup" class="outline small">Download full database in safe-sized pages</button><p id="wc-backup-progress" role="status"></p><label>Prepared customer details file<input id="wc-file" type="file" accept=".json"></label><button id="wc-import" class="small">Import customer details</button><p id="wc-import-progress" role="status"></p><label>Verified local backup SHA-256<input id="wc-backup-hash" minlength="64" maxlength="64"></label><label><input id="wc-verified" type="checkbox">The recovery backup has been saved and verified on this PC.</label><button id="wc-complete" class="outline small" disabled>Remove online chat text, keep customer details</button><p id="wc-cleanup-progress" role="status"></p></details></section>`;
   let offset=0,q="",migration:{sourceHash:string;expected:number}|undefined;
@@ -19,7 +27,7 @@ export async function renderWhatsAppCustomers(root:Element,api:Api,changed:()=>P
         const form=document.createElement("form");
         form.innerHTML=`<label>Adult contact name (keep the placeholder if unknown)<input name="name" value="${escape(candidate.name)}" required minlength="2" maxlength="200"></label><label>Source number<input value="${escape(candidate.phone)}" readonly></label><label><input name="verified" type="checkbox" required>I reviewed the local source and this is a customer or customer enquiry.</label><button class="small">Add reviewed customer</button><p role="status"></p>`;
         cards[index].append(form);
-        form.addEventListener("submit",async event=>{event.preventDefault();const button=form.querySelector<HTMLButtonElement>("button")!,output=form.querySelector("p")!;button.disabled=true;try{const values=new FormData(form);await api(`/manage/whatsapp/customers/${candidate.id}/approve`,"POST",{verified:values.get("verified")==="on",customer:{name:String(values.get("name")),phone:candidate.phone,offersConsent:false}});await changed();await refresh();}catch(error){fail(output,error);button.disabled=false;}});
+        form.addEventListener("submit",async event=>{event.preventDefault();const button=form.querySelector<HTMLButtonElement>("button")!,output=form.querySelector("p")!;button.disabled=true;try{const values=new FormData(form);await api(`/manage/whatsapp/customers/${candidate.id}/approve`,"POST",{verified:values.get("verified")==="on",customer:{name:String(values.get("name")),phone:candidate.phone,kind:"unknown",offersConsent:false}});await changed();await refresh();}catch(error){fail(output,error);button.disabled=false;}});
       });
       list.querySelector("#wc-prev")!.addEventListener("click",()=>{offset-=25;void refresh();});list.querySelector("#wc-next")!.addEventListener("click",()=>{offset+=25;void refresh();});
     }catch(error){fail(stats,error);}
@@ -39,7 +47,7 @@ export async function renderWhatsAppCustomers(root:Element,api:Api,changed:()=>P
         }
         if(count!==table.count)throw new Error("Database changed during backup. Download again before removing any chat text.");parts.push("]");
       }
-      parts.push("}}");download(new Blob(parts,{type:"application/json"}),"magic-before-customer-cleanup.json");output.textContent="Full recovery backup downloaded. Verify the saved file on your PC before removing online chat text.";
+      parts.push("}}");output.textContent="Compressing the recovery backup…";await download(root,new Blob(parts,{type:"application/json"}),"magic-before-customer-cleanup.json");output.textContent="Recovery backup prepared. Save the prepared recovery backup, then verify the saved file on your PC before removing online chat text.";
     }catch(error){fail(output,error);}finally{button.disabled=false;}
   });
   root.querySelector("#wc-import")!.addEventListener("click",async event=>{

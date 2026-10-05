@@ -92,7 +92,7 @@ export interface Customer {
   name: string;
   phone: string;
   email: string;
-  kind: "family" | "school" | "organization" | "planner" | "venue";
+  kind: "family" | "school" | "organization" | "planner" | "venue" | "unknown";
   children: { name: string; birthday: string }[];
   contacts: { name: string; role: string; phone: string }[];
   notes: string;

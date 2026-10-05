@@ -46,7 +46,7 @@ export const customerSchema = z.object({
     }, "Enter a phone number with 7–16 digits"),
   email: z.union([z.literal(""), z.email()]).default(""),
   kind: z
-    .enum(["family", "school", "organization", "planner", "venue"])
+    .enum(["family", "school", "organization", "planner", "venue", "unknown"])
     .default("family"),
   children: z
     .array(z.object({ name: short.min(1), birthday: date }))
