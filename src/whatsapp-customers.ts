@@ -14,6 +14,28 @@ function owned(req: Request) { requireThat(["owner", "admin"].includes(req.user.
 
 export function whatsappCustomers(app: Express, store: Store) {
   const writes = writeRoutes(app, store);
+  writes.post("/api/manage/whatsapp/customers/phonebook", async(request,res)=>{
+    const req=owned(request),input=z.object({sourceHash:hash,matches:z.array(z.object({id:z.string().regex(/^[a-f0-9]{32}$/),phone:z.string().regex(/^\+[1-9]\d{6,14}$/),label:z.string().trim().min(2).max(200).regex(/\p{L}/u)}).strict()).min(1).max(25)}).strict().parse(req.body);
+    let updated=0,customerNames=0,skipped=0;
+    for(const match of input.matches){
+      const before=await store.get<Candidate & {phonebookLabel?:string}>(req.business.id,"whatsappCustomerReview",match.id);
+      requireThat(before,"Matching enquiry contact not found.",404);
+      requireThat(normalizePhone(before.phone)===normalizePhone(match.phone),"Phone-book number does not match the enquiry contact.",409);
+      if(before.phonebookLabel===match.label){skipped++;continue;}
+      const placeholder=/^Customer · \d+$/.test(before.name);
+      const next={...before,name:placeholder?match.label:before.name,displayNameCandidates:[...new Set([...before.displayNameCandidates,match.label])].slice(0,3),phonebookLabel:match.label,phonebookSourceHash:input.sourceHash,phonebookMatchedAt:new Date().toISOString(),phonebookIdentityVerified:false};
+      await store.put(req.business.id,"whatsappCustomerReview",next);updated++;
+      if(before.customerId){
+        const customer=await store.get<Customer>(req.business.id,"customers",before.customerId);
+        if(customer&&normalizePhone(customer.phone)===normalizePhone(match.phone)&&/^Customer · \d+$/.test(customer.name)){
+          const changed={...customer,name:match.label,phonebookLabel:match.label,phonebookIdentityVerified:false};
+          await store.put(req.business.id,"customers",changed);customerNames++;
+          await store.audit(req.business.id,req.user.email,"customer.phonebook-name-added",customer.id,{name:customer.name},{name:match.label,sourceHash:input.sourceHash,identityVerified:false});
+        }
+      }
+    }
+    await store.audit(req.business.id,req.user.email,"whatsapp.phonebook-matched",input.sourceHash,null,{updated,customerNames,skipped});res.json({updated,customerNames,skipped});
+  });
   app.get("/api/manage/whatsapp/customers", async (request, res) => {
     const req=owned(request), rows=await store.all<Candidate>(req.business.id,"whatsappCustomerReview");
     const q=String(req.query.q??"").toLowerCase().slice(0,100), offset=Math.max(0,Number(req.query.offset)||0);
