@@ -53,6 +53,16 @@ test("private WhatsApp import is resumable, scoped, counted and never creates bo
     assert.equal((await request("/manage/whatsapp/import", { sourceHash, entries: [{ ...entries[2], rows: [{ ...common, cue_message_id: "x", review_status: "confirmed" }] }] }, owner)).status, 400);
     assert.equal((await store.all(business.id, "customers")).length, 0);
     assert.equal((await store.all(business.id, "bookings")).length, 0);
+    const customerPath = `/manage/whatsapp/chat/${chats.chats[0].key}/customer`;
+    const customerInput = { verified: true, customer: { name: "Verified test family", phone: "+96170000123", offersConsent: false } };
+    assert.equal((await request(customerPath, { ...customerInput, verified: false }, owner)).status, 400);
+    assert.equal((await request(customerPath, customerInput, foreign)).status, 404);
+    const verified = await request(customerPath, customerInput, owner);
+    assert.equal(verified.status, 200); assert.equal(verified.data.created, true);
+    assert.equal((await request(customerPath, customerInput, owner)).data.created, false);
+    assert.equal((await store.all(business.id, "customers")).length, 1);
+    assert.equal((await store.all(business.id, "customers"))[0].offersConsent, false);
+    assert.equal((await store.all(business.id, "bookings")).length, 0);
     // Exercise a compressed multi-megabyte packet with a hosted-style SQL size limit.
     const prepare = store.db.prepare.bind(store.db);
     store.db.prepare = sql => {

@@ -2524,3 +2524,14 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 #wa-conversation h2 { overflow-wrap: anywhere; }
 #wa-list .row { flex-wrap: wrap; }
 .dashboard #wa-pause[hidden], .dashboard #wa-conversation[hidden] { display: none; }
+.message-customer-list { max-height: 280px; overflow-y: auto; margin: 12px 0; }
+.message-customer { display: flex; gap: 12px; align-items: center; padding: 12px; border-bottom: 1px solid #eee5f5; }
+.message-customer input { width: auto; }
+.message-customer small, .message-draft small { display: block; color: #65557b; }
+.message-customer[hidden], #message-customer-picker[hidden] { display: none; }
+.message-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-draft { border: 1px solid #e8def0; border-radius: 18px; padding: 18px; margin: 18px 0; }
+.message-draft .row { flex-wrap: wrap; }
+.message-prepared:not(:empty) { background: #f5f0fa; padding: 18px; border-radius: 14px; margin-top: 14px; }
+#campaign-message { width: 100%; box-sizing: border-box; }
+#wa-customer-form input[type="checkbox"] { width: auto; margin-right: 8px; }

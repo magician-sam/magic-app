@@ -1,8 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import type { Store } from "./store.js";
-import type { Business, User } from "./models.js";
-import { requireThat, Problem } from "./domain.js";
+import { id } from "./store.js";
+import type { Business, User, Customer } from "./models.js";
+import { requireThat, Problem, customerSchema, normalizePhone } from "./domain.js";
 import { writeRoutes } from "./write-routes.js";
 import { gunzipSync } from "node:zlib";
 
@@ -123,6 +124,23 @@ export function whatsappHistory(app: Express, store: Store) {
     const filter = "business_id=? AND kind=? AND id>=? AND id<?";
     const total = await store.db.prepare(`SELECT count(*) AS total FROM records WHERE ${filter}`).get(...args);
     const row = await store.db.prepare(`SELECT data FROM records WHERE ${filter} ORDER BY id LIMIT 1 OFFSET ?`).get(...args, offset);
-    res.set("Cache-Control", "private, no-store").json({ contact: contact.rows[0], kind, offset, chunks: Number(total?.total ?? 0), rows: row ? (JSON.parse(String(row.data)) as Stored).rows : [] });
+    const customerLink = await store.get(req.business.id, "whatsappCustomerLinks", String(req.params.key));
+    res.set("Cache-Control", "private, no-store").json({ contact: contact.rows[0], customerLink, kind, offset, chunks: Number(total?.total ?? 0), rows: row ? (JSON.parse(String(row.data)) as Stored).rows : [] });
+  });
+  writes.post("/api/manage/whatsapp/chat/:key/customer", async (request, res) => {
+    const req = owner(request);
+    const key = String(req.params.key);
+    const contact = await store.get<Stored>(req.business.id, kinds.contact, key);
+    requireThat(contact, "Conversation not found", 404);
+    const input = z.object({ verified: z.literal(true), customer: customerSchema }).strict().parse(req.body);
+    const matches = (await store.all<Customer>(req.business.id, "customers")).filter(customer => normalizePhone(customer.phone) === normalizePhone(input.customer.phone));
+    requireThat(matches.length <= 1, "Multiple customers use this number. Review them in Customers before linking.", 409);
+    const existing = matches[0];
+    const customer = existing ?? { ...input.customer, id: id(), source: "whatsapp_review" };
+    if (!existing) await store.put(req.business.id, "customers", customer);
+    const link = { id: key, customerId: customer.id, customerName: customer.name, sourceHash: contact.sourceHash, chatId: contact.chatId, verifiedAt: new Date().toISOString(), verifiedBy: req.user.email };
+    await store.put(req.business.id, "whatsappCustomerLinks", link);
+    await store.audit(req.business.id, req.user.email, existing ? "whatsapp.customer-linked" : "whatsapp.customer-verified", customer.id, null, { ...link, offersConsent: customer.offersConsent });
+    res.json({ customerId: customer.id, customerName: customer.name, created: !existing, offersConsent: customer.offersConsent });
   });
 }

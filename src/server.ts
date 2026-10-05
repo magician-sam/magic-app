@@ -1,5 +1,8 @@
 import { guestServiceNames } from "./guest-services.js";
 import { whatsappHistory } from "./whatsapp-history.js";
+import { whatsappCustomers } from "./whatsapp-customers.js";
+import { databasePages } from "./database-pages.js";
+import { messaging } from "./messaging.js";
 import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
 import { experienceFor } from "./visitor-experience.js";
@@ -862,6 +865,9 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   rewardLedger(app, store, canManage);
   contactHistory(app, store);
   whatsappHistory(app, store);
+  whatsappCustomers(app, store);
+  databasePages(app, store);
+  messaging(app, store, origin);
   customerMerge(app, store);
   followups(app, store);
   writes.put("/api/manage/bookings/:id/custom-answers", async (req, res) => {

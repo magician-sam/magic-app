@@ -1,5 +1,6 @@
 import { canStaffAction, userCanStaffAction, configurableStaffActions, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
-import { renderWhatsApp } from "./whatsapp-client.js";
+import { renderWhatsAppCustomers } from "./whatsapp-customers-client.js";
+import { renderMessaging } from "./messaging-client.js";
 import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
@@ -2166,7 +2167,8 @@ const navItems = [
   ["enquiries", "✉", "Service enquiries"],
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
-  ["whatsapp", "◈", "WhatsApp history"],
+  ["whatsapp", "◈", "WhatsApp customers"],
+  ["messaging", "✉", "SMS & WhatsApp"],
   ["packages", "✧", "Shows & packages"],
   ["guest-shows", "✶", "Guest shows & services"],
   ["guest-photos", "▧", "Photos & videos"],
@@ -2218,7 +2220,7 @@ function renderDashboard() {
       (n) =>
         (!views || views.includes(n[0])) &&
         (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")) &&
-        (n[0] !== "whatsapp" || ["owner", "admin"].includes(state!.user.role)),
+        (!["whatsapp", "messaging"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -2274,7 +2276,8 @@ function renderDashboard() {
   else if (currentView === "guest-shows") renderGuestShowsAdmin(content);
   else if (currentView === "enquiries") renderEnquiries(content);
   else if (currentView === "customers") renderCustomers(content);
-  else if (currentView === "whatsapp") void renderWhatsApp(content, api);
+  else if (currentView === "whatsapp") void renderWhatsAppCustomers(content, api, async () => { state = await api<Dashboard>("/manage/state"); });
+  else if (currentView === "messaging") void renderMessaging(content, api);
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
   else if (currentView === "offers") renderCatalogAdmin(content, "packages");
