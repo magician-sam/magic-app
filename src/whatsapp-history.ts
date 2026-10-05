@@ -1,8 +1,8 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import type { Store } from "./store.js";
 import type { Business, User } from "./models.js";
-import { requireThat } from "./domain.js";
+import { requireThat, Problem } from "./domain.js";
 import { writeRoutes } from "./write-routes.js";
 import { gunzipSync } from "node:zlib";
 
@@ -82,6 +82,15 @@ export function whatsappHistory(app: Express, store: Store) {
     await flushSql();
     await store.put(req.business.id, "whatsappStats", { id: input.sourceHash, counts: Object.fromEntries(Object.keys(kinds).map(key => [key, before[key] + increments[key]])) });
     res.json({ inserted, received: values.length });
+  });
+  app.use("/api/manage/whatsapp/import", async (error: unknown, request: Request, res: Response, next: NextFunction) => {
+    const req = request as Authed;
+    if (!req.user || !["owner", "admin"].includes(req.user.role) || error instanceof z.ZodError || error instanceof Problem) { next(error); return; }
+    // Owned diagnostic only: strip URLs and long credential-shaped values.
+    const detail = (error instanceof Error ? error.message : "Unknown database error").replace(/(?:https?|libsql):\/\/\S+/g, "[database]").replace(/[A-Za-z0-9_=-]{40,}/g, "[redacted]").slice(0, 400);
+    const code = error && typeof error === "object" && "code" in error ? String(error.code).slice(0, 80) : "DATABASE_WRITE";
+    try { await store.put(req.business.id, "whatsappDiagnostics", { id: "last-error", at: new Date().toISOString(), code, detail }); } catch { /* Keep the original error available if the database is unavailable. */ }
+    res.status(503).json({ error: `Import paused: ${detail}. Previously saved records are unchanged.`, code });
   });
   writes.post("/api/manage/whatsapp/complete", async (request, res) => {
     const req = owner(request);
