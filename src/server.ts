@@ -1,4 +1,5 @@
 import { guestServiceNames } from "./guest-services.js";
+import { whatsappHistory } from "./whatsapp-history.js";
 import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
 import { experienceFor } from "./visitor-experience.js";
@@ -860,6 +861,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
   customerRecovery(app, store, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);
+  whatsappHistory(app, store);
   customerMerge(app, store);
   followups(app, store);
   writes.put("/api/manage/bookings/:id/custom-answers", async (req, res) => {

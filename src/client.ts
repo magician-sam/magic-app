@@ -1,4 +1,5 @@
 import { canStaffAction, userCanStaffAction, configurableStaffActions, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
+import { renderWhatsApp } from "./whatsapp-client.js";
 import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
@@ -68,7 +69,7 @@ const empty = (title: string, description: string) =>
   `<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${e(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
 let state: Dashboard | undefined;
-let currentView = "today";
+let currentView = location.hash === "#whatsapp" ? "whatsapp" : "today";
 let calendarMonth = "",
   calendarDay = "",
   calendarStatus = "all",
@@ -2165,6 +2166,7 @@ const navItems = [
   ["enquiries", "✉", "Service enquiries"],
   ["calendar", "▦", "Calendar"],
   ["customers", "♡", "Customers"],
+  ["whatsapp", "◈", "WhatsApp history"],
   ["packages", "✧", "Shows & packages"],
   ["guest-shows", "✶", "Guest shows & services"],
   ["guest-photos", "▧", "Photos & videos"],
@@ -2207,6 +2209,7 @@ function bookingRow(b: Booking) {
 function staffCan(action: StaffAction) { return !!state && userCanStaffAction(state.user, action); }
 function renderDashboard() {
   if (!state) return;
+  if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
   const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
@@ -2214,7 +2217,8 @@ function renderDashboard() {
     .filter(
       (n) =>
         (!views || views.includes(n[0])) &&
-        (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")),
+        (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")) &&
+        (n[0] !== "whatsapp" || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -2270,6 +2274,7 @@ function renderDashboard() {
   else if (currentView === "guest-shows") renderGuestShowsAdmin(content);
   else if (currentView === "enquiries") renderEnquiries(content);
   else if (currentView === "customers") renderCustomers(content);
+  else if (currentView === "whatsapp") void renderWhatsApp(content, api);
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
   else if (currentView === "offers") renderCatalogAdmin(content, "packages");

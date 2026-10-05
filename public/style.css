@@ -2515,3 +2515,11 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 @media (max-width: 700px) {
   .customer-surface dialog .dialog-heading .close { min-width: 44px; min-height: 44px; flex-shrink: 0; }
 }
+/* Private WhatsApp archive: isolated from the customer site. */
+.whatsapp-message { border: 1px solid #e8def0; border-radius: 16px; padding: 16px; margin: 12px 0; background: #faf7fd; overflow-wrap: anywhere; }
+.whatsapp-message p { white-space: pre-wrap; }
+.whatsapp-message small { color: #65557b; }
+.whatsapp-message.wa-outgoing { background: #f1ecf7; margin-left: 24px; }
+#wa-list .row-main { min-width: 0; overflow-wrap: anywhere; }
+#wa-conversation h2 { overflow-wrap: anywhere; }
+#wa-list .row { flex-wrap: wrap; }
