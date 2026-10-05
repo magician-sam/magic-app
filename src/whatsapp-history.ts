@@ -65,9 +65,23 @@ export function whatsappHistory(app: Express, store: Store) {
     }
     const before = await counts(store, req.business.id, input.sourceHash);
     // Stable source IDs make interruption/retry safe; never overwrite an earlier import.
-    const result = await store.db.prepare(`INSERT INTO records(business_id,kind,id,data) VALUES ${values.map(() => "(?,?,?,?)").join(",")} ON CONFLICT(business_id,kind,id) DO NOTHING`).run(...values.flatMap(entry => [req.business.id, kinds[entry.kind], `${input.sourceHash}:${entry.id}`, JSON.stringify(entry)]));
+    // The hosted database has smaller request limits than a local SQLite file.
+    // Split SQL payloads while keeping the entire archive packet atomic.
+    let inserted = 0, sqlValues: string[][] = [], sqlBytes = 0;
+    async function flushSql() {
+      if (!sqlValues.length) return;
+      const result = await store.db.prepare(`INSERT INTO records(business_id,kind,id,data) VALUES ${sqlValues.map(() => "(?,?,?,?)").join(",")} ON CONFLICT(business_id,kind,id) DO NOTHING`).run(...sqlValues.flat());
+      inserted += Number(result.changes); sqlValues = []; sqlBytes = 0;
+    }
+    for (const entry of values) {
+      const args = [req.business.id, kinds[entry.kind], `${input.sourceHash}:${entry.id}`, JSON.stringify(entry)];
+      const bytes = Buffer.byteLength(JSON.stringify(args));
+      if (sqlBytes + bytes > 350000) await flushSql();
+      sqlValues.push(args); sqlBytes += bytes;
+    }
+    await flushSql();
     await store.put(req.business.id, "whatsappStats", { id: input.sourceHash, counts: Object.fromEntries(Object.keys(kinds).map(key => [key, before[key] + increments[key]])) });
-    res.json({ inserted: Number(result.changes), received: values.length });
+    res.json({ inserted, received: values.length });
   });
   writes.post("/api/manage/whatsapp/complete", async (request, res) => {
     const req = owner(request);
