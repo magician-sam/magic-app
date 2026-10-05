@@ -4,6 +4,7 @@ import type { Store } from "./store.js";
 import type { Business, User } from "./models.js";
 import { requireThat } from "./domain.js";
 import { writeRoutes } from "./write-routes.js";
+import { gunzipSync } from "node:zlib";
 
 const kinds = { contact: "whatsappContacts", messages: "whatsappMessages", review: "whatsappReview" } as const;
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -34,7 +35,14 @@ export function whatsappHistory(app: Express, store: Store) {
   });
   writes.post("/api/manage/whatsapp/import", async (request, res) => {
     const req = owner(request);
-    const input = z.object({ sourceHash: hash, entries: z.array(entrySchema).min(1).max(100) }).strict().parse(req.body);
+    const packet = z.object({ sourceHash: hash, entries: z.array(entrySchema).min(1).max(100).optional(), compressedEntries: z.string().max(650000).regex(/^[A-Za-z0-9+/]+={0,2}$/).optional() }).strict().parse(req.body);
+    requireThat(!!packet.entries !== !!packet.compressedEntries, "Choose one archive packet format.");
+    let entries = packet.entries;
+    if (packet.compressedEntries) {
+      try { entries = z.array(entrySchema).min(1).max(100).parse(JSON.parse(gunzipSync(Buffer.from(packet.compressedEntries, "base64"), { maxOutputLength: 4 * 1024 * 1024 }).toString("utf8"))); }
+      catch { requireThat(false, "Archive packet is invalid or exceeds the decompression limit."); }
+    }
+    const input = { sourceHash: packet.sourceHash, entries: entries! };
     for (const entry of input.entries) {
       requireThat(entry.kind !== "contact" || entry.rows.length === 1, "Each chat needs its own contact record.");
       for (const row of entry.rows) {

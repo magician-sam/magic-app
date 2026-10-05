@@ -59,7 +59,18 @@ export async function renderWhatsApp(root: Element, api: Api) {
           await api("/manage/whatsapp/complete", "POST", { sourceHash: body.sourceHash, expected: body.expected });
           completed = true;
         } else {
-          await api("/manage/whatsapp/import", "POST", body);
+          for (;;) {
+            try { await api("/manage/whatsapp/import", "POST", body); break; }
+            catch (error) {
+              if (!(error instanceof Error) || !("status" in error) || error.status !== 429) throw error;
+              // Respect the existing server rate limit. Saved records are retained during this wait.
+              for (let minute = 15; minute > 0 && !paused; minute--) {
+                progress.textContent = `Saved ${batches} batches. Waiting ${minute} minute${minute === 1 ? "" : "s"} for the server limit to reset; this will resume automatically.`;
+                await new Promise(resolve => setTimeout(resolve, 60_000));
+              }
+              if (paused) return;
+            }
+          }
           batches++;
           progress.textContent = `Saved ${batches} batches. Keep this tab open while importing.`;
         }

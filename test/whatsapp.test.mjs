@@ -4,6 +4,7 @@ import { TestStore as Store } from "./store-fixture.mjs";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 import { objects } from "../scripts/prepare-whatsapp-import.mjs";
+import { gzipSync } from "node:zlib";
 
 test("WhatsApp CSV preserves quoted text, embedded lines, leading zeros and formula-like messages", () => {
   assert.deepEqual([...objects('\uFEFFid,text\r\n001,"hello,""friend""\n=SUM(A1)"\r\n')], [{ id: "001", text: 'hello,"friend"\n=SUM(A1)' }]);
@@ -39,6 +40,8 @@ test("private WhatsApp import is resumable, scoped, counted and never creates bo
     assert.equal((await request("/manage/whatsapp/import", { sourceHash, entries }, manager)).status, 403);
     assert.equal((await request("/manage/whatsapp/import", { sourceHash, entries }, owner)).data.inserted, 3);
     assert.equal((await request("/manage/whatsapp/import", { sourceHash, entries }, owner)).data.inserted, 0);
+    assert.equal((await request("/manage/whatsapp/import", { sourceHash, compressedEntries: gzipSync(JSON.stringify(entries)).toString("base64") }, owner)).data.inserted, 0);
+    assert.equal((await request("/manage/whatsapp/import", { sourceHash, compressedEntries: Buffer.from("invalid gzip").toString("base64") }, owner)).status, 400);
     assert.equal((await request("/manage/whatsapp/complete", { sourceHash, expected: { contact: 1, messages: 2, review: 1 } }, owner)).status, 409);
     assert.equal((await request("/manage/whatsapp/complete", { sourceHash, expected: { contact: 1, messages: 1, review: 1 } }, owner)).status, 200);
     assert.deepEqual((await request("/manage/whatsapp/summary", null, owner)).data.counts, { contact: 1, messages: 1, review: 1 });

@@ -158,7 +158,7 @@ async function api<T = Record<string, unknown>>(
   });
   const data = await result.json();
   if (!result.ok)
-    throw new Error(data.error ?? "Something went wrong. Please try again.");
+    throw Object.assign(new Error(data.error ?? "Something went wrong. Please try again."), { status: result.status });
   return data as T;
 }
 function staffDeviceHeaders(): Record<string, string> {

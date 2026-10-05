@@ -2,6 +2,7 @@ import { readFileSync, createWriteStream, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
+import { gzipSync } from "node:zlib";
 
 // Read RFC 4180 CSV without spreadsheet coercion or changing source messages.
 export function* csvRows(text) {
@@ -40,7 +41,8 @@ export async function prepare(inputDirectory, outputDirectory) {
   let sourceHash, entries = [], size = 0, batches = 0;
   async function flush() {
     if (!entries.length) return;
-    const line = JSON.stringify({ sourceHash, entries }) + "\n";
+    const compressedEntries = gzipSync(JSON.stringify(entries)).toString("base64");
+    const line = JSON.stringify({ sourceHash, compressedEntries }) + "\n";
     if (Buffer.byteLength(line) > 480000) throw new Error("Batch exceeds the private import limit.");
     if (!output.write(line)) await once(output, "drain");
     batches++; entries = []; size = 0;
@@ -48,7 +50,7 @@ export async function prepare(inputDirectory, outputDirectory) {
   async function append(entry) {
     const bytes = Buffer.byteLength(JSON.stringify(entry));
     if (bytes > 300000) throw new Error("A source record is too large; review it before importing.");
-    if (size + bytes > 450000 || entries.length >= 80) await flush();
+    if (size + bytes > 3000000 || entries.length >= 100) await flush();
     entries.push(entry); size += bytes;
   }
   for (const [kind, file] of [["contact", "magic_chat_contacts.csv"], ["messages", "magic_messages.csv"], ["review", "magic_event_review.csv"]]) {

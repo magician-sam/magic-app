@@ -2523,3 +2523,4 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 #wa-list .row-main { min-width: 0; overflow-wrap: anywhere; }
 #wa-conversation h2 { overflow-wrap: anywhere; }
 #wa-list .row { flex-wrap: wrap; }
+.dashboard #wa-pause[hidden], .dashboard #wa-conversation[hidden] { display: none; }
