@@ -54,7 +54,7 @@ export function whatsappHistory(app: Express, store: Store) {
       if (entry.kind !== "contact") requireThat(entry.id.startsWith(`${entry.kind}_${entry.chatId}_`) && /^\d{7}$/.test(entry.id.slice(`${entry.kind}_${entry.chatId}_`.length)), "Invalid conversation chunk reference.");
     }
     const values = input.entries.map(entry => ({ ...entry, sourceHash: input.sourceHash, importedAt: new Date().toISOString() }));
-    const existing = await store.db.prepare(`SELECT kind,id FROM records WHERE business_id=? AND (${values.map(() => "(kind=? AND id=?)").join(" OR ")})`).all(req.business.id, ...values.flatMap(entry => [kinds[entry.kind], `${input.sourceHash}:${entry.id}`]));
+    const existing = await store.db.prepare(`SELECT kind,id FROM records WHERE business_id=? AND kind IN ('whatsappContacts','whatsappMessages','whatsappReview') AND id IN (${values.map(() => "?").join(",")})`).all(req.business.id, ...values.map(entry => `${input.sourceHash}:${entry.id}`));
     const saved = new Set(existing.map(row => `${row.kind}:${row.id}`));
     const newKeys = new Set<string>();
     const increments: Record<string, number> = { contact: 0, messages: 0, review: 0 };

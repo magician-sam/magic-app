@@ -53,6 +53,22 @@ test("private WhatsApp import is resumable, scoped, counted and never creates bo
     assert.equal((await request("/manage/whatsapp/import", { sourceHash, entries: [{ ...entries[2], rows: [{ ...common, cue_message_id: "x", review_status: "confirmed" }] }] }, owner)).status, 400);
     assert.equal((await store.all(business.id, "customers")).length, 0);
     assert.equal((await store.all(business.id, "bookings")).length, 0);
+    // Exercise a compressed multi-megabyte packet with a hosted-style SQL size limit.
+    const prepare = store.db.prepare.bind(store.db);
+    store.db.prepare = sql => {
+      assert.ok(!sql.includes(" OR "), "Archive duplicate checks must fit hosted expression-depth limits");
+      const statement = prepare(sql);
+      if (!sql.startsWith("INSERT INTO records(business_id,kind,id,data) VALUES")) return statement;
+      return { ...statement, run: (...args) => {
+        assert.ok(Buffer.byteLength(JSON.stringify(args)) < 400000, "SQL transport payload must remain bounded");
+        return statement.run(...args);
+      } };
+    };
+    const large = Array.from({ length: 100 }, (_, index) => ({ kind: "messages", id: `messages_chat_1_${String(index + 1).padStart(7, "0")}`, chatId: "chat_1", rows: Array.from({ length: 2 }, (_, n) => ({ ...common, message_id: `large_${index}_${n}`, direction: "incoming", content: "a".repeat(13000) })) }));
+    const big = await request("/manage/whatsapp/import", { sourceHash, compressedEntries: gzipSync(JSON.stringify(large)).toString("base64") }, owner);
+    assert.equal(big.status, 200, JSON.stringify(big.data));
+    assert.equal(big.data.inserted, 100);
+    assert.equal((await request("/manage/whatsapp/summary", null, owner)).data.counts.messages, 201);
   } finally { await new Promise(resolve => server.close(resolve)); store.db.close(); }
 });
 
