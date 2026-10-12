@@ -1,0 +1,13 @@
+# Marketplace discovery and partner foundation
+
+The customer homepage now provides Playgrounds & Venues and Entertainment Agencies sections, visible category discovery, occasion entry points and phone navigation. The full existing show catalogue remains available. Photos use existing portfolio assets and retain the enlargement controls. Partner cards and public profile links use approved server records only; no fictional companies, venue photos, prices, reviews or availability claims are seeded.
+
+The public directory works with the legacy database without migrating it: when partner storage is absent, it returns empty directory results and the customer sees helpful contextual enquiry options. This release does not activate a production data migration or create provider identities/memberships. Contact buttons open contextual WhatsApp drafts; they do not send campaigns or confirm bookings.
+
+Local partner foundation: explicit eight-table migration, separate legacy login mapping, organization/membership/listing persistence, immutable revisions/audit, application/profile/listing submission and separate master review. `/partner` provides a draft/review desk once that schema and authorized account access have deliberately been activated. Reads never create permissions or map identities. Published edits require a future amendment flow; invitations, full member controls, venue/media details, real mixed-provider bookings and shared resource grants remain pending.
+
+Public APIs expose only approved allowlisted profile fields and approved own listing titles/categories. Draft/pending/suspended/archived profiles are unavailable publicly. Queries are bounded and paginated. Private sessions, roles, memberships, review history and finance data are not public.
+
+Snapshots v1/v2 retain legacy recovery. Version 3 covers all 20 core tables. Empty-destination restore and foreign-key checks prevent overwriting existing data. A single legacy business owner cannot download independent partner data through a full export. Extend snapshot coverage before adding subsequent resource/event schemas.
+
+Verification: TypeScript, lint and browser builds; complete application tests on SQLite and libSQL; synthetic browser checks of phone/desktop discovery, public-profile privacy, photos, existing event-box persistence, signup and enquiry submission. Independent partner/master browser tests cover application, separate approvals and revoked access. This is not evidence that every future feature is implemented or that messaging/social sign-in is activated.

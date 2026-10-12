@@ -2,12 +2,14 @@ import { guestServiceNames } from "./guest-services.js";
 import { whatsappHistory } from "./whatsapp-history.js";
 import { whatsappCustomers } from "./whatsapp-customers.js";
 import { databasePages } from "./database-pages.js";
+import { marketplaceRoutes } from "./marketplace-routes.js";
+import { marketplacePublicRoutes, MarketplacePublic } from "./marketplace-public.js";
 import { messaging } from "./messaging.js";
 import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
-import { snapshot } from "./snapshots.js";
+import { snapshot, businessBackupScope, snapshotTables } from "./snapshots.js";
 import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
 import { limitedStaff, staffRouteAllowed, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
@@ -173,6 +175,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   });
   app.use("/api", rateLimit(store));
   emailRecovery(app, store, origin, resetMailer);
+  marketplaceRoutes(app, store);
+  marketplacePublicRoutes(app, store);
   const owned = async <T>(businessId: string, kind: string, key: string) => {
     const value = await store.get<T>(businessId, kind, key);
     requireThat(value, "Record not found", 404);
@@ -2717,10 +2721,10 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const req = request as Authed;
     requireThat(["owner", "admin"].includes(req.user.role), "Only the owner can download a database backup.", 403);
     const data = await store.transaction(async () => {
-      const businesses = await store.db.prepare("SELECT id FROM businesses").all();
-      requireThat(businesses.length === 1 && businesses[0].id === req.business.id,
+      requireThat(await businessBackupScope(store, req.business.id),
         "Full database download requires a dedicated database for this business. Use the business export or the database provider for a shared database.", 403);
-      await store.audit(req.business.id, req.user.email, "database.backup-downloaded", req.business.id, null, { format: "full-snapshot-v2" });
+      const { version } = await snapshotTables(store);
+      await store.audit(req.business.id, req.user.email, "database.backup-downloaded", req.business.id, null, { format: `full-snapshot-v${version}` });
       return snapshot(store);
     });
     res.set("Cache-Control", "private, no-store")
@@ -2772,6 +2776,16 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     res.status(404).json({ error: "Endpoint not found" }),
   );
   app.use(express.static(resolve("dist/public"), { index: false }));
+  app.get("/partner", (_req, res) => res.sendFile(resolve("public/partner.html")));
+  app.get("/providers/:slug", async (req, res) => {
+    const { partner } = await new MarketplacePublic(store).profile(String(req.params.slug));
+    const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+    const html = (await readFile(resolve("public/index.html"), "utf8"))
+      .replace(/<title>[^<]*<\/title>/, `<title>${escape(partner.name)} · Magic App</title>`)
+      .replace(/<meta\s+name="description"[\s\S]*?\/>/, `<meta name="description" content="${escape(partner.description.slice(0, 240))}" />`)
+      .replace("</head>", `<link rel="canonical" href="${origin}/providers/${partner.slug}" /></head>`);
+    res.type("html").send(html);
+  });
   app.get("/manage.", (_req, res) => res.redirect(302, "/manage"));
   app.get("/b/:slug/:kind/:key", async (req, res) => {
     const business = await businessBySlug(String(req.params.slug));

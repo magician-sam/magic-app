@@ -6,7 +6,8 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import type { Store } from "./store.js";
-const tables = {
+import { marketplaceColumns, marketplaceSchemaState, createMarketplaceRestoreSchema, marketplaceMigrationChecksum } from "./marketplace-storage.js";
+const legacyTables = {
   businesses: ["id", "slug", "data"],
   users: ["id", "business_id", "email", "password", "data"],
   records: ["business_id", "kind", "id", "data"],
@@ -33,10 +34,30 @@ const tables = {
   interest_clicks: ["business_id", "kind", "item_key", "day", "count"],
   rate_limits: ["id", "count", "expires"],
 } as const;
-type Table = keyof typeof tables;
+export async function snapshotTables(store: Store): Promise<{ version: 2 | 3; tables: Record<string, readonly string[]> }> {
+  const expanded = await marketplaceSchemaState(store.db) === "ready";
+  const tables = expanded ? { ...legacyTables, ...marketplaceColumns } : legacyTables;
+  const actual = (await store.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()).map(row => String(row.name)).sort();
+  if (JSON.stringify(actual) !== JSON.stringify(Object.keys(tables).sort()))
+    throw new Error("Unknown database tables are not covered by this backup format.");
+  return { version: expanded ? 3 : 2, tables };
+}
+
+export async function businessBackupScope(store: Store, businessId: string): Promise<boolean> {
+  const businesses = await store.db.prepare("SELECT id FROM businesses").all();
+  if (businesses.length !== 1 || businesses[0].id !== businessId) return false;
+  if (await marketplaceSchemaState(store.db) === "absent") return true;
+  // A single legacy business can still coexist with several independent partner
+  // organizations. Its owner must not download their accounts/records.
+  const foreignOrganization = await store.db.prepare("SELECT id FROM marketplace_organizations WHERE legacy_business_id IS NULL OR legacy_business_id!=? LIMIT 1").get(businessId);
+  const unscopedAccount = await store.db.prepare(`SELECT a.id FROM marketplace_accounts a WHERE NOT EXISTS
+    (SELECT 1 FROM marketplace_legacy_accounts l WHERE l.account_id=a.id AND l.business_id=?)
+    OR EXISTS (SELECT 1 FROM marketplace_legacy_accounts l WHERE l.account_id=a.id AND l.business_id!=?) LIMIT 1`).get(businessId, businessId);
+  return !foreignOrganization && !unscopedAccount;
+}
 const snapshotSchema = z
   .object({
-    version: z.union([z.literal(1), z.literal(2)]),
+    version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
     createdAt: z.iso.datetime(),
     tables: z.record(
       z.string(),
@@ -51,13 +72,14 @@ const snapshotSchema = z
   .strict();
 export async function snapshot(store: Store) {
   return store.transaction(async () => {
+    const { version, tables } = await snapshotTables(store);
     const data: Record<string, unknown> = {};
     for (const [table, columns] of Object.entries(tables))
       data[table] = await store.db
         .prepare(`SELECT ${columns.join(",")} FROM ${table} ORDER BY rowid`)
         .all();
     return snapshotSchema.parse({
-      version: 2,
+      version,
       createdAt: new Date().toISOString(),
       tables: data,
     });
@@ -65,6 +87,7 @@ export async function snapshot(store: Store) {
 }
 export async function restoreSnapshot(store: Store, input: unknown) {
   const data = snapshotSchema.parse(input);
+  const tables: Record<string, readonly string[]> = data.version === 3 ? { ...legacyTables, ...marketplaceColumns } : legacyTables;
   if (data.version === 1) {
     // Older encrypted backups predate these tables; restore them as empty.
     for (const name of ["referral_codes", "interest_clicks", "rate_limits"])
@@ -76,6 +99,15 @@ export async function restoreSnapshot(store: Store, input: unknown) {
   )
     throw new Error("Backup table list does not match this version.");
   return store.transaction(async () => {
+    const state = await marketplaceSchemaState(store.db);
+    if (data.version === 3) {
+      const migrations = data.tables.marketplace_migrations;
+      if (migrations.length !== 1 || migrations[0].version !== 1 || migrations[0].checksum !== marketplaceMigrationChecksum)
+        throw new Error("Unsupported marketplace migration in backup.");
+      if (state === "absent") await createMarketplaceRestoreSchema(store.db);
+    } else if (state !== "absent") {
+      throw new Error("Restore legacy backups into a legacy destination first, then migrate.");
+    }
     for (const table of Object.keys(tables)) {
       const row = await store.db
         .prepare(`SELECT count(*) AS count FROM ${table}`)
@@ -86,7 +118,7 @@ export async function restoreSnapshot(store: Store, input: unknown) {
         );
     }
     let count = 0;
-    for (const table of Object.keys(tables) as Table[]) {
+    for (const table of Object.keys(tables)) {
       const columns = tables[table];
       for (const row of data.tables[table]) {
         if (

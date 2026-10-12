@@ -4,6 +4,7 @@ import { TestStore as Store } from "./store-fixture.mjs";
 import { createUser } from "../dist/auth.js";
 import { createApp } from "../dist/server.js";
 import { snapshot, restoreSnapshot } from "../dist/snapshots.js";
+import { migrateMarketplace, MarketplaceStorage } from "../dist/marketplace-storage.js";
 
 test("full backups preserve every app table and restore older snapshots", async () => {
   const source = new Store(":memory:"), target = new Store(":memory:"), legacyTarget = new Store(":memory:");
@@ -65,4 +66,36 @@ test("full database download requires owner and a dedicated business database", 
     await store.createBusiness("Another private business", "second-business");
     assert.equal((await fetch(base + "/api/manage/full-database-export", { headers: { cookie: owner } })).status, 403);
   } finally { await new Promise(resolve => server.close(resolve)); store.db.close(); restored.db.close(); }
+});
+
+test("expanded backup endpoints include all marketplace tables and refuse independent partner data", async () => {
+  const store = new Store(":memory:"), target = new Store(":memory:");
+  const business = await store.createBusiness("Marketplace backup", "marketplace-backup");
+  const user = await createUser(store, business.id, "owner@marketplace-backup.test", "Fixture-password-42!", "Owner");
+  await migrateMarketplace(store.db);
+  const storage = new MarketplaceStorage(store.db), actor = await storage.mapLegacyAccount("staff", user.id);
+  const organization = id => ({ id, slug: id, name: "Synthetic provider", kind: "company", status: "approved", bookingMode: "direct", publicDescription: "Test", categories: ["magic"], revision: 0 });
+  await storage.insertOrganization(organization("own-storefront"), actor, business.id);
+  const server = createApp(store, "https://marketplace-backup.test").listen(0, "127.0.0.1");
+  await new Promise(resolve => server.on("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const login = await fetch(base + "/api/login", { method: "POST", headers: { origin: "https://marketplace-backup.test", "content-type": "application/json" }, body: JSON.stringify({ email: user.email, password: "Fixture-password-42!" }) });
+    assert.equal(login.status, 200);
+    const headers = { cookie: login.headers.get("set-cookie").split(";")[0] };
+    const full = await fetch(base + "/api/manage/full-database-export", { headers });
+    assert.equal(full.status, 200);
+    const data = await full.json(); assert.equal(data.version, 3); assert.equal(Object.keys(data.tables).length, 20);
+    await restoreSnapshot(target, data);
+    assert.deepEqual((await snapshot(target)).tables, data.tables);
+    const manifest = await (await fetch(base + "/api/manage/database-page", { headers })).json();
+    assert.equal(manifest.version, 3); assert.equal(manifest.tables.length, 20);
+    const accounts = manifest.tables.find(table => table.table === "marketplace_accounts");
+    const page = await (await fetch(base + `/api/manage/database-page?table=marketplace_accounts&ceiling=${accounts.ceiling}`, { headers })).json();
+    assert.equal(page.rows.length, 1); assert.equal(page.rows[0].id, actor);
+    assert.equal((await fetch(base + "/api/manage/database-page?table=marketplace_accounts%3BDROP%20TABLE%20users&ceiling=1", { headers })).status, 400);
+    await storage.insertOrganization(organization("another-independent-partner"), actor);
+    for (const path of ["/api/manage/full-database-export", "/api/manage/database-page", "/api/manage/database-page?table=marketplace_accounts&ceiling=1"])
+      assert.equal((await fetch(base + path, { headers })).status, 403);
+  } finally { await new Promise(resolve => server.close(resolve)); store.db.close(); target.db.close(); }
 });
