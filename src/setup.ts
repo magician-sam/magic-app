@@ -16,7 +16,7 @@ if (await store.db.prepare("SELECT id FROM users LIMIT 1").get()) {
 const email = z.email().parse(process.env.BOOTSTRAP_EMAIL);
 const password = z
   .string()
-  .min(14)
+  .min(7)
   .max(200)
   .parse(process.env.BOOTSTRAP_PASSWORD);
 const timezone = process.env.BUSINESS_TIMEZONE || "Asia/Beirut";
@@ -80,5 +80,4 @@ store.db.close();
 console.log(
   "Business and administrator created. Configure packages and performers before accepting real bookings.",
 );
-
 

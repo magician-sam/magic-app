@@ -240,7 +240,7 @@ type Field = {
 };
 function field(f: Field) {
   const value = f.value ?? "";
-  const attrs = `name="${e(f.key)}" id="f-${e(f.key)}" aria-label="${e(f.label)}" ${f.help ? `aria-describedby="help-${e(f.key)}"` : ""} ${f.required ? "required" : ""} ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""}`;
+  const attrs = `name="${e(f.key)}" id="f-${e(f.key)}" aria-label="${e(f.label)}" ${f.help ? `aria-describedby="help-${e(f.key)}"` : ""} ${f.required ? "required" : ""} ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""} ${f.type === "password" && (f.autocomplete === "new-password" || f.label.includes("7 characters")) ? 'minlength="7" maxlength="200"' : ""}`;
   if (f.type === "checkbox")
     return `<label class="check ${f.wide ? "wide" : ""}"><input type="checkbox" ${attrs} ${value ? "checked" : ""}>${e(f.label)}</label>`;
   const input =
@@ -1622,7 +1622,7 @@ function customerAuth(orderAfter = false, register = true) {
         },
         {
           key: "password",
-          label: "Choose a password (12 characters minimum)",
+          label: "Choose a password (7 characters minimum)",
           autocomplete: "new-password",
           type: "password",
           required: true,
@@ -1694,6 +1694,38 @@ function customerAuth(orderAfter = false, register = true) {
   });
 }
 function customerResetRequest() {
+  emailResetRequest(false);
+}
+function emailResetRequest(staff: boolean) {
+  const fields: Field[] = [
+    ...(!staff ? [{ key: "username", label: "Username", autocomplete: "username", required: true }] : []),
+    { key: "email", label: "Email address on your account", type: "email", autocomplete: "email", required: true },
+  ];
+  openDialog("Forgot your password?", formBody(fields,
+    "<p>We’ll email you a private link to choose a new password. It works once and expires after 30 minutes.</p>", "Email me a reset link")
+    + (!staff ? '<button class="link" id="manual-recovery">No email on your account? Get help from Sam</button>' : ""));
+  if (!staff) on(modal, "#manual-recovery", "click", () => customerManualResetRequest());
+  submit(modal.querySelector("form")!, async (data) => {
+    const response = await api<{ message: string }>("/reset/request", "POST", {
+      ...Object.fromEntries(data), ...(!staff ? { slug: catalog.business.slug } : {}),
+    });
+    openDialog("Check your email", `<p>${e(response.message)}</p>`);
+  });
+}
+function emailResetComplete(code: string, staff: boolean) {
+  openDialog("Choose a new password", formBody([
+    { key: "password", label: "New password (7 characters minimum)", type: "password", autocomplete: "new-password", required: true },
+    { key: "confirmPassword", label: "Repeat your new password", type: "password", autocomplete: "new-password", required: true },
+  ], "<p>Resetting your password signs out your other devices.</p>", "Save my new password"));
+  submit(modal.querySelector("form")!, async (data) => {
+    if (data.get("password") !== data.get("confirmPassword")) throw new Error("The passwords don’t match. Please try again.");
+    await api("/reset/complete", "POST", { code, password: data.get("password") });
+    modal.close();
+    notify("Password updated. Please sign in with your new password.");
+    if (staff) await login(); else customerAuth(false, false);
+  });
+}
+function customerManualResetRequest() {
   openDialog(
     "Let’s get you back in",
     formBody(
@@ -1765,7 +1797,7 @@ function customerResetComplete(username = "", code = "") {
         },
         {
           key: "password",
-          label: "New password (12 characters minimum)",
+          label: "New password (7 characters minimum)",
           type: "password",
           autocomplete: "new-password",
           required: true,
@@ -2109,7 +2141,7 @@ async function customerAccount() {
           },
           {
             key: "password",
-            label: "New password (12 characters minimum)",
+            label: "New password (7 characters minimum)",
             type: "password",
             required: true,
           },
@@ -2150,7 +2182,8 @@ async function login() {
     ],
     "",
     "Step inside →",
-  )}<p class="privacy">Each business has its own private records. Authorized platform support access is disclosed and logged.</p><p><a href="/install.html">Install Magic App on your phone or computer ↗</a></p><a href="/">← Back to the happy side</a></section></main>`;
+  )}<button class="link" id="staff-forgot-password">Forgot your password?</button><p class="privacy">Each business has its own private records. Authorized platform support access is disclosed and logged.</p><p><a href="/install.html">Install Magic App on your phone or computer ↗</a></p><a href="/">← Back to the happy side</a></section></main>`;
+  on(app, "#staff-forgot-password", "click", () => emailResetRequest(true));
   submit(app.querySelector("form")!, async (data) => {
     await api("/login", "POST", Object.fromEntries(data));
     await loadDashboard();
@@ -4274,7 +4307,7 @@ function addUser() {
     { key: "email", label: "Email", type: "email", required: true },
     {
       key: "password",
-      label: "Initial password (at least 14 characters)",
+      label: "Initial password (at least 7 characters)",
       type: "password",
       required: true,
     },
@@ -4328,7 +4361,7 @@ function addBusiness() {
     { key: "email", label: "Owner email", type: "email", required: true },
     {
       key: "password",
-      label: "Initial password (at least 14 characters)",
+      label: "Initial password (at least 7 characters)",
       type: "password",
       required: true,
     },
@@ -4357,7 +4390,7 @@ function changePassword() {
     },
     {
       key: "newPassword",
-      label: "New password (at least 14 characters)",
+      label: "New password (at least 7 characters)",
       type: "password",
       required: true,
     },
@@ -5596,7 +5629,14 @@ function reviewForm(performerId: string) {
   });
 }
 async function start() {
+  const emailResetCode = new URLSearchParams(location.hash.slice(1)).get("password-reset");
+  if (emailResetCode) history.replaceState(null, "", location.pathname + location.search);
   if (location.pathname === "/manage") {
+    if (emailResetCode) {
+      await login();
+      emailResetComplete(emailResetCode, true);
+      return;
+    }
     try {
       await loadDashboard();
     } catch {
@@ -5625,6 +5665,7 @@ async function start() {
     history.replaceState(null, "", cleaned.href);
   }
   renderPublic();
+  if (emailResetCode) emailResetComplete(emailResetCode, false);
   if (sharedPlan) document.querySelector("#event-box")?.scrollIntoView();
   offerNotification();
   setInterval(() => { if (!document.hidden) offerNotification(); }, 60_000);

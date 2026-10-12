@@ -48,6 +48,7 @@ import { z } from "zod";
 import { Store, id } from "./store.js";
 import { customerAccounts } from "./customer-accounts.js";
 import { customerRecovery } from "./customer-recovery.js";
+import { emailRecovery, sendRecoveryEmail, type ResetMailer } from "./email-recovery.js";
 import { contactHistory } from "./contact-history.js";
 import { customerMerge } from "./customer-merge.js";
 import { performerAssignments, type ActPlan } from "./act-plans.js";
@@ -121,7 +122,7 @@ const kinds = [
   "blocks",
   "referrals",
 ] as const;
-export function createApp(store: Store, origin = "http://localhost:3000") {
+export function createApp(store: Store, origin = "http://localhost:3000", resetMailer: ResetMailer = sendRecoveryEmail) {
   const app = express();
   const writes = writeRoutes(app, store);
   if (process.env.VERCEL) app.set("trust proxy", 1);
@@ -171,6 +172,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     next();
   });
   app.use("/api", rateLimit(store));
+  emailRecovery(app, store, origin, resetMailer);
   const owned = async <T>(businessId: string, kind: string, key: string) => {
     const value = await store.get<T>(businessId, kind, key);
     requireThat(value, "Record not found", 404);
@@ -1348,7 +1350,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
       .object({
         name: short.min(2),
         email: z.email(),
-        password: z.string().min(14).max(200),
+        password: z.string().min(7).max(200),
         role: z.enum(["owner", "manager", "sales", "accountant", "assistant", "performer"]),
         performerId: short.optional(),
         viewCompanyCalendar: z.boolean().default(false),
@@ -1397,7 +1399,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
     const input = z
       .object({
         currentPassword: z.string().max(200),
-        newPassword: z.string().min(14).max(200),
+        newPassword: z.string().min(7).max(200),
       })
       .parse(req.body);
     const row = (await store.db
@@ -1530,7 +1532,7 @@ export function createApp(store: Store, origin = "http://localhost:3000") {
         name: short.min(2),
         slug: z.string().regex(/^[a-z0-9-]{2,60}$/),
         email: z.email(),
-        password: z.string().min(14).max(200),
+        password: z.string().min(7).max(200),
         timezone: short,
       })
       .parse(req.body);

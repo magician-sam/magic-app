@@ -60,7 +60,7 @@ export function customerRecovery(
       .object({
         username: short.min(1),
         code: z.string().trim().min(1).max(200),
-        password: z.string().min(12).max(200),
+        password: z.string().min(7).max(200),
       })
       .parse(req.body);
     const business = await store.business(String(req.params.slug), true);

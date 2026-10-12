@@ -64,7 +64,7 @@ export function customerAccounts(
     const input = customerSchema
       .pick({ name: true, phone: true, email: true, offersConsent: true })
       .extend({
-        password: z.string().min(12).max(200),
+        password: z.string().min(7).max(200),
         username: z
           .string()
           .trim()
@@ -300,7 +300,7 @@ export function customerAccounts(
     const input = z
       .object({
         currentPassword: z.string().max(200),
-        password: z.string().min(12).max(200),
+        password: z.string().min(7).max(200),
       })
       .parse(req.body);
     const before = String(
