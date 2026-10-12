@@ -1613,6 +1613,13 @@ function customerAuth(orderAfter = false, register = true) {
           value: new URLSearchParams(location.search).get("ref") ?? "",
         },
         {
+          key: "email",
+          label: "Email for password recovery (optional)",
+          type: "email",
+          autocomplete: "email",
+          help: "Add an email you can access so you can reset your password yourself. You can also add it later in My account.",
+        },
+        {
           key: "username",
           label: "Your sign-in name",
           value: "",
