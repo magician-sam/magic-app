@@ -29,9 +29,15 @@ const cards = [
 ] as const;
 type Directory = { partners: PublicPartner[]; total: number; next: string | null; workspaceReady: boolean };
 async function get<T>(path: string): Promise<T> {
-  const response = await fetch(path, { credentials: "same-origin" }); const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "We couldn't open this profile. Please try again.");
-  return data as T;
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try { response = await fetch(path, { credentials: "same-origin" }); }
+    catch (error) { if (attempt === 0) continue; throw error; }
+    if (attempt === 0 && [408, 429, 500, 502, 503, 504].includes(response.status)) continue;
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "We couldn't open this profile. Please try again.");
+    return data as T;
+  }
 }
 function whatsapp(phone: string, message: string) {
   const digits = phone.replace(/\D/g, "").replace(/^00/, "");

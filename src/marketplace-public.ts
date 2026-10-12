@@ -17,8 +17,11 @@ export class MarketplacePublic {
   constructor(private store: Store) { this.storage = new MarketplaceStorage(store.db); }
   async directory(input: unknown) {
     const query = querySchema.parse(input);
+    // The existing production catalogue has no marketplace tables yet. A
+    // public empty-directory read does not need a remote write transaction.
+    if (await marketplaceSchemaState(this.store.db) === "absent")
+      return { partners: [] as PublicPartner[], total: 0, next: null, workspaceReady: false };
     return this.store.transaction(async () => {
-      if (await marketplaceSchemaState(this.store.db) === "absent") return { partners: [] as PublicPartner[], total: 0, next: null, workspaceReady: false };
       const predicate = `json_extract(data,'$.status')='approved' AND json_extract(data,'$.kind')=?
         AND (?='' OR instr(lower(json_extract(data,'$.name')),lower(?))>0
         OR instr(lower(json_extract(data,'$.publicDescription')),lower(?))>0
