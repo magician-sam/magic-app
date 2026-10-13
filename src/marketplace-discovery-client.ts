@@ -57,15 +57,13 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   if (businessSlug !== "magic-by-sam") return;
   document.body.classList.add("marketplace-mode");
   document.title = "Magic App · The people. The place. Your event.";
-  const brandText = root.querySelector<HTMLElement>(".site-header .brand > span:last-child");
-  if (brandText) brandText.innerHTML = 'Magic App<small class="mp-brand-note">by Magic by Sam</small>';
+  document.body.classList.add("marketplace-world");
+  const brandNode = root.querySelector<HTMLElement>(".site-header .brand");
+  if (brandNode) { brandNode.innerHTML = '<span class="world-brand-mark" aria-hidden="true">m<span>✦</span></span><span>Magic App<small class="mp-brand-note">THE EVENT MARKETPLACE</small></span>'; brandNode.setAttribute("aria-label", "Magic App event marketplace"); }
   const hero = root.querySelector<HTMLElement>(".hero");
   if (!hero) return;
-  const previousImages = [...hero.querySelectorAll<HTMLImageElement>(".hero-gallery img")];
-  const magicPhoto = previousImages[0]?.getAttribute("src") || "/portfolio/sam-magic-live-2.jpg";
-  const sciencePhoto = previousImages[1]?.getAttribute("src") || "/portfolio/sam-science-live-1.jpg";
-  hero.className = "mp-hero";
-  hero.innerHTML = `<div class="mp-hero-copy"><p class="mp-kicker"><span aria-hidden="true">✦</span> More than a show. Your whole event.</p><h1>The people.<br>The place.<br><em>Your kind of magic.</em></h1><p class="mp-hero-note">Discover shows, playgrounds and creative teams. Bring the people, the place and the little details together.</p><div class="mp-hero-actions"><button type="button" id="help-choose">Design my event ${icon("sparkle")}</button><a class="mp-text-link" href="#marketplace-categories">Explore everything <span aria-hidden="true">↗</span></a></div><div class="mp-hero-foot"><span aria-hidden="true">◌</span> Your ideas first. Availability checked before confirmation.</div></div><div class="mp-hero-art" aria-label="Real moments from the existing event collection"><figure class="mp-photo mp-photo-main"><img src="${e(magicPhoto)}" alt="Sam performing magic at a real event" fetchpriority="high"><figcaption>Real shows. Real reactions.</figcaption></figure><figure class="mp-photo mp-photo-small"><img src="${e(sciencePhoto)}" alt="Sam presenting the Science Show"><figcaption>A little discovery.</figcaption></figure><div class="mp-orbit mp-orbit-one" aria-hidden="true">✧</div><div class="mp-orbit mp-orbit-two" aria-hidden="true">✦</div><span class="mp-art-note">Something wonderful<br>is taking shape.</span></div>`;
+  hero.className = "mp-hero world-hero";
+  hero.innerHTML = `<div class="mp-hero-copy"><p class="mp-kicker"><span aria-hidden="true">✦</span> A whole world of events</p><h1>Good people.<br>Great places.<br><em>Unforgettable.</em></h1><p class="mp-hero-note">A birthday, a festival, a just-because party. Find the people and ideas to make it happen.</p><div class="mp-hero-actions"><button type="button" id="help-choose">Build my event ${icon("sparkle")}</button><a class="mp-text-link" href="#marketplace-categories">Start exploring ↗</a></div><div class="world-hero-tags"><a href="#marketplace-playgrounds">Find a place ↗</a><a href="#marketplace-agencies">Find a team ↗</a><a href="#shows">Find the fun ↗</a></div></div><div class="world-event-board" aria-label="Ideas for your event"><span class="world-board-label">YOUR NEXT GREAT MEMORY</span><div class="world-orbit" aria-hidden="true">✳</div><a class="world-board-card world-board-place" href="#marketplace-playgrounds">${icon("places")}<span>The perfect place<small>Playgrounds & venues</small></span><b>↗</b></a><a class="world-board-card world-board-people" href="#marketplace-agencies">${icon("teams")}<span>Your dream team<small>Agencies & event creators</small></span><b>↗</b></a><a class="world-board-card world-board-fun" href="#shows">${icon("sparkle")}<span>A little extraordinary<small>Artists, shows & experiences</small></span><b>↗</b></a><p>Bring it all together.<br><strong>Make it yours.</strong></p></div>`;
   hero.querySelector("#help-choose")!.addEventListener("click", () => options.design());
   for (const image of hero.querySelectorAll<HTMLImageElement>(".mp-photo img")) {
     const button = document.createElement("button"); button.type = "button"; button.dataset.zoomPhoto = "";
@@ -76,11 +74,22 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const categorySection = document.createElement("section"); categorySection.id = "marketplace-categories"; categorySection.className = "mp-categories";
   categorySection.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">A world of possibilities</p><h2>What will make it yours?</h2></div><p>The whole collection, one celebration.</p></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme]) => `<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon">${icon(shape)}</span><strong>${title}</strong><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
   hero.after(categorySection);
+  const inspiration = document.createElement("section"); inspiration.className = "world-inspiration";
+  inspiration.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">THE MOOD BOARD</p><h2>Imagine the possibilities.</h2></div><p>Real moments from our event collection.</p></div><div class="world-inspiration-grid"><figure class="mp-photo mp-photo-main"><button type="button" data-zoom-photo aria-label="Enlarge celebration decoration"><img src="/portfolio/decoration/garden-birthday.jpg" alt="Garden birthday decoration from the event collection" loading="lazy"></button><figcaption>A setting with personality</figcaption></figure><figure class="mp-photo mp-photo-small"><button type="button" data-zoom-photo aria-label="Enlarge live music"><img src="/portfolio/guest/live-music.jpg" alt="Live music performance from the event collection" loading="lazy"></button><figcaption>Give the moment a soundtrack</figcaption></figure><a class="world-inspiration-plan" href="#marketplace-occasions"><span aria-hidden="true">✳</span><h3>One event.<br>Endless ways<br>to make it yours.</h3><span>Choose your occasion ↗</span></a></div>`;
+  categorySection.after(inspiration);
+  const proof = root.querySelector(".show-proof"), signatures = root.querySelector("#sam-shows");
+  if (proof && signatures) signatures.prepend(proof);
+  const peopleHeading = root.querySelector("#performers h2"); if (peopleHeading) peopleHeading.textContent = "Meet a featured artist.";
+  const footerLabel = root.querySelector(".footer > span"); if (footerLabel) footerLabel.textContent = "✦ Magic App · People, places & possibilities.";
+  const drawer = root.querySelector("#mobile-site-menu"); if (drawer) drawer.setAttribute("aria-label", "Explore the event marketplace");
+  const drawerBrand = drawer?.querySelector(".mobile-menu-head > span"); if (drawerBrand) drawerBrand.textContent = "✦ Magic App";
+  const drawerIntro = drawer?.querySelector(".mobile-menu-intro p"); if (drawerIntro) drawerIntro.textContent = "Places, people and everything your event could be.";
+
   // Category links remain present even when the legacy catalogue has no F&B
   // records yet; route to the full shows section rather than a missing anchor.
   const occasions = document.createElement("section"); occasions.id = "marketplace-occasions"; occasions.className = "mp-occasions";
   occasions.innerHTML = `<div><span class="eyebrow">Start with your moment</span><h2>Big birthday?<br>School adventure?</h2></div><div class="mp-occasion-options">${[["Birthday", "Birthday"], ["School event", "School"], ["Festival", "Festival"], ["Corporate event", "Corporate"], ["Wedding", "Wedding"], ["Christmas", "Christmas"]].map(([value, title]) => `<button type="button" data-mp-occasion="${value}">${title}<span aria-hidden="true">↗</span></button>`).join("")}<p>Choose an occasion. Let’s shape your event together.</p></div>`;
-  categorySection.after(occasions);
+  inspiration.after(occasions);
   occasions.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.addEventListener("click", () => options.design(button.dataset.mpOccasion)));
   const places = directorySection("venues", "marketplace-playgrounds", "Make room for happy", "Playgrounds & venues", "A place to play, celebrate and make memories.", phone);
   const agencies = directorySection("companies", "marketplace-agencies", "Big ideas. The right team.", "Entertainment agencies", "Creative companies and planners, with their own services and profiles.", phone);

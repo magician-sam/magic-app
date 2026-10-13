@@ -631,7 +631,7 @@ function setupPhotoZoom() {
   document.addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-zoom-photo]");
     if (!button || !document.body.classList.contains("customer-surface")) return;
-    const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid, .hero-gallery, .mobile-hero-photos, .mp-hero-art") ?? button.parentElement;
+    const gallery = button.closest(".show-detail-gallery, .gallery-grid, .profile-grid, .hero-gallery, .mobile-hero-photos, .mp-hero-art, .world-inspiration-grid") ?? button.parentElement;
     const buttons = [...(gallery?.querySelectorAll<HTMLButtonElement>("[data-zoom-photo]") ?? [])].filter((item) => !item.closest("figure")?.hidden);
     photos = buttons.map((item) => {
       const img = item.querySelector<HTMLImageElement>("img")!;
