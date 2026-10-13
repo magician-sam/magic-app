@@ -1,4 +1,5 @@
 import type { PublicPartner, PublicListing } from "./marketplace-public.js";
+import { appendMarketplaceHelp, mountDiscoverySearch } from "./discovery-search.js";
 
 type Group = "venues" | "companies";
 type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; design: (occasion?: string) => void;
@@ -18,14 +19,14 @@ const iconPaths: Record<string, string> = {
 };
 const icon = (name: string) => `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.sparkle}</svg>`;
 const cards = [
-  ["Playgrounds & venues", "places", "#marketplace-playgrounds", "places"],
-  ["Entertainment agencies", "teams", "#marketplace-agencies", "teams"],
-  ["Artists & shows", "magic", "#shows", "shows"],
-  ["Science & workshops", "science", "#sam-shows", "science"],
-  ["Decoration & styling", "decorate", "#party-shows", "styling"],
-  ["Music & sound", "music", "#event-extras", "music"],
-  ["Food & cakes", "food", "#event-extras", "food"],
-  ["Schools & festivals", "sparkle", "#marketplace-occasions", "schools"],
+  ["Playgrounds & venues", "places", "#marketplace-playgrounds", "places", "Play visits & places to celebrate"],
+  ["Entertainment agencies", "teams", "#marketplace-agencies", "teams", "Planners & creative event teams"],
+  ["Artists & shows", "magic", "#shows", "shows", "Magic, circus, comedy & more"],
+  ["Science & workshops", "science", "#sam-shows", "science", "Discovery for curious minds"],
+  ["Decoration & styling", "decorate", "#party-shows", "styling", "Balloons, backdrops & colour"],
+  ["Music & sound", "music", "#event-extras", "music", "DJs, live acts & sound systems"],
+  ["Food & cakes", "food", "#event-extras", "food", "Menus, treats & celebration cakes"],
+  ["Schools & festivals", "sparkle", "#marketplace-occasions", "schools", "Ideas for bringing a crowd together"],
 ] as const;
 type Directory = { partners: PublicPartner[]; total: number; next: string | null; workspaceReady: boolean };
 async function get<T>(path: string): Promise<T> {
@@ -63,7 +64,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const hero = root.querySelector<HTMLElement>(".hero");
   if (!hero) return;
   hero.className = "mp-hero world-hero";
-  hero.innerHTML = `<div class="mp-hero-copy"><p class="mp-kicker"><span aria-hidden="true">✦</span> The art of coming together</p><h1>Set the scene.<br>Bring the wonder.<br><em>Make it yours.</em></h1><p class="mp-hero-note">Artists who spark wonder. Places that set the mood. Discover the people and details that give your event its own personality.</p><div class="mp-hero-actions"><button type="button" id="help-choose">Build my event ${icon("sparkle")}</button><a class="mp-text-link" href="#marketplace-categories">Start exploring ↗</a></div><div class="world-hero-tags"><a href="#marketplace-playgrounds">Find a place ↗</a><a href="#marketplace-agencies">Find a team ↗</a><a href="#shows">Find an artist ↗</a></div></div><div class="world-event-board" aria-label="Ideas for your event"><span class="world-board-label">EVERY MOMENT STARTS WITH AN IDEA</span><div class="world-orbit" aria-hidden="true">✳</div><a class="world-board-card world-board-place" href="#marketplace-playgrounds">${icon("places")}<span>Set the scene<small>Playgrounds & venues</small></span><b>↗</b></a><a class="world-board-card world-board-people" href="#marketplace-agencies">${icon("teams")}<span>Meet the makers<small>Agencies & event creators</small></span><b>↗</b></a><a class="world-board-card world-board-fun" href="#shows">${icon("sparkle")}<span>Cue the wonder<small>Artists, shows & experiences</small></span><b>↗</b></a><p>Your idea. A creative spark.<br><strong>Let’s bring it to life.</strong></p></div>`;
+  hero.innerHTML = `<div class="mp-hero-copy"><p class="mp-kicker"><span aria-hidden="true">✦</span> The art of coming together</p><h1>Set the scene.<br>Bring the wonder.<br><em>Make it yours.</em></h1><p class="mp-hero-note">Find your artists. Set your scene. Bring the people, places and finishing touches together for a celebration that feels like you.</p><div class="mp-hero-actions"><button type="button" id="help-choose">Build my event ${icon("sparkle")}</button><a class="mp-text-link" href="#marketplace-categories">Start exploring ↗</a></div><div class="world-hero-tags"><a href="#marketplace-playgrounds">Find a place ↗</a><a href="#marketplace-agencies">Find a team ↗</a><a href="#shows">Find an artist ↗</a></div></div><div class="world-event-board" aria-label="Ideas for your event"><span class="world-board-label">EVERY MOMENT STARTS WITH AN IDEA</span><div class="world-orbit" aria-hidden="true">✳</div><a class="world-board-card world-board-place" href="#marketplace-playgrounds">${icon("places")}<span>Set the scene<small>Playgrounds & venues</small></span><b>↗</b></a><a class="world-board-card world-board-people" href="#marketplace-agencies">${icon("teams")}<span>Meet the makers<small>Agencies & event creators</small></span><b>↗</b></a><a class="world-board-card world-board-fun" href="#shows">${icon("sparkle")}<span>Cue the wonder<small>Artists, shows & experiences</small></span><b>↗</b></a><p>A place. A talent. A finishing touch.<br><strong>Your event, composed by you.</strong></p></div>`;
   hero.querySelector("#help-choose")!.addEventListener("click", () => options.design());
   for (const image of hero.querySelectorAll<HTMLImageElement>(".mp-photo img")) {
     const button = document.createElement("button"); button.type = "button"; button.dataset.zoomPhoto = "";
@@ -72,7 +73,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const nav = root.querySelector(".site-nav");
   nav?.insertAdjacentHTML("afterbegin", '<a href="#marketplace-playgrounds">Playgrounds</a><a href="#marketplace-agencies">Entertainment agencies</a>');
   const categorySection = document.createElement("section"); categorySection.id = "marketplace-categories"; categorySection.className = "mp-categories";
-  categorySection.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">Choose your ingredients</p><h2>What’s your kind of magic?</h2></div><p>The artists, the setting, the finishing touches. Explore them all.</p></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme]) => `<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon">${icon(shape)}</span><strong>${title}</strong><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
+  categorySection.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">Build a celebration with character</p><h2>What’s your kind of magic?</h2></div><p>From the first welcome to the final encore. Find every part of your occasion here.</p></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => `<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon">${icon(shape)}</span><span class="mp-category-copy"><strong>${title}</strong><small>${description}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
   hero.after(categorySection);
   const inspiration = document.createElement("section"); inspiration.className = "world-inspiration";
   inspiration.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">THE MOOD BOARD</p><h2>A spark for your imagination.</h2></div><p>Colour, rhythm and little details worth remembering.</p></div><div class="world-inspiration-grid"><figure class="mp-photo mp-photo-main"><button type="button" data-zoom-photo aria-label="Enlarge celebration decoration"><img src="/portfolio/decoration/garden-birthday.jpg" alt="Garden birthday decoration from the event collection" loading="lazy"></button><figcaption>Set the scene in colour</figcaption></figure><figure class="mp-photo mp-photo-small"><button type="button" data-zoom-photo aria-label="Enlarge live music"><img src="/portfolio/guest/live-music.jpg" alt="Live music performance from the event collection" loading="lazy"></button><figcaption>Let the music tell its story</figcaption></figure><a class="world-inspiration-plan" href="#marketplace-occasions"><span aria-hidden="true">✳</span><h3>A little colour.<br> A little rhythm.<br> All your own.</h3><span>Choose your occasion ↗</span></a></div>`;
@@ -108,6 +109,8 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   phoneNav.innerHTML = `<a href="#main">${icon("sparkle")}<span>Explore</span></a><a href="#marketplace-categories">${icon("places")}<span>Categories</span></a><a href="#event-box">${icon("event")}<span>My event</span></a><a href="#marketplace-playgrounds">${icon("heart")}<span>Places</span></a><button type="button">${icon("teams")}<span>Account</span></button>`;
   phoneNav.querySelector("button")!.addEventListener("click", options.account); root.append(phoneNav);
   if (location.pathname.startsWith("/providers/")) void openProfile(location.pathname.split("/")[2], options);
+  mountDiscoverySearch(root, () => options.design());
+  appendMarketplaceHelp(root, businessSlug);
 }
 
 function directorySection(group: Group, id: string, eyebrow: string, title: string, note: string, phone: string) {

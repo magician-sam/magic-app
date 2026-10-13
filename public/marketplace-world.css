@@ -47,3 +47,16 @@ body.marketplace-world{--paper:#f6f7fb;--font-display:"Bricolage Grotesque",sans
  .marketplace-world .mp-directory-feature{min-height:260px}.marketplace-world .mp-directory-feature h3{font-size:32px}
 }
 @media(prefers-reduced-motion:reduce){.world-orbit{animation:none}.world-board-card{transition:none}}
+
+/* Discovery shortcuts complement the complete, always-visible collection. */
+.discovery-search{display:grid;grid-template-columns:1fr 1.35fr;gap:30px;align-items:center;background:#fff;border:1px solid #e7e7ef;border-radius:22px;padding:24px 28px;margin:0 0 30px}
+.discovery-search h2{font:700 27px/1.15 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin:6px 0}
+.discovery-search p{font-size:13px;line-height:1.5;margin:8px 0 0;color:#655b78}.discovery-search .eyebrow{font-size:10px}
+.discovery-search form{min-width:0}.discovery-search label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}
+.discovery-search-controls{display:flex;gap:8px}.discovery-search input{min-width:0;flex:1;width:100%;border:1px solid #baadcb;border-radius:12px;padding:12px;font:inherit;background:#fbf9ff;color:#28223c}
+.discovery-search-controls button{flex-shrink:0;border-radius:12px;font-size:13px;padding:12px 16px}.discovery-search button.link{font-size:inherit;min-height:30px}
+.discovery-search input:focus-visible{outline:3px solid #b195df;outline-offset:3px}.catalogue-clear{font-size:13px;min-height:44px}.catalogue-clear[hidden]{display:none}
+.marketplace-world .mp-category-copy{display:block;min-width:0}.marketplace-world .mp-category-copy strong{display:block}.marketplace-world .mp-category-copy small{display:block;font-size:11px;line-height:1.4;font-weight:400;color:#655b78;margin-top:7px}
+.marketplace-help-links{display:flex;flex-wrap:wrap;gap:12px 20px;width:100%;font-size:12px;border-top:1px solid #e6dfed;padding-top:18px}.marketplace-help-links a{padding:8px 0}
+@media(max-width:700px){.discovery-search{grid-template-columns:1fr;gap:16px;padding:20px;margin-bottom:24px;border-radius:20px}.discovery-search h2{font-size:24px}.discovery-search-controls button{font-size:12px;padding:12px}.discovery-search input{font-size:16px;padding:10px;max-width:100%}.marketplace-world .mp-category-copy small{font-size:11px}.marketplace-help-links{gap:4px 18px}}
+@media(max-width:350px){.discovery-search-controls{flex-direction:column}.discovery-search-controls button{align-self:flex-start}}
