@@ -84,6 +84,10 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   occasions.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.addEventListener("click", () => options.design(button.dataset.mpOccasion)));
   const places = directorySection("venues", "marketplace-playgrounds", "Make room for happy", "Playgrounds & venues", "A place to play, celebrate and make memories.", phone);
   const agencies = directorySection("companies", "marketplace-agencies", "Big ideas. The right team.", "Entertainment agencies", "Creative companies and planners, with their own services and profiles.", phone);
+  const playButton = document.createElement("button"); playButton.type = "button"; playButton.className = "outline mp-plan-play";
+  playButton.textContent = "Plan a play visit ↗";
+  playButton.addEventListener("click", () => options.design("Playground visit"));
+  places.querySelector(".mp-directory-feature")!.append(playButton);
   const shows = root.querySelector("#shows"); shows?.before(places, agencies);
   for (const link of categorySection.querySelectorAll<HTMLAnchorElement>("a")) if (!root.querySelector(link.hash)) link.href = "#shows";
   void populate(places, "venues", options); void populate(agencies, "companies", options);

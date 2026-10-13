@@ -5,6 +5,7 @@ import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
 import { mountMarketplaceDiscovery } from "./marketplace-discovery-client.js";
+import { designerOccasions, designerSteps, emptyDesignerAnswers, readDesignerAnswers, designerAudienceAge, designerSummary } from "./event-designer.js";
 import { experienceFor, recommendationReasons } from "./visitor-experience.js";
 import { siteMediaSlots } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
@@ -78,8 +79,9 @@ let calendarMonth = "",
   calendarPerformer = "";
 let basket: string[] = [];
 let guestBasket: string[] = [];
-const publicOccasions = ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas", "Private party", "Just because"];
+const publicOccasions: string[] = [...designerOccasions];
 let chosenOccasion = "";
+let designerPreferences = emptyDesignerAnswers();
 let characterPreference = "";
 let comparisonIds: string[] = [];
 function savedPlanExists() {
@@ -102,7 +104,7 @@ const publicPackageLabel = (name: string | undefined) =>
   name === "A little hocus pocus" ? "The magic starts here" : name ?? "";
 function selectionNames() { return [...basket.map((key) => { const show = catalog.packages.find((p) => p.id === key); return show ? publicShowName(show) : ""; }), ...guestBasket]; }
 function saveEventBox() {
-  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount, chosenOccasion, characterPreference })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
+  try { sessionStorage.setItem('event-box:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, selectedPerformers, requestBundleDiscount, chosenOccasion, characterPreference, designerPreferences })); } catch { /* Storage can be disabled. The current page still retains choices. */ }
 }
 function restoreEventBox() {
   try {
@@ -117,6 +119,8 @@ function restoreEventBox() {
     selectedPerformers = Array.isArray(saved.selectedPerformers) ? saved.selectedPerformers.filter((id: string) => catalog.performers.some((p) => p.id === id)) : [];
     requestBundleDiscount = saved.requestBundleDiscount === true;
     chosenOccasion = publicOccasions.includes(saved.chosenOccasion) ? saved.chosenOccasion : "";
+    designerPreferences = readDesignerAnswers(saved.designerPreferences);
+    if (designerPreferences.occasion !== chosenOccasion) designerPreferences = emptyDesignerAnswers();
     characterPreference = guestBasket.includes("Characters") && characterChoiceNames().includes(saved.characterPreference) ? saved.characterPreference : "";
   } catch { /* Ignore expired or invalid drafts. */ }
 }
@@ -769,7 +773,7 @@ function renderBox() {
   node.querySelector("#request")!.after(planActions);
   on(planActions, "#save-plan", "click", () => {
     try {
-      localStorage.setItem('saved-event-plan:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, chosenOccasion, characterPreference, expiresAt: Date.now() + 30 * 86400_000 }));
+      localStorage.setItem('saved-event-plan:' + catalog.business.slug, JSON.stringify({ basket, guestBasket, chosenOccasion, characterPreference, designerPreferences, expiresAt: Date.now() + 30 * 86400_000 }));
       renderBox();
       notify("Your event choices are saved on this device for 30 days.");
     } catch { notify("This browser could not save your plan. You can still copy a share link."); }
@@ -1304,6 +1308,7 @@ function eventFields(b?: Partial<Booking>): Field[] {
         "Just because",
         "Family celebration",
         "Corporate event",
+        "Playground visit",
         "Other",
       ]),
     },
@@ -1393,7 +1398,7 @@ function eventFields(b?: Partial<Booking>): Field[] {
     },
   ];
 }
-async function requestForm() {
+async function requestForm(retainedForm?: FormData) {
   if (!basket.length && !guestBasket.length) { notify("Choose at least one show first."); return; }
   const continueButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("#request, .mobile-event-bar button"));
   const originalLabels = continueButtons.map((button) => button.innerHTML);
@@ -1422,13 +1427,14 @@ async function requestForm() {
   const extras = catalog.packages.filter(
     (p) => p.checkoutExtra && !basket.includes(p.id),
   );
-  const fields = eventFields(chosenOccasion ? { occasion: chosenOccasion } : undefined);
+  const planAge = designerAudienceAge(designerPreferences);
+  const fields = eventFields(chosenOccasion ? { occasion: chosenOccasion, ...(planAge !== null ? { age: planAge } : {}) } : undefined);
   const magicOnly = !guestBasket.length && basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
   const giftExtras = `<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
   openDialog(
     "Tell us about your event",
-    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(e).join(" + ")}</span></p>` + formBody(
+    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(e).join(" + ")}</span></p>${designerSummary(designerPreferences) ? `<div class="designer-plan-summary"><span class="eyebrow">Your starting idea</span><p>${e(designerSummary(designerPreferences))}</p><button type="button" class="link" id="edit-designer-plan">Edit these preferences ↗</button><small>Exact event details below take priority. These preferences don’t confirm a booking.</small></div>` : ""}` + formBody(
       [
         ...fields,
         ...questions.map((f) => ({
@@ -1444,6 +1450,17 @@ async function requestForm() {
       "Send my event request →",
     ),
   );
+  if (retainedForm) {
+    for (const control of modal.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("form input[name], form select[name], form textarea[name]")) {
+      if (control.name === "occasion") { control.value = chosenOccasion; continue; }
+      if (control instanceof HTMLInputElement && (control.type === "checkbox" || control.type === "radio")) control.checked = retainedForm.getAll(control.name).includes(control.value);
+      else if (retainedForm.has(control.name)) control.value = String(retainedForm.get(control.name));
+    }
+  }
+  on(modal, "#edit-designer-plan", "click", () => {
+    const retained = new FormData(modal.querySelector<HTMLFormElement>("form")!);
+    helpChoose(chosenOccasion, () => { void requestForm(retained); });
+  });
   submit(modal.querySelector("form")!, async (data) => {
     const isGift = data.has("gift-event");
     const isSurprise = data.has("surprise-event") || data.has("surprise-proposal");
@@ -1465,7 +1482,7 @@ async function requestForm() {
           ...formValues(data, fields),
           ...(isGift ? { giftDetails: { recipientName: String(data.get("gift-recipient") ?? "").trim(), message: String(data.get("gift-message") ?? "").trim(), flexibleDate: data.has("gift-flexible") } } : {}),
           ...(isSurprise ? { surpriseDetails: { guestName: String(data.get("surprise-guest") ?? "").trim(), secret: String(data.get("surprise-secret") ?? "").trim(), proposal: data.has("surprise-proposal"), howWeMet: String(data.get("surprise-met") ?? "").trim(), specialMoment: String(data.get("surprise-moment") ?? "").trim() } } : {}),
-          notes: `${requestBundleDiscount ? "Bundle discount requested. " : ""}${Number(data.get("requestTokens") ?? 0) > 0 ? `${Number(data.get("requestTokens"))} referral tokens requested for magic show. ` : ""}${guestBasket.includes("Characters") && characterPreference ? `Preferred character: ${characterPreference} (subject to confirmation). ` : ""}${String(data.get("notes") ?? "")}`.trim(),
+          notes: `${String(data.get("occasion")) === designerPreferences.occasion && designerSummary(designerPreferences) ? `Planning preferences: ${designerSummary(designerPreferences)}. ` : ""}${requestBundleDiscount ? "Bundle discount requested. " : ""}${Number(data.get("requestTokens") ?? 0) > 0 ? `${Number(data.get("requestTokens"))} referral tokens requested for magic show. ` : ""}${guestBasket.includes("Characters") && characterPreference ? `Preferred character: ${characterPreference} (subject to confirmation). ` : ""}${String(data.get("notes") ?? "")}`.trim(),
           packageIds: [
             ...new Set([...basket, ...selected(data, "checkout-extra")]),
           ],
@@ -1480,28 +1497,12 @@ async function requestForm() {
     location.href = result.path;
   });
 }
-function helpChoose(initialOccasion = "") {
-  const occasions = [
-    ["🎂", "Birthday"], ["💍", "Wedding"], ["🎉", "Private party"],
-    ["🏢", "Corporate event"], ["🏫", "School event"], ["✨", "Just because"],
-    ["🎪", "Festival"], ["🎄", "Christmas"],
-  ];
-  const guestGroups = [["👨‍👩‍👧", "1–20"], ["🥳", "21–50"], ["🎪", "More than 50"]];
-  const feelings = [
-    ["😂", "Make everyone laugh"], ["😮", "Leave everyone speechless"],
-    ["❤️", "Create a personal moment"], ["🔥", "A high-energy party"],
-  ];
-  const answers = { occasion: publicOccasions.includes(initialOccasion) ? initialOccasion : "", guests: "", feeling: "", audience: "", setting: "" };
+function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
+  const answers = readDesignerAnswers({ ...designerPreferences, occasion: publicOccasions.includes(initialOccasion) ? initialOccasion : designerPreferences.occasion });
   let suggestedIds: string[] | null = null;
-  const steps = [
-    { title: "What are you celebrating?", choices: occasions, key: "occasion" },
-    { title: "How many guests?", choices: guestGroups, key: "guests" },
-    { title: "What feeling do you want?", choices: feelings, key: "feeling" },
-    { title: "Who is the show for?", choices: [["", "Children under 6"], ["", "Children 6–12"], ["", "Teens and adults"], ["", "Mixed ages"]], key: "audience" },
-    { title: "Where will the fun happen?", choices: [["", "Indoors"], ["", "Outdoors"], ["", "Not decided yet"]], key: "setting" },
-  ] as const;
   const showResults = () => {
     chosenOccasion = answers.occasion;
+    designerPreferences = readDesignerAnswers(answers);
     saveEventBox();
     const category = (p: Package) => p.category.toLowerCase();
     const score = (p: Package) =>
@@ -1512,7 +1513,7 @@ function helpChoose(initialOccasion = "") {
       Number(answers.feeling === "Leave everyone speechless" && ["magic", "science"].includes(category(p))) * 3 +
       Number(answers.feeling === "Create a personal moment" && category(p) === "magic") * 3 +
       Number(answers.feeling === "A high-energy party" && category(p) === "science") * 3;
-    const audienceAge = answers.audience === "Children under 6" ? 4 : answers.audience === "Children 6–12" ? 9 : answers.audience === "Teens and adults" ? 18 : null;
+    const audienceAge = designerAudienceAge(answers);
     const ranked = catalog.packages
       .filter((p) => p.active && !p.bundleIds?.length && !p.checkoutExtra && (answers.setting !== "Outdoors" || !p.indoorOnly) && (audienceAge === null || (p.minAge <= audienceAge && p.maxAge >= audienceAge)))
       .sort((a, b) => score(b) - score(a));
@@ -1538,13 +1539,17 @@ function helpChoose(initialOccasion = "") {
     const availableIdeas = moreShowNames();
     openDialog(
       "Design your event",
-      `<div class="chooser"><p class="chooser-context">${e(answers.occasion)} · ${e(answers.guests)} guests · ${e(answers.feeling)} · ${e(answers.audience)} · ${e(answers.setting)}</p><p class="chooser-intro">Start with one, or mix your favourites. Every show is still yours to explore.</p><div class="chooser-results">${featured.map((p) => {
+      `<div class="chooser"><p class="chooser-context">${e(designerSummary(answers))}</p><p class="chooser-intro">${answers.occasion === "Playground visit" ? "These shows are optional additions. Ask us about a playground or play visit separately; adding a show doesn’t reserve playground entry." : "Start with one, or mix your favourites. Every show is still yours to explore."}</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
         const alternatives = ranked;
         return `<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(publicShowName(p))}</h3><small>${e(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => `<li>${e(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? `<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => `<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${e(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
       }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? `<h3>Something extra?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => `<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
     modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", `<p class="chooser-fit-note">For ${e(answers.guests)} guests, we’ll confirm the setup with you. Swap a suggestion without changing shows already in your event box.</p>`);
+    if (answers.occasion === "Playground visit") {
+      const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
+      if (/^\d{7,16}$/.test(phone)) modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", `<a class="button outline" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! Please help me with ${designerSummary(answers)}. I’m looking at ${location.origin}/b/${catalog.business.slug}#marketplace-playgrounds`)}" target="_blank" rel="noopener noreferrer">Ask about my play visit ↗</a>`);
+    }
     on(modal, "[data-swap-show]", "change", (event) => {
       const select = event.currentTarget as HTMLSelectElement;
       suggestedIds = featured.map((show) => show.id === select.dataset.swapShow ? select.value : show.id === select.value ? select.dataset.swapShow! : show.id);
@@ -1573,7 +1578,7 @@ function helpChoose(initialOccasion = "") {
     modal.querySelector(".chooser-bottom")!.after(continueButton);
     modal.querySelectorAll<HTMLButtonElement>("[data-recommend]").forEach((button) => { if (basket.includes(button.dataset.recommend!)) button.textContent = "✓ Added · remove"; });
     modal.querySelectorAll<HTMLButtonElement>("[data-guest-idea]").forEach((button) => { if (guestBasket.includes(button.dataset.guestIdea!)) button.textContent = "✓ " + button.dataset.guestIdea + " · remove"; });
-    continueButton.addEventListener("click", () => { void requestForm(); });
+    continueButton.addEventListener("click", () => { if (continueWithPlan) continueWithPlan(); else void requestForm(); });
     on(modal, "#chooser-restart", "click", () => { suggestedIds = null; showStep(0); });
     on(modal, "#chooser-all", "click", () => {
       modal.close();
@@ -1581,13 +1586,18 @@ function helpChoose(initialOccasion = "") {
     });
   };
   const showStep = (index: number) => {
+    const steps = designerSteps(answers.occasion);
     const step = steps[index];
     openDialog(
       "Find your kind of wow",
-      `<div class="chooser"><p class="chooser-progress">${index + 1} of ${steps.length}</p><div class="chooser-progress-track"><span class="step-${index + 1}"></span></div><h3>${e(step.title)}</h3><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option" data-chooser-choice="${e(label)}"><span aria-hidden="true">${icon}</span>${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
+      `<div class="chooser" data-designer-occasion="${e(answers.occasion)}"><p class="chooser-progress">${index + 1} of ${steps.length}</p><progress class="designer-progress" aria-label="Event planner progress" max="${steps.length}" value="${index + 1}"></progress><h3>${e(step.title)}</h3><p class="chooser-question-hint">${e(step.hint)}</p><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option${answers[step.key] === label ? " is-selected" : ""}" aria-pressed="${answers[step.key] === label}" data-chooser-choice="${e(label)}">${icon ? `<span aria-hidden="true">${icon}</span>` : ""}${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
     );
     on(modal, "[data-chooser-choice]", "click", (ev) => {
       answers[step.key] = (ev.currentTarget as HTMLElement).dataset.chooserChoice!;
+      if (step.key === "occasion") Object.assign(answers, readDesignerAnswers(answers));
+      designerPreferences = readDesignerAnswers(answers);
+      chosenOccasion = answers.occasion;
+      saveEventBox();
       if (index === steps.length - 1) showResults();
       else showStep(index + 1);
     });
@@ -1597,7 +1607,7 @@ function helpChoose(initialOccasion = "") {
       document.querySelector("#shows")?.scrollIntoView({ behavior: "smooth" });
     });
   };
-  showStep(answers.occasion ? 1 : 0);
+  showStep(initialOccasion && answers.occasion ? 1 : 0);
 }
 
 function customerAuth(orderAfter = false, register = true) {
