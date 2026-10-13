@@ -8,6 +8,23 @@ import { snapshot } from "../dist/snapshots.js";
 
 const draft = { title: "Synthetic birthday package", kind: "birthday_package", categories: ["playgrounds"] };
 const profile = { name: "Synthetic venue", publicDescription: "Test venue", categories: ["playgrounds"], expectedRevision: 0 };
+
+test("location and media edits are scoped, revisioned, reviewed and recoverable", async t => {
+  const f = await fixture(t);
+  const body = { ...profile, publicLocation: { city: 'Beirut', area: 'Hamra', address: 'Synthetic street', aliases: ['بيروت'], coordinates: { latitude: 33.9, longitude: 35.5 } }, publicMedia: [{ kind:'photo',url:'/venue.jpg',caption:'Synthetic venue',permissionReference:'Private owner permission' }] };
+  assert.equal((await f.request('staff/workspaces/foreign-company/profile',{method:'PUT',body})).status,403);
+  assert.equal((await f.request('staff/workspaces/own-venue/profile',{method:'PUT',body})).status,200);
+  const saved = await f.storage.organization('own-venue');
+  assert.equal(saved.publicLocation.city,'Beirut');assert.equal(saved.publicMedia[0].permissionReference,'Private owner permission');assert.equal(saved.status,'draft');
+  assert.equal((await f.request('staff/workspaces/own-venue/profile',{method:'PUT',body})).status,409);
+  const exported=await snapshot(f.store);
+  assert.ok(JSON.stringify(exported.tables.marketplace_organizations).includes('Private owner permission'));
+  assert.equal((await f.request('staff/workspaces/own-venue/profile',{method:'PUT',body:{...profile,expectedRevision:1}})).status,200);
+  assert.equal((await f.storage.organization('own-venue')).publicLocation.city,'Beirut','Older editor does not silently remove added details');
+  assert.equal((await f.request('staff/workspaces/own-venue/profile',{method:'PUT',body:{...profile,expectedRevision:2,publicLocation:null,publicMedia:[]}})).status,200);
+  assert.equal((await f.storage.organization('own-venue')).publicLocation,null);
+  assert.deepEqual((await f.storage.organization('own-venue')).publicMedia,[]);
+});
 async function fixture(t, migrate = true) {
   const store = new Store(":memory:");
   t.after(() => store.db.close());

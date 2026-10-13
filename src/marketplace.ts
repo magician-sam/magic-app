@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { venueLocationSchema, venueMediaSchema } from "./venue-details.js";
 
 // Shared domain rules only. No legacy account migration or new public routes.
 const identifier = z.string().trim().min(1).max(128);
@@ -18,6 +19,8 @@ export const organizationSchema = z.object({
     phone: z.string().max(40).optional(),
     email: z.email().optional(),
   }).strict().optional(),
+  publicLocation: venueLocationSchema.nullable().optional(),
+  publicMedia: z.array(venueMediaSchema).max(20).optional(),
   revision: z.number().int().nonnegative(),
 }).strict().superRefine((value, ctx) => {
   if (value.bookingMode === "managed" && !value.coordinatorOrganizationId)
@@ -81,6 +84,8 @@ export function publicOrganization(input: unknown) {
     description: value.publicDescription, categories: [...value.categories],
     bookingMode: value.bookingMode,
     ...(value.publicContact ? { contact: { ...value.publicContact } } : {}),
+    ...(value.publicLocation ? { location: { ...value.publicLocation, aliases: [...value.publicLocation.aliases] } } : {}),
+    ...(value.publicMedia?.length ? { media: value.publicMedia.map(({ kind, url, caption }) => ({ kind, url, caption })) } : {}),
   };
 }
 

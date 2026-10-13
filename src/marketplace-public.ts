@@ -9,7 +9,7 @@ export type PublicPartner = NonNullable<ReturnType<typeof publicOrganization>>;
 export type PublicListing = Pick<Offering, "id" | "title" | "kind" | "categories">;
 const group = z.enum(["venues", "companies", "artists"]);
 const kind = { venues: "venue_operator", companies: "company", artists: "independent_artist" } as const;
-const querySchema = z.object({ group, q: z.string().trim().max(200).default(""), after: z.string().max(128).default("") }).strict();
+const querySchema = z.object({ group, q: z.string().trim().max(200).default(""), area: z.string().trim().max(100).default(""), after: z.string().max(128).default("") }).strict();
 const cursorSchema = z.object({ after: z.string().max(128).default("") }).strict();
 
 export class MarketplacePublic {
@@ -22,11 +22,14 @@ export class MarketplacePublic {
     if (await marketplaceSchemaState(this.store.db) === "absent")
       return { partners: [] as PublicPartner[], total: 0, next: null, workspaceReady: false };
     return this.store.transaction(async () => {
+      const locationText = ["country", "region", "city", "area", "address", "aliases"].map(field => `coalesce(json_extract(data,'$.publicLocation.${field}'),'')`).join(" || ' ' || ");
       const predicate = `json_extract(data,'$.status')='approved' AND json_extract(data,'$.kind')=?
         AND (?='' OR instr(lower(json_extract(data,'$.name')),lower(?))>0
         OR instr(lower(json_extract(data,'$.publicDescription')),lower(?))>0
-        OR instr(lower(json_extract(data,'$.categories')),lower(?))>0)`;
-      const args = [kind[query.group], query.q, query.q, query.q, query.q];
+        OR instr(lower(json_extract(data,'$.categories')),lower(?))>0
+        OR instr(lower(${locationText}),lower(?))>0)
+        AND (?='' OR instr(lower(${locationText}),lower(?))>0)`;
+      const args = [kind[query.group], query.q, query.q, query.q, query.q, query.q, query.area, query.area];
       const count = await this.store.db.prepare(`SELECT count(*) AS n FROM marketplace_organizations WHERE ${predicate}`).get(...args);
       const rows = await this.store.db.prepare(`SELECT id,slug FROM marketplace_organizations WHERE ${predicate} AND slug>? ORDER BY slug LIMIT 26`).all(...args, query.after);
       const partners: PublicPartner[] = [];

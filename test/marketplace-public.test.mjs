@@ -78,3 +78,38 @@ test("public profile HTTP routes escape metadata, reject private profiles and ne
   assert.match(directory.headers.get("cache-control"), /no-store/);
   assert.equal((await directory.json()).partners.length, 1);
 });
+
+test("area search uses approved saved locations and aliases without leaking private media notes", async t => {
+  const { publicData, storage, actor, org } = await fixture(t);
+  const publicLocation = { country: 'Lebanon', region: 'Beirut', city: 'Beirut', area: 'Hamra', address: 'Synthetic Street 12', aliases: ['Beyrouth', 'بيروت'], coordinates: { latitude: 33.9, longitude: 35.5 } };
+  const publicMedia = [{ kind: 'photo', url: '/portfolio/science-experiment-20260926.jpg', caption: 'Synthetic venue photo', permissionReference: 'PRIVATE permission record 123' }];
+  for (const id of ['venue', 'pending']) {
+    const old = await storage.organization(id);
+    await storage.updateOrganization({ ...old, publicLocation, publicMedia, revision: 1 }, 0, actor);
+  }
+  await storage.insertOrganization({ ...org('elsewhere'), publicLocation: { ...publicLocation, city: 'Jounieh', region: 'Keserwan', area: 'Centre', aliases: [], address: 'Test street 2' } }, actor);
+  for (const area of ['Beirut', '  beIRut  ', 'Beyrouth', 'بيروت', 'Hamra', 'Street 12']) {
+    const page = await publicData.directory({ group: 'venues', area });
+    assert.equal(page.total, 1, area); assert.equal(page.partners[0].id, 'venue');
+    assert.deepEqual(page.partners[0].location, publicLocation);
+    assert.equal(JSON.stringify(page).includes('PRIVATE'), false);
+    assert.equal(page.partners[0].media[0].permissionReference, undefined);
+  }
+  assert.equal((await publicData.directory({ group: 'venues', q: 'Hamra' })).total, 1);
+  assert.equal((await publicData.directory({ group: 'venues', area: 'Beirut', q: 'birthday' })).total, 1);
+  assert.equal((await publicData.directory({ group: 'venues', area: 'Jounieh', q: 'Hamra' })).total, 0);
+  assert.equal((await publicData.directory({ group: 'venues', area: "%'; DROP TABLE marketplace_organizations;--" })).total, 0);
+  await assert.rejects(publicData.directory({ group: 'venues', area: 'a'.repeat(101) }));
+  const profile = await publicData.profile('venue');
+  assert.equal(JSON.stringify(profile).includes('permissionReference'), false);
+  assert.equal((await publicData.directory({ group: 'venues' })).total, 2);
+});
+
+test("area-filtered directory keeps its filter across pagination", async t => {
+  const { publicData, storage, actor, org } = await fixture(t);
+  for (let i = 0; i < 28; i++) await storage.insertOrganization({ ...org('beirut-' + String(i).padStart(2,'0')), publicLocation: { city: 'Beirut', address: 'Synthetic venue address', aliases: ['بيروت'] } }, actor);
+  const first = await publicData.directory({group:'venues',area:'بيروت'});
+  const second = await publicData.directory({group:'venues',area:'بيروت',after:first.next});
+  assert.equal(first.total,28); assert.equal(first.partners.length,25); assert.equal(second.partners.length,3); assert.equal(second.next,null);
+  assert.equal(new Set([...first.partners,...second.partners].map(p=>p.id)).size,28);
+});

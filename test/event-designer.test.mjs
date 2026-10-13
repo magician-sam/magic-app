@@ -1,16 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { designerSteps, readDesignerAnswers, designerAudienceAge, designerSummary } from '../dist/event-designer.js';
+import { designerOccasions, designerSteps, readDesignerAnswers, designerAudienceAge, designerSummary } from '../dist/event-designer.js';
 
 test('birthday, school, festival and playground plans ask relevant questions', () => {
   const birthday = designerSteps('Birthday'), festival = designerSteps('Festival'), school = designerSteps('School event'), play = designerSteps('Playground visit');
-  assert.equal(birthday.length, 5); assert.equal(festival.length, 6);
+  assert.equal(birthday.length, 6); assert.equal(festival.length, 6);
+  assert.match(birthday.find(step => step.key === 'format').title, /birthday/);
   assert.match(birthday.find(step => step.key === 'audience').title, /birthday/);
   assert.match(festival.find(step => step.key === 'format').title, /festival/);
   assert.deepEqual(school.find(step => step.key === 'audience').choices.map(([, value]) => value), ['Preschool / kindergarten', 'Primary school', 'Secondary school', 'Several school stages']);
   assert.equal(play.find(step => step.key === 'format').choices[0][1], 'An individual play visit');
   assert.equal(play.find(step => step.key === 'setting').choices.some(([, value]) => value === 'Outdoors'), false);
   assert.equal(festival.find(step => step.key === 'guests').choices.some(([, value]) => value === 'More than 300'), true);
+});
+
+test('every occasion has a distinct opening brief and irrelevant formats are discarded', () => {
+  const titles = new Set();
+  for (const occasion of designerOccasions) {
+    const steps = designerSteps(occasion), format = steps.find(step => step.key === 'format');
+    assert.ok(format?.choices.length >= 3, occasion);
+    titles.add(format.title);
+    const answers = readDesignerAnswers({ occasion, format: format.choices[0][1] });
+    assert.equal(answers.format, format.choices[0][1]);
+    assert.ok(designerSummary(answers).includes(format.choices[0][1]));
+  }
+  assert.equal(titles.size, designerOccasions.length);
+  assert.equal(readDesignerAnswers({ occasion: 'Birthday', format: 'A stage performance' }).format, '');
+  assert.equal(readDesignerAnswers({ occasion: 'Festival', format: 'A children’s birthday' }).format, '');
 });
 
 test('changing the occasion discards irrelevant saved preferences and arbitrary text', () => {

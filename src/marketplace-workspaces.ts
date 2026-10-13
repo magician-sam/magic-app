@@ -10,6 +10,7 @@ export const workspaceSessionKind = z.enum(["staff", "customer"]);
 type SessionKind = z.infer<typeof workspaceSessionKind>;
 const profileInput = z.object({ name: organizationSchema.shape.name, publicDescription: organizationSchema.shape.publicDescription,
   categories: organizationSchema.shape.categories, publicContact: organizationSchema.shape.publicContact,
+  publicLocation: organizationSchema.shape.publicLocation, publicMedia: organizationSchema.shape.publicMedia,
   expectedRevision: z.number().int().nonnegative() }).strict();
 const listingInput = offeringSchema.pick({ title: true, kind: true, categories: true }).strict();
 const listingUpdate = listingInput.extend({ expectedRevision: z.number().int().nonnegative() }).strict();
@@ -107,7 +108,10 @@ export class MarketplaceWorkspaces {
       requireThat(["draft", "pending"].includes(organization.status), "Published profile changes need platform review; this editor currently handles unpublished profiles.", 409);
       requireThat(organization.revision === value.expectedRevision, "Profile changed; reload before editing.", 409);
       return this.storage.updateOrganization({ ...organization, name: value.name, publicDescription: value.publicDescription,
-        categories: value.categories, publicContact: value.publicContact, revision: organization.revision + 1 }, organization.revision, accountId);
+        categories: value.categories, publicContact: value.publicContact,
+        ...(value.publicLocation !== undefined ? { publicLocation: value.publicLocation } : {}),
+        ...(value.publicMedia !== undefined ? { publicMedia: value.publicMedia } : {}),
+        revision: organization.revision + 1 }, organization.revision, accountId);
     });
   }
 

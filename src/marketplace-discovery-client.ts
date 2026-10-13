@@ -1,3 +1,4 @@
+import { locationView, mediaView, partnerCardView } from "./venue-profile-view.js";
 import type { PublicPartner, PublicListing } from "./marketplace-public.js";
 import { appendMarketplaceHelp, mountDiscoverySearch } from "./discovery-search.js";
 
@@ -44,10 +45,11 @@ function whatsapp(phone: string, message: string) {
   const digits = phone.replace(/\D/g, "").replace(/^00/, "");
   return /^\d{7,16}$/.test(digits) ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}` : "";
 }
-async function directory(group: Group) {
+type DirectoryFilters = { area: string; q: string };
+async function directory(group: Group, filters: DirectoryFilters) {
   const partners: PublicPartner[] = []; let after = "", total: number, ready: boolean;
   do {
-    const page = await get<Directory>(`/api/marketplace/public/directory?group=${group}${after ? "&after=" + encodeURIComponent(after) : ""}`);
+    const page = await get<Directory>(`/api/marketplace/public/directory?group=${group}&area=${encodeURIComponent(filters.area)}&q=${encodeURIComponent(filters.q)}${after ? "&after=" + encodeURIComponent(after) : ""}`);
     partners.push(...page.partners); after = page.next || ""; total = page.total; ready = page.workspaceReady;
   } while (after);
   return { partners, total, ready };
@@ -100,6 +102,12 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   places.querySelector(".mp-directory-feature")!.append(playButton);
   const shows = root.querySelector("#shows"); shows?.before(places, agencies);
   for (const link of categorySection.querySelectorAll<HTMLAnchorElement>("a")) if (!root.querySelector(link.hash)) link.href = "#shows";
+  const search = places.querySelector<HTMLFormElement>(".mp-venue-search")!;
+  search.addEventListener("submit", event => {
+    event.preventDefault(); const data = new FormData(search);
+    void populate(places, "venues", options, { area: String(data.get("area") || "").trim(), q: String(data.get("q") || "").trim() });
+  });
+  search.querySelector('[data-clear-venues]')!.addEventListener("click", () => { search.reset(); void populate(places, "venues", options); });
   void populate(places, "venues", options); void populate(agencies, "companies", options);
   const footer = document.createElement("section"); footer.className = "mp-partner-invite";
   const join = whatsapp(phone, `Hello, I would like to join Magic App as an artist, playground or entertainment company. ${location.origin}${location.pathname}#marketplace-agencies`);
@@ -117,24 +125,32 @@ function directorySection(group: Group, id: string, eyebrow: string, title: stri
   const section = document.createElement("section"); section.id = id; section.className = `mp-directory mp-directory-${group}`;
   const request = whatsapp(phone, `Hello, I would like help choosing ${group === "venues" ? "a playground or venue" : "an entertainment agency"} for my event. I'm looking at ${location.origin}${location.pathname}#${id}`);
   section.innerHTML = `<div class="mp-section-intro"><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div><p>${note}</p></div><div class="mp-directory-layout"><div class="mp-directory-feature" aria-label="${group === "venues" ? "Playground and venue discovery" : "Agency and company discovery"}"><span class="mp-feature-symbol" aria-hidden="true">${icon(group === "venues" ? "places" : "teams")}</span><span class="mp-feature-label">${group === "venues" ? "THE PLACE" : "THE PEOPLE"}</span><h3>${group === "venues" ? "Little adventures.<br>Big memories." : "The idea.<br>The people.<br>The magic."}</h3><p>${group === "venues" ? "A birthday full of adventure or an afternoon of play. Tell us where your imagination takes you." : "From the first sketch to the final flourish, let’s find a team that shares your vision."}</p>${request ? `<a href="${e(request)}" target="_blank" rel="noopener noreferrer">Help me find ${group === "venues" ? "a place" : "a team"} <span aria-hidden="true">↗</span></a>` : '<a href="#event-box">Plan my event ↗</a>'}<span class="mp-feature-decoration" aria-hidden="true">✳</span></div><div class="mp-directory-results" aria-live="polite" aria-busy="true"><p class="muted">Opening the directory…</p></div></div>`;
+  if (group === "venues") section.querySelector(".mp-directory-layout")!.insertAdjacentHTML("beforebegin", `<form class="mp-venue-search" aria-label="Find a venue"><div class="mp-venue-search-intro"><span class="eyebrow">Find your setting</span><h3>Where shall we celebrate?</h3><p>Explore published venues by their saved area, city or address.</p></div><div class="mp-venue-search-fields"><label>Area or city<input type="search" name="area" maxlength="100" placeholder="Beirut, Jounieh, بيروت…"></label><label>Venue name or activity<input type="search" name="q" maxlength="200" placeholder="Optional: playground, birthday…"></label><div class="actions"><button type="submit">Find a place ↗</button><button type="button" class="link" data-clear-venues>Show all places</button></div></div></form>`);
   return section;
 }
-async function populate(section: HTMLElement, group: Group, options: MountOptions) {
+const directoryLoads = new WeakMap<HTMLElement, number>();
+async function populate(section: HTMLElement, group: Group, options: MountOptions, filters: DirectoryFilters = { area: "", q: "" }) {
   const results = section.querySelector<HTMLElement>(".mp-directory-results")!;
+  const load = (directoryLoads.get(section) || 0) + 1; directoryLoads.set(section, load);
+  const current = () => section.isConnected && directoryLoads.get(section) === load;
+  results.setAttribute("aria-busy", "true");
+  results.innerHTML = '<p class="muted">Finding your next setting…</p>';
   try {
-    const { partners, total, ready } = await directory(group);
-    if (!section.isConnected) return;
+    const { partners, total, ready } = await directory(group, filters);
+    if (!current()) return;
+    const filtered = Boolean(filters.area || filters.q);
     if (!partners.length) {
-      results.innerHTML = `<div class="mp-directory-empty"><span class="eyebrow">Let’s set the scene</span><h3>${group === "venues" ? "Looking for a place that fits?" : "Big ideas start with a conversation."}</h3><p>${group === "venues" ? "Tell us your area, date and guest count. We’ll help you explore playground and venue options." : "Share your occasion and the services you need. We’ll help you explore the right creative team."}</p><p class="mp-directory-note">We’re preparing this directory. Profiles appear once approved, and availability is checked before booking.</p>${ready ? '<a class="mp-text-link" href="/partner?account=customer">Register your business ↗</a>' : '<a class="mp-text-link" href="#shows">Explore all the shows ↗</a>'}</div>`;
+      const noMatches = ready && filtered;
+      results.innerHTML = `<div class="mp-directory-empty"><span class="eyebrow">Let’s set the scene</span><h3>${noMatches ? "No published places match yet." : group === "venues" ? "Looking for a place that fits?" : "Big ideas start with a conversation."}</h3><p>${noMatches ? "Try another area or spelling, or use Show all places to explore the directory." : group === "venues" ? "Tell us your area, date and guest count. We’ll help you explore playground and venue options." : "Share your occasion and the services you need. We’ll help you explore the right creative team."}</p><p class="mp-directory-note">${ready ? "Only approved profiles appear. Search results do not confirm availability for your date." : "We’re preparing this directory. Profiles appear once approved, and availability is checked before booking."}</p>${ready ? '<a class="mp-text-link" href="/partner?account=customer">Register your business ↗</a>' : '<a class="mp-text-link" href="#shows">Explore all the shows ↗</a>'}</div>`;
     } else {
-      results.innerHTML = `<p class="mp-directory-count">${total} ${total === 1 ? "profile" : "profiles"} to explore</p><div class="mp-partner-grid">${partners.map(partner => `<article class="mp-partner-card"><span class="mp-partner-avatar" aria-hidden="true">${e(partner.name.slice(0, 1).toUpperCase())}</span><span class="mp-partner-type">${group === "venues" ? "Playground / venue" : "Company / agency"}</span><h3>${e(partner.name)}</h3><p>${e(partner.description)}</p><div class="mp-partner-tags">${partner.categories.map(value => `<span>${e(value)}</span>`).join("")}</div><button type="button" class="outline" data-mp-profile="${e(partner.slug)}">Explore profile ↗</button></article>`).join("")}</div>`;
+      results.innerHTML = `<p class="mp-directory-count">${total} ${total === 1 ? "place" : "places"} to explore${filters.area ? " · " + e(filters.area) : ""}</p><div class="mp-partner-grid">${partners.map(partner => partnerCardView(partner, group === "venues")).join("")}</div>`;
       results.querySelectorAll<HTMLButtonElement>("[data-mp-profile]").forEach(button => button.addEventListener("click", () => void openProfile(button.dataset.mpProfile!, options)));
     }
   } catch {
-    if (!section.isConnected) return;
+    if (!current()) return;
     results.innerHTML = '<div class="mp-directory-empty"><h3>The directory couldn’t load.</h3><p>Your show catalogue is still here. Try opening the partner directory again.</p><button type="button" class="outline">Try again</button></div>';
-    results.querySelector("button")!.addEventListener("click", () => void populate(section, group, options));
-  } finally { results.setAttribute("aria-busy", "false"); }
+    results.querySelector("button")!.addEventListener("click", () => void populate(section, group, options, filters));
+  } finally { if (current()) results.setAttribute("aria-busy", "false"); }
 }
 async function openProfile(slug: string, options: MountOptions) {
   try {
@@ -147,6 +163,6 @@ async function openProfile(slug: string, options: MountOptions) {
     const providerPhone = partner.contact?.phone || "", url = `${location.origin}/providers/${partner.slug}`;
     const ask = whatsapp(providerPhone, `Hello ${partner.name}, I would like to ask about your services for my event. I'm looking at ${url}`)
       || whatsapp(options.phone, `Hello, I would like help with ${partner.name} for my event. I'm looking at ${url}`);
-    options.open(partner.name, `<div class="mp-public-profile"><span class="eyebrow">${partner.kind === "venue_operator" ? "Playground / venue" : partner.kind === "company" ? "Company / agency" : "Artist"}</span><p class="mp-profile-description">${e(partner.description)}</p><div class="mp-partner-tags">${partner.categories.map(value => `<span>${e(value)}</span>`).join("")}</div><h3>Services & experiences</h3>${listings.length ? `<div class="mp-profile-listings">${listings.map(value => `<article><h4>${e(value.title)}</h4><span>${value.kind === "birthday_package" ? "Birthday package" : value.kind === "playground_entry" ? "Playground entry" : "Show / service"}</span></article>`).join("")}</div>` : '<p>Ask about the experiences available from this partner.</p>'}<p class="privacy">Dates, location, arrangements and confirmation are agreed before booking. Contacting a partner does not confirm a reservation.</p><div class="actions">${ask ? `<a class="button" href="${e(ask)}" target="_blank" rel="noopener noreferrer">${whatsapp(providerPhone, "test") ? "Chat with " + e(partner.name) : "Ask Magic App about this partner"} ↗</a>` : '<a class="button" href="#event-box">Open my event</a>'}<a class="mp-text-link" href="${e(url)}">Profile link ↗</a></div></div>`);
+    options.open(partner.name, `<div class="mp-public-profile"><span class="eyebrow">${partner.kind === "venue_operator" ? "Playground / venue" : partner.kind === "company" ? "Company / agency" : "Artist"}</span><p class="mp-profile-description">${e(partner.description)}</p><div class="mp-partner-tags">${partner.categories.map(value => `<span>${e(value)}</span>`).join("")}</div>${locationView(partner.location)}${mediaView(partner.media)}<h3>Services & experiences</h3>${listings.length ? `<div class="mp-profile-listings">${listings.map(value => `<article><h4>${e(value.title)}</h4><span>${value.kind === "birthday_package" ? "Birthday package" : value.kind === "playground_entry" ? "Playground entry" : "Show / service"}</span></article>`).join("")}</div>` : '<p>Ask about the experiences available from this partner.</p>'}<p class="privacy">Dates, location, arrangements and confirmation are agreed before booking. Contacting a partner does not confirm a reservation.</p><div class="actions">${ask ? `<a class="button" href="${e(ask)}" target="_blank" rel="noopener noreferrer">${whatsapp(providerPhone, "test") ? "Chat with " + e(partner.name) : "Ask Magic App about this partner"} ↗</a>` : '<a class="button" href="#event-box">Open my event</a>'}<a class="mp-text-link" href="${e(url)}">Profile link ↗</a></div></div>`);
   } catch (error) { options.open("This profile isn’t available", `<p>${e(error instanceof Error ? error.message : "Please try again.")}</p><p>Explore the current directory or ask us for help choosing a partner.</p>`); }
 }
