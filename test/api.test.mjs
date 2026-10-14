@@ -413,6 +413,28 @@ test("owner can replace or hide homepage photos while preserving a visible hero"
   assert.equal((await request(path, "PUT", { value: null })).status, 200);
   assert.equal((await request("/public/test", "GET", undefined, null)).data.business.siteMedia.momentMagic, undefined);
 });
+test('photo search tags are saved, public, audited and restricted to catalogue managers',async()=>{
+  const path='/manage/photo-search-tags',url='/portfolio/guest/juggling-rings-live.jpg';
+  assert.equal((await request(path,'PUT',{url,tags:['juggler']},assistant)).status,403);
+  assert.equal((await request(path,'PUT',{url,tags:['juggler','clown','بهلوان']})).status,200);
+  assert.deepEqual((await request('/public/test','GET',undefined,null)).data.business.photoSearchTags[url],['juggler','clown','بهلوان']);
+  assert.ok((await store.all(business.id,'audit')).some(entry=>entry.action==='photo-search-tags.updated'&&entry.entityId===url));
+  assert.equal((await request(path,'PUT',{url,tags:['<img>']})).status,400);
+  assert.equal((await request(path,'PUT',{url,tags:[]})).status,200);
+  assert.equal((await request('/public/test','GET',undefined,null)).data.business.photoSearchTags[url],undefined);
+  const secondUrl='/portfolio/guest/clown-1.jpg';
+  const saves=await Promise.all([request(path,'PUT',{url,tags:['juggler']}),request(path,'PUT',{url:secondUrl,tags:['clown']})]);
+  assert.ok(saves.every(save=>save.status===200));
+  const concurrent=(await store.business(business.id)).photoSearchTags;
+  assert.deepEqual(concurrent[url],['juggler']);assert.deepEqual(concurrent[secondUrl],['clown']);
+  assert.equal((await request(path,'PUT',{url,tags:['other company']},otherCookie)).status,200);
+  assert.deepEqual((await store.business(business.id)).photoSearchTags[url],['juggler']);
+  await request(path,'PUT',{url,tags:[]});await request(path,'PUT',{url:secondUrl,tags:[]});
+  await request(path,'PUT',{url,tags:[]},otherCookie);
+  const slot='/manage/site-media/momentJuggling';
+  assert.equal((await request(slot,'PUT',{value:'https://example.com/juggler.jpg'})).status,200);
+  assert.equal((await request(slot,'PUT',{value:null})).status,200);
+});
 
 test("bundles retain booking snapshots and reject overlapping shows in requests and quotes", async () => {
   // This scenario shares the suite fixture; preserve rate counters for the existing scenarios.

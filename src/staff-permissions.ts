@@ -96,6 +96,7 @@ export function staffRouteAllowed(userOrRole: User | Role, method: string, fullP
     ["PUT", /^\/blocks\/[^/]+$/, "availability"],
     ["PUT", /^\/(packages|performers)\/[^/]+$/, "catalog"],
     ["PUT", /^\/(site-media|guest-galleries)\/[^/]+$/, "catalog"],
+    ["PUT", /^\/photo-search-tags$/, "catalog"],
     ["POST", /^\/(show-categories|guest-services|upload-photo|upload-video)$/, "catalog"],
     ["POST", /^\/reviews\/[^/]+\/moderate$/, "reviews"],
     ["POST", /^\/money(?:\/[^/]+\/correct)?$/, "money"],

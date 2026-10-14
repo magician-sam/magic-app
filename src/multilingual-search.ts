@@ -20,7 +20,7 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Sound System': ['audio','sonorisation','sono','صوت','سماعات'],
   'Face Painting': ['face paint','maquillage','grimage','رسم وجوه','رسم على الوجه'],
   'Characters': ['character','costumes','personnages','mascotte','شخصيات','ازياء','ماسكوت'],
-  'Juggling': ['juggler','jongleur','jonglage','بهلوان','بهلوانيات','جونغلينغ'],
+  'Juggling': ['juggler','jugler','juglir','jongleur','jonglage','بهلوان','بهلوانيات','جونغلينغ'],
   'Stilt Walker': ['stilts','echasses','echassier','عصي طويلة','ستيلت'],
   'Clown': ['clowns','clown','مهرج','كلون'],
   'BMX Show': ['bmx','bicycle','velo','دراجات','بي ام اكس'],

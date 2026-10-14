@@ -1,12 +1,13 @@
 import { h, t, copy, setCopy } from "./customer-i18n.js";
 import { playtownCard, openPlaytown } from './playtown-client.js';
 import { playtownMatches } from './playtown.js';
+import { matchesMultilingual } from './multilingual-search.js';
 import { locationView, mediaView, partnerCardView } from "./venue-profile-view.js";
 import type { PublicPartner, PublicListing } from "./marketplace-public.js";
 import { appendMarketplaceHelp, mountDiscoverySearch } from "./discovery-search.js";
 
 type Group = "venues" | "companies";
-type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; design: (occasion?: string) => void;
+type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; photoSearchTags?:Record<string,string[]>; design: (occasion?: string) => void;
   reserve: (kind:'visit'|'party') => void; account: () => void; open: (title: string, html: string) => void };
 const e = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const iconPaths: Record<string, string> = {
@@ -84,7 +85,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const nav = root.querySelector(".site-nav");
   nav?.insertAdjacentHTML("afterbegin", h('<a href="#marketplace-playgrounds">Playgrounds</a><a href="#marketplace-agencies">Entertainment agencies</a>'));
   const categorySection = document.createElement("section"); categorySection.id = "marketplace-categories"; categorySection.className = "mp-categories";
-  categorySection.innerHTML = h`<div class="mp-section-intro"><div><p class="eyebrow">Build a celebration with character</p><h2>What’s your kind of magic?</h2></div><p>From the first welcome to the final encore. Find every part of your occasion here.</p></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon">${icon(shape)}</span><span class="mp-category-copy"><strong>${copy(title)}</strong><small>${copy(description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
+  categorySection.innerHTML = h`<div class="mp-section-intro"><div><p class="eyebrow">Build a celebration with character</p><h2>What’s your kind of magic?</h2></div><p>From the first welcome to the final encore. Find every part of your occasion here.</p></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon" aria-hidden="true">${icon(shape)}</span><span class="mp-category-copy"><strong>${copy(title)}</strong><small>${copy(description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
   hero.after(categorySection);
   const inspiration = document.createElement("section"); inspiration.className = "world-inspiration";
   inspiration.innerHTML = h`<div class="mp-section-intro"><div><p class="eyebrow">THE MOOD BOARD</p><h2>A spark for your imagination.</h2></div><p>Colour, rhythm and little details worth remembering.</p></div><div class="world-inspiration-grid"><figure class="mp-photo mp-photo-main"><button type="button" data-zoom-photo aria-label="Enlarge celebration decoration"><img src="/portfolio/decoration/garden-birthday.jpg" alt="Garden birthday decoration from the event collection" loading="lazy"></button><figcaption>Set the scene in colour</figcaption></figure><figure class="mp-photo mp-photo-small"><button type="button" data-zoom-photo aria-label="Enlarge live music"><img src="/portfolio/guest/live-music.jpg" alt="Live music performance from the event collection" loading="lazy"></button><figcaption>Let the music tell its story</figcaption></figure><a class="world-inspiration-plan" href="#marketplace-occasions"><span aria-hidden="true">✳</span><h3>A little colour.<br> A little rhythm.<br> All your own.</h3><span>Choose your occasion ↗</span></a></div>`;
@@ -133,9 +134,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   mountDiscoverySearch(root, () => options.design(), async query => {
     search.reset(); (search.elements.namedItem("q") as HTMLInputElement).value=query;
     await Promise.all([populate(places,"venues",options,{area:"",q:query}),populate(agencies,"companies",options,{area:"",q:query})]);
-    if(places.querySelector('.playtown-card, .mp-partner-card'))return '#marketplace-playgrounds';
-    if(agencies.querySelector('.mp-partner-card'))return '#marketplace-agencies';
-    return null;
+    return [places,agencies].filter(section=>section.querySelector('.playtown-card, .mp-partner-card')).map(section=>'#'+section.id);
   });
   appendMarketplaceHelp(root, businessSlug);
   if(location.hash==='#playtown') openPlaytown(options);
@@ -160,7 +159,8 @@ async function populate(section: HTMLElement, group: Group, options: MountOption
   const load = (directoryLoads.get(section) || 0) + 1; directoryLoads.set(section, load);
   const current = () => section.isConnected && directoryLoads.get(section) === load;
   results.setAttribute("aria-busy", "true");
-  const pilot=group==='venues'&&playtownMatches(filters.area,filters.q)?playtownCard():'';
+  const playTags=Object.entries(options.photoSearchTags??{}).filter(([url])=>url.startsWith('/playgrounds/playtown/')).flatMap(([,tags])=>tags);
+  const pilot=group==='venues'&&playtownMatches(filters.area,'')&&(playtownMatches('',filters.q)||matchesMultilingual(playTags,filters.q))?playtownCard():'';
   results.innerHTML = pilot+h('<p class="muted">Finding your next setting…</p>');
   try {
     const { partners, total, ready } = await directory(group, filters);

@@ -26,6 +26,7 @@ export interface Business {
   hiddenGuestServices?: string[];
   showCategories?: string[];
   siteMedia?: Record<string, string>;
+  photoSearchTags?: Record<string, string[]>;
   intro: string;
 }
 export interface Package {

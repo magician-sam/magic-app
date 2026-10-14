@@ -42,3 +42,8 @@ test("navigation follows effective permissions", () => {
   assert.ok(!views.includes("customers"));
   assert.ok(views.includes("bookings"));
 });
+test('photo tags follow catalogue permissions',()=>{
+  assert.equal(staffRouteAllowed({role:'manager',permissions:{catalog:false}},'PUT','/api/manage/photo-search-tags'),false);
+  assert.equal(staffRouteAllowed({role:'manager'},'PUT','/api/manage/photo-search-tags'),true);
+  assert.equal(staffRouteAllowed({role:'accountant'},'PUT','/api/manage/photo-search-tags'),false);
+});

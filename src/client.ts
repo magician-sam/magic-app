@@ -1,4 +1,6 @@
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
+import { installMediaPlayback, stopMediaWithin } from "./media-playback.js";
+import { mountPhotoTagEditor } from './photo-tags-client.js';
 import { matchesMultilingual, multilingualAliases, multilingualMatchScore } from "./multilingual-search.js";
 import { paymentPreferences, venuePreferences, paymentPreferenceLabel, venuePreferenceLabel } from "./booking-preferences.js";
 import { h, t, copy, dateCopy, setCopy, customerError, dialogLanguageControl, customerLanguage, installCustomerLanguageSelector } from "./customer-i18n.js";
@@ -13,7 +15,7 @@ import { playtown } from './playtown.js';
 import { mountMarketplaceDiscovery } from "./marketplace-discovery-client.js";
 import { designerOccasions, designerSteps, emptyDesignerAnswers, readDesignerAnswers, designerAudienceAge, designerSummary } from "./event-designer.js";
 import { experienceFor, recommendationReasons, serviceArtwork } from "./visitor-experience.js";
-import { siteMediaSlots } from "./site-media.js";
+import { siteMediaSlots, sitePhotoServices } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
 import type { FollowupSettings } from "./followups.js";
 import { reportPeriod } from "./reports.js";
@@ -37,6 +39,7 @@ import type {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const modal = document.querySelector<HTMLDialogElement>("#modal")!;
+installMediaPlayback();
 const e = (value: unknown) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -197,9 +200,10 @@ function on(
   );
 }
 function openDialog(title: string, content: string) {
+  stopMediaWithin(modal);
   modal.innerHTML = h`<div class="dialog-heading"><h2 id="dialog-title">${copy(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
   modal.querySelector(".dialog-heading")!.after(dialogLanguageControl());
-  modal.querySelector(".close")!.addEventListener("click", () => modal.close());
+  modal.querySelector(".close")!.addEventListener("click", () => { stopMediaWithin(modal); modal.close(); });
   if (!modal.open) modal.showModal();
   modal.scrollTop = 0;
 }
@@ -490,7 +494,8 @@ function wireCharacterGallery(root: ParentNode = modal) {
     let visible = 0;
     for (const figure of figures) {
       const caption = figure.dataset.searchCaption ?? figure.querySelector("figcaption")?.textContent ?? "";
-      figure.hidden = (!!query && !matchesMultilingual([caption, ...Object.keys(multilingualAliases).filter(key => caption.toLowerCase().includes(key.toLowerCase()))], query)) || (selected !== "all" && !groups[selected]?.test(caption));
+      const tags=catalog.business.photoSearchTags?.[figure.dataset.photoUrl??'']??[];
+      figure.hidden = (!!query && !matchesMultilingual([caption, ...tags, ...Object.keys(multilingualAliases).filter(key => caption.toLowerCase().includes(key.toLowerCase()))], query)) || (selected !== "all" && !groups[selected]?.test(caption));
       if (!figure.hidden) visible++;
     }
     const count = browser.querySelector(".character-count");
@@ -520,7 +525,7 @@ function wireCharacterGallery(root: ParentNode = modal) {
   });
 }
 function zoomableFigure(photo: { url: string; caption: string }) {
-  return h`<figure data-search-caption="${e(photo.caption)}"><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
+  return h`<figure data-search-caption="${e(photo.caption)}" data-photo-url="${e(photo.url)}"><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
 }
 function setupPhotoRails(root: ParentNode) {
   root.querySelectorAll<HTMLElement>(".show-detail-gallery").forEach((gallery) => {
@@ -659,6 +664,7 @@ function setupPhotoZoom() {
     index = buttons.indexOf(button);
     if (index < 0) return;
     paint();
+    stopMediaWithin(document);
     lightbox.showModal();
   });
   previous.addEventListener("click", () => { if (index > 0) { index--; paint(); } });
@@ -1046,6 +1052,7 @@ function polishVisitorCatalog() {
   }
 }
 function renderPublic() {
+  stopMediaWithin(app);
   saveEventBox();
   document.body.classList.remove("site-menu-open");
   if (renderDetailLanding()) return;
@@ -1112,12 +1119,23 @@ function renderPublic() {
     [siteMediaUrl("momentDecoration"), "Birthday decoration", "enquiry", "Decoration"],
     [siteMediaUrl("momentGames"), "Carnival games", "enquiry", "Carnival Games"],
     [siteMediaUrl("momentPanda"), "Panda and bear characters", "enquiry", "Characters"],
-  ].filter(([url, , kind, key]) => !!url && (kind !== "enquiry" || moreShowNames().includes(key)));
+    [siteMediaUrl("momentBubbles"), "Bubble Show", "show", "bubbles"],
+    [siteMediaUrl("momentJuggling"), "Juggling", "enquiry", "Juggling"],
+    [siteMediaUrl("momentClown"), "Clown", "enquiry", "Clown"],
+    [siteMediaUrl("momentFootball"), "Football Show", "enquiry", "Football Show"],
+    [siteMediaUrl("momentStilts"), "Stilt Walker", "enquiry", "Stilt Walker"],
+    [siteMediaUrl("momentBalloons"), "Balloon Twisting", "enquiry", "Balloon Twisting"],
+    [siteMediaUrl("momentPlaytown"), "PLAYTOWN", "playground", "PLAYTOWN"],
+  ].map(([url,label,kind,key])=>[url,label,kind,kind==='enquiry'?(moreShowNames().find(name=>name===key||matchesMultilingual([key],name))??key):key])
+    .filter(([url, , kind, key]) => !!url && (kind !== "enquiry" || moreShowNames().includes(key)));
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
-  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => h`<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${copy(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
-  strip.innerHTML = h`<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
+  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => h`<figure${duplicate ? ' aria-hidden="true" data-moment-duplicate' : ''}><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : kind === "playground" ? 'data-playtown-open' : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${copy(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
+  // Each half fills even a wide screen when the owner hides most photos.
+  const copies = Math.max(1, Math.ceil(Math.max(1920,window.innerWidth) / Math.max(1, moments.length * 160)));
+  const repeated = Array.from({length: copies}, (_, index) => tiles(index > 0)).join('');
+  strip.innerHTML = h`<div class="moments-track"><div class="moments-set">${repeated}</div><div class="moments-set" aria-hidden="true" data-moment-duplicate>${tiles(true).repeat(copies)}</div></div>`;
   if (moments.length) document.querySelector(".ribbon")?.after(strip);
   polishVisitorCatalog();
   renderBox();
@@ -1177,7 +1195,13 @@ function renderPublic() {
       const show=id?catalog.packages.find(item=>item.id===id&&item.active):undefined;
       const service=card.querySelector<HTMLElement>('[data-enquiry-details]')?.dataset.enquiryDetails;
       const values=show?[show.name,publicShowName(show),show.description,show.category]:service&&moreShowNames().includes(service)?[service,experienceFor(service).heading,experienceFor(service).experience,...(service==='Characters'?characterChoiceNames():[])]:[];
-      return {card,score:values.length?multilingualMatchScore(values,query):null};
+      const photos=show?showPhotos(show):service?guestPhotos(service):[];
+      const photoTerms=photos.flatMap(photo=>[photo.caption,...(catalog.business.photoSearchTags?.[photo.url]??[])]);
+      const name=show?publicShowName(show):service??'';
+      for(const [slot,label] of Object.entries(sitePhotoServices))if(name&&matchesMultilingual([label],name)){
+        const url=siteMediaUrl(slot);if(url)photoTerms.push(...(catalog.business.photoSearchTags?.[url]??[]));
+      }
+      return {card,score:values.length?multilingualMatchScore([...values,...photoTerms],query):null};
     });
     const exact=matches.some(item=>item.score===0);let found=0;
     for(const {card,score} of matches){card.hidden=score===null||(exact&&score!==0);if(!card.hidden)found++;}
@@ -1220,7 +1244,7 @@ function renderPublic() {
     ),
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, phone: contactPhone,
-    reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog });
+    reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
 }
 function enquiryLinks(name: string) {
   const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
@@ -2977,6 +3001,16 @@ function renderGuestPhotosAdmin(root: Element) {
     return `<article class="panel"><h3>${e(name)}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-guest-gallery="${e(name)}">Manage photos & videos ↗</button></article>`;
   }).join("");
   root.innerHTML = `<section class="panel"><h2>Photos & videos</h2><p>Replace homepage pictures below, then manage photos and videos for each show. Changes to a show appear after you save its media.</p></section><h2>Homepage photos</h2><div class="profile-grid">${siteCards}</div><h2>Sam’s shows & bundles</h2><div class="profile-grid">${state!.packages.map((show) => { const photos = showPhotos(show).length, videos = showVideos(show).length; return `<article class="panel"><h3>${e(publicShowName(show))}</h3><p>${photos} ${photos === 1 ? "photo" : "photos"} · ${videos} ${videos === 1 ? "video" : "videos"}</p><button type="button" class="small outline" data-package-media="${e(show.id)}">Manage photos & videos ↗</button></article>`; }).join("")}</div><h2>Guest acts & party services</h2><div class="profile-grid">${guestCards}</div>`;
+  const tagPhotos=[
+    ...siteMediaSlots.map(slot=>({url:state!.business.siteMedia?.[slot.key]??slot.defaultUrl,caption:slot.label,tags:[slot.label.split(' · ').at(-1)!]})).filter(photo=>photo.url),
+    ...state!.packages.flatMap(show=>[...(portfolioShowPhotos[show.id]??demoShowPhotos[show.id]??[]),...(show.gallery??[])].map(photo=>({...photo,tags:[publicShowName(show)]}))),
+    ...names.flatMap(name=>[...guestBuiltInPhotos(name),...(state!.guestGalleries?.find(entry=>entry.id===name.toLocaleLowerCase('en'))?.gallery??[])].map(photo=>({...photo,tags:[name]}))),
+    ...[1,2,3,4,5].map(n=>({url:`/playgrounds/playtown/play-${n}.jpg`,caption:`PLAYTOWN play area ${n}`,tags:['PLAYTOWN','playground']})),
+  ];
+  mountPhotoTagEditor(root,tagPhotos,state!.business.photoSearchTags??{},async(url,tags)=>{
+    const result=await api<{tags:string[]}>('/manage/photo-search-tags','PUT',{url,tags});
+    state!.business.photoSearchTags={...state!.business.photoSearchTags,[url]:result.tags};
+  });
   on(root, "[data-edit-site-media]", "click", (event) => editSiteMedia((event.currentTarget as HTMLElement).dataset.editSiteMedia!));
   on(root, "[data-hide-site-media]", "click", async (event) => {
     await api(`/manage/site-media/${(event.currentTarget as HTMLElement).dataset.hideSiteMedia!}`, "PUT", { value: "" });

@@ -9,12 +9,12 @@ test("one authenticated event supports mixed and guest-only requests without los
   const password = "Guest-test-password-42!";
   await createUser(store, business.id, "staff@example.test", password, "Owner");
   const origin = "http://localhost:43229";
-  const server = createApp(store, origin).listen(43229, "127.0.0.1");
+  const server = createApp(store, origin).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   let cookie, customerCookie;
   const event = { name: "Guest celebration", date: "2027-07-20", time: "14:00", location: "Test venue", occasion: "Birthday", audience: 20, age: 8, indoor: true, power: true, space: 30, performerIds: [] };
   async function request(path, method = "GET", body, auth = cookie) {
-    const response = await fetch(origin + "/api" + path, { method, headers: { origin, "content-type": "application/json", ...(auth ? { cookie: auth } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api` + path, { method, headers: { origin, "content-type": "application/json", ...(auth ? { cookie: auth } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, data: await response.json(), cookie: response.headers.get("set-cookie")?.split(";")[0] };
   }
   async function current(id) { return (await request("/manage/state")).data.bookings.find((b) => b.id === id); }

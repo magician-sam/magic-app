@@ -1,5 +1,6 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string}>>> = Object.freeze({
+  "See all matching services ↗": {"fr":"Voir tous les services correspondants ↗","ar":"شاهد كل الخدمات المطابقة ↗"},
   "The shows": {
     "fr": "Les spectacles",
     "ar": "العروض"

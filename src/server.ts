@@ -15,6 +15,7 @@ import { preparationChecklist } from "./preparation.js";
 import { staffNotices, type StaffNoticeState } from "./staff-notices.js";
 import { limitedStaff, staffRouteAllowed, userCanStaffAction, configurableStaffActions, staffResponse } from "./staff-permissions.js";
 import { siteMediaSlots } from "./site-media.js";
+import { photoSearchTagsSchema } from './photo-search-tags.js';
 import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
@@ -1368,6 +1369,21 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       await store.audit(req.business.id, req.user.email, "site-media.updated", slot, req.business.siteMedia?.[slot] ?? null, value);
     });
     res.json({ siteMedia });
+  });
+  writes.put('/api/manage/photo-search-tags', async (request, res) => {
+    const req=request as Authed; canManage(req);
+    const {url,tags}=photoSearchTagsSchema.parse(req.body);
+    const result=await store.transaction(async()=>{
+      const business=(await store.business(req.business.id))!;
+      const photoSearchTags={...(business.photoSearchTags??{})};
+      const before=photoSearchTags[url]??[];
+      if(tags.length)photoSearchTags[url]=[...new Set(tags)]; else delete photoSearchTags[url];
+      requireThat(Object.keys(photoSearchTags).length<=1000,'Up to 1,000 tagged photos are supported.');
+      await store.db.prepare('UPDATE businesses SET data=? WHERE id=?').run(JSON.stringify({...business,photoSearchTags}),req.business.id);
+      await store.audit(req.business.id,req.user.email,'photo-search-tags.updated',url,before,tags);
+      return photoSearchTags[url]??[];
+    });
+    res.json({url,tags:result});
   });
   writes.put("/api/manage/guest-galleries/:name", async (request, res) => {
     const req = request as Authed;

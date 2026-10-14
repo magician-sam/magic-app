@@ -11,4 +11,17 @@ export const siteMediaSlots = [
   { key: "momentDecoration", label: "Moving moments · decoration", defaultUrl: "/portfolio/decoration/dinosaur-birthday.jpg" },
   { key: "momentGames", label: "Moving moments · games", defaultUrl: "/portfolio/presentation/carnival-games.jpg" },
   { key: "momentPanda", label: "Moving moments · panda & bear", defaultUrl: "/portfolio/characters-panda-bear.jpg" },
+  { key: "momentBubbles", label: "Moving moments · bubbles", defaultUrl: "/portfolio/presentation/bubble-show.jpg" },
+  { key: "momentJuggling", label: "Moving moments · juggling", defaultUrl: "/portfolio/guest/juggling-rings-live.jpg" },
+  { key: "momentClown", label: "Moving moments · clown", defaultUrl: "/portfolio/guest/clown-unicycle-balloon.jpg" },
+  { key: "momentFootball", label: "Moving moments · football", defaultUrl: "/portfolio/guest/football-stage-live.jpg" },
+  { key: "momentStilts", label: "Moving moments · stilt walker", defaultUrl: "/portfolio/guest/stilt-walker-live.jpg" },
+  { key: "momentBalloons", label: "Moving moments · balloon creations", defaultUrl: "/portfolio/guest/balloon-twisting-live.jpg" },
+  { key: "momentPlaytown", label: "Moving moments · PLAYTOWN", defaultUrl: "/playgrounds/playtown/play-2.jpg" },
 ] as const;
+export const sitePhotoServices:Record<string,string>={
+  heroMagic:'Magic Show',showProof:'Magic Show',adultMagic:'Magic Show',samProfile:'Magic Show',momentMagic:'Magic Show',
+  heroScience:'Science Show',momentScience:'Science Show',heroCharacters:'Characters',momentCharacters:'Characters',momentPanda:'Characters',
+  momentDecoration:'Decoration',momentGames:'Carnival Games',momentBubbles:'Bubble Show',momentJuggling:'Juggling',momentClown:'Clown',
+  momentFootball:'Football Show',momentStilts:'Stilt Walker',momentBalloons:'Balloon Twisting',momentPlaytown:'PLAYTOWN',
+};
