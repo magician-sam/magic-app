@@ -30,7 +30,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "How it works": {
     "fr": "Comment ça marche",
-    "ar": "كيف يعمل"
+    "ar": "كيف تحجز"
   },
   "Your event box": {
     "fr": "Votre sélection",
@@ -114,15 +114,15 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Sound System": {
     "fr": "Sonorisation",
-    "ar": "نظام صوت"
+    "ar": "تجهيزات صوتية"
   },
   "Juggling": {
     "fr": "Jonglage",
-    "ar": "بهلوانيات الكرات"
+    "ar": "ألعاب خفة بالكرات"
   },
   "Stilt Walker": {
     "fr": "Échassier",
-    "ar": "مؤدٍ على العصي الطويلة"
+    "ar": "المشي على العصي الطويلة"
   },
   "BMX Show": {
     "fr": "Spectacle BMX",
@@ -138,7 +138,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Aerial Show": {
     "fr": "Spectacle aérien",
-    "ar": "عرض أكروبات هوائي"
+    "ar": "عرض أكروبات في الهواء"
   },
   "Fire Show": {
     "fr": "Spectacle de feu",
@@ -150,7 +150,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Live Music & Parades": {
     "fr": "Musique live et parades",
-    "ar": "موسيقى حية واستعراضات"
+    "ar": "موسيقى مباشرة واستعراضات"
   },
   "Caricaturist": {
     "fr": "Caricaturiste",
@@ -190,7 +190,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Corporate event": {
     "fr": "Événement d’entreprise",
-    "ar": "مناسبة شركة"
+    "ar": "مناسبة للشركة"
   },
   "Festival": {
     "fr": "Festival",
@@ -202,7 +202,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Baptism": {
     "fr": "Baptême",
-    "ar": "عماد"
+    "ar": "عمادة"
   },
   "First Communion": {
     "fr": "Première communion",
@@ -250,7 +250,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Music & sound": {
     "fr": "Musique et son",
-    "ar": "موسيقى وصوت"
+    "ar": "موسيقى وتجهيزات صوتية"
   },
   "Food & cakes": {
     "fr": "Repas et gâteaux",
@@ -258,7 +258,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Baptism & Communion": {
     "fr": "Baptême et communion",
-    "ar": "عماد ومناولة"
+    "ar": "عمادة ومناولة"
   },
   "Favours & keepsakes": {
     "fr": "Cadeaux invités et souvenirs",
@@ -294,11 +294,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "DJs, live acts & sound systems": {
     "fr": "DJ, musique live et sonorisation",
-    "ar": "دي جي وعروض حية وأنظمة صوت"
+    "ar": "دي جي وعروض مباشرة وتجهيزات صوتية"
   },
   "Menus, treats & celebration cakes": {
     "fr": "Menus, douceurs et gâteaux de fête",
-    "ar": "قوائم طعام وحلويات وقوالب للمناسبات"
+    "ar": "قوائم طعام وحلويات وقوالب حلوى للمناسبات"
   },
   "Celebrate a meaningful family moment": {
     "fr": "Célébrez un moment précieux en famille",
@@ -374,7 +374,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Agencies & event creators": {
     "fr": "Agences et créateurs d’événements",
-    "ar": "وكالات وصنّاع مناسبات"
+    "ar": "وكالات ومنظمو مناسبات"
   },
   "Artists, shows & experiences": {
     "fr": "Artistes, spectacles et expériences",
@@ -406,7 +406,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Try juggling, cake or DJ…": {
     "fr": "Essayez jonglage, gâteau ou DJ…",
-    "ar": "جرّب بهلوانيات أو حلوى أو دي جي…"
+    "ar": "جرّب ألعاب خفة أو قالب حلوى أو دي جي…"
   },
   "Show matches": {
     "fr": "Voir les résultats",
@@ -426,7 +426,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Try clown, juggling, science…": {
     "fr": "Essayez clown, jonglage, sciences…",
-    "ar": "جرّب مهرج أو بهلوانيات أو علوم…"
+    "ar": "جرّب مهرج أو ألعاب خفة أو علوم…"
   },
   "Clear search · see everything": {
     "fr": "Effacer la recherche · tout voir",
@@ -470,7 +470,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Quote required": {
     "fr": "Sur devis",
-    "ar": "السعر حسب عرض الأسعار"
+    "ar": "يُحدد السعر بعد مراجعة الطلب"
   },
   "Photos coming soon": {
     "fr": "Photos à venir",
@@ -594,7 +594,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "An assembly or school celebration": {
     "fr": "Une réunion ou fête scolaire",
-    "ar": "تجمع أو احتفال مدرسي"
+    "ar": "تجمّع أو احتفال مدرسي"
   },
   "A trip or activity day": {
     "fr": "Une sortie ou journée d’activités",
@@ -618,7 +618,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Drop-in activity stations": {
     "fr": "Des espaces d’activités en accès libre",
-    "ar": "محطات أنشطة للمشاركة"
+    "ar": "محطات أنشطة مفتوحة للمشاركة"
   },
   "A mix of experiences": {
     "fr": "Un mélange d’expériences",
@@ -638,7 +638,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A launch or public activation": {
     "fr": "Un lancement ou une animation publique",
-    "ar": "إطلاق أو نشاط للجمهور"
+    "ar": "حفل إطلاق أو فعالية ترويجية للجمهور"
   },
   "A formal reception": {
     "fr": "Une réception officielle",
@@ -650,7 +650,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Welcome and cocktail hour": {
     "fr": "L’accueil et le cocktail",
-    "ar": "الاستقبال واللقاء قبل الحفل"
+    "ar": "الاستقبال والكوكتيل قبل الحفل"
   },
   "The main celebration": {
     "fr": "La célébration principale",
@@ -662,7 +662,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Help us shape the moment": {
     "fr": "Aidez-nous à imaginer ce moment",
-    "ar": "ساعدنا على تصميم هذه اللحظة"
+    "ar": "ساعدنا على التخطيط لهذه اللحظة"
   },
   "What kind of festive gathering?": {
     "fr": "Quel type de fête de Noël ?",
@@ -686,11 +686,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "How would you like to celebrate the baptism?": {
     "fr": "Comment souhaitez-vous célébrer le baptême ?",
-    "ar": "كيف تريد الاحتفال بالعماد؟"
+    "ar": "كيف تريد الاحتفال بالعمادة؟"
   },
   "A gathering after the ceremony": {
     "fr": "Une réunion après la cérémonie",
-    "ar": "تجمع بعد المراسم"
+    "ar": "لقاء بعد المراسم"
   },
   "A family lunch or reception": {
     "fr": "Un déjeuner ou une réception en famille",
@@ -722,7 +722,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Help us shape this milestone": {
     "fr": "Aidez-nous à célébrer cette étape",
-    "ar": "ساعدنا على تصميم هذا الاحتفال"
+    "ar": "ساعدنا على التخطيط لهذه المناسبة المميزة"
   },
   "What would you like to arrange?": {
     "fr": "Que souhaitez-vous organiser ?",
@@ -806,7 +806,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "How big is the audience you expect?": {
     "fr": "Quel public attendez-vous ?",
-    "ar": "كم عدد الجمهور المتوقع؟"
+    "ar": "كم عدد الحاضرين المتوقع؟"
   },
   "How many guests at your festive gathering?": {
     "fr": "Combien d’invités à votre fête ?",
@@ -862,7 +862,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Choose the atmosphere for your family gathering. Ceremony arrangements stay with your chosen venue.": {
     "fr": "Choisissez l’ambiance de votre réunion de famille. Les dispositions de la cérémonie restent à convenir avec le lieu choisi.",
-    "ar": "اختر أجواء تجمعك العائلي. تبقى ترتيبات المراسم مع المكان الذي اخترته."
+    "ar": "اختر أجواء لقائك العائلي. تبقى ترتيبات المراسم بالتنسيق مع المكان الذي اخترته."
   },
   "Laughter, wonder or a room full of energy? Follow your instinct.": {
     "fr": "Des rires, de l’émerveillement ou une énergie débordante ? Suivez votre intuition.",
@@ -870,11 +870,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Soft and elegant": {
     "fr": "Doux et élégant",
-    "ar": "ناعم وأنيق"
+    "ar": "أجواء هادئة وأنيقة"
   },
   "Colourful and playful": {
     "fr": "Coloré et joyeux",
-    "ar": "ملون ومرح"
+    "ar": "أجواء ملونة ومرحة"
   },
   "A personal family moment": {
     "fr": "Un moment intime en famille",
@@ -918,7 +918,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Who are we entertaining?": {
     "fr": "À qui s’adresse l’animation ?",
-    "ar": "من هو جمهور الترفيه؟"
+    "ar": "لمن نقدم الترفيه؟"
   },
   "Start with their age group. We’ll add the birthday details later.": {
     "fr": "Commencez par la tranche d’âge. Nous ajouterons ensuite les détails de l’anniversaire.",
@@ -926,7 +926,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Help us picture your guests. We’ll check each experience’s age requirements with you.": {
     "fr": "Aidez-nous à connaître vos invités. Nous vérifierons avec vous les conditions d’âge de chaque expérience.",
-    "ar": "ساعدنا على معرفة ضيوفك. سنراجع معك متطلبات العمر لكل تجربة."
+    "ar": "ساعدنا على التعرف إلى ضيوفك. سنراجع معك الفئة العمرية المناسبة لكل تجربة."
   },
   "Family and friends of mixed ages": {
     "fr": "Des proches et amis de tous âges",
@@ -978,7 +978,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Where will the gathering take place?": {
     "fr": "Où aura lieu la réunion ?",
-    "ar": "أين سيقام التجمع؟"
+    "ar": "أين سيقام اللقاء؟"
   },
   "Have you chosen a playground?": {
     "fr": "Avez-vous choisi un espace de jeux ?",
@@ -1042,11 +1042,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Friend’s 10-character code (optional)": {
     "fr": "Code de votre ami à 10 caractères (facultatif)",
-    "ar": "رمز صديقك من ١٠ أحرف (اختياري)"
+    "ar": "رمز دعوة صديقك من ١٠ خانات (اختياري)"
   },
   "Email for password recovery (optional)": {
     "fr": "E-mail de récupération du mot de passe (facultatif)",
-    "ar": "بريد استعادة كلمة المرور (اختياري)"
+    "ar": "البريد الإلكتروني لاستعادة كلمة المرور (اختياري)"
   },
   "Add an email you can access so you can reset your password yourself. You can also add it later in My account.": {
     "fr": "Ajoutez une adresse e-mail accessible pour réinitialiser votre mot de passe. Vous pourrez aussi l’ajouter plus tard dans Mon compte.",
@@ -1078,7 +1078,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your next happy memory starts here": {
     "fr": "Votre prochain beau souvenir commence ici",
-    "ar": "ذكراك الجميلة القادمة تبدأ هنا"
+    "ar": "ذكرياتك الجميلة القادمة تبدأ هنا"
   },
   "Welcome back to the fun": {
     "fr": "Ravi de vous retrouver",
@@ -1174,7 +1174,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Send me new shows, bundles and offers": {
     "fr": "Recevoir les nouveaux spectacles, formules et offres",
-    "ar": "أرسل لي العروض والباقات والعروض الترويجية الجديدة"
+    "ar": "أرسل لي أخبار العروض الفنية والباقات والعروض الترويجية الجديدة"
   },
   "Children’s ages (optional)": {
     "fr": "Âges des enfants (facultatif)",
@@ -1182,7 +1182,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "One age per child, separated by commas. No names or exact birthdays needed. Leave blank to skip or remove.": {
     "fr": "Un âge par enfant, séparé par des virgules. Aucun nom ni date de naissance exacte. Laissez vide pour ignorer ou supprimer.",
-    "ar": "عمر واحد لكل طفل، تفصل بينها فواصل. لا حاجة للأسماء أو تواريخ الميلاد الدقيقة. اتركه فارغًا للتجاوز أو الحذف."
+    "ar": "أدخل عمر كل طفل وافصل بين الأعمار بفواصل. لا حاجة إلى الأسماء أو تواريخ الميلاد الدقيقة. اترك الحقل فارغًا لتخطيه أو لحذف الأعمار المحفوظة."
   },
   "3–40 letters, numbers, underscores or hyphens.": {
     "fr": "3 à 40 lettres, chiffres, tirets ou traits de soulignement.",
@@ -1214,7 +1214,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Main audience age": {
     "fr": "Âge principal du public",
-    "ar": "العمر الغالب للجمهور"
+    "ar": "الفئة العمرية الغالبة بين الحاضرين"
   },
   "Clear performance area (m²)": {
     "fr": "Espace libre pour le spectacle (m²)",
@@ -1282,11 +1282,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Private event arrangements and prices are quoted separately from day passes.": {
     "fr": "L’organisation et le prix des événements privés font l’objet d’un devis séparé des pass journaliers.",
-    "ar": "ترتيبات المناسبات الخاصة وأسعارها تُعرض منفصلة عن بطاقات الدخول اليومية."
+    "ar": "تُحدد ترتيبات المناسبات الخاصة وأسعارها في عرض سعر منفصل عن بطاقات الدخول اليومية."
   },
   "This sends a reservation request to Magic App. We check with PLAYTOWN and confirm your visit before you arrive. You will sign in or create an account before sending.": {
     "fr": "Vous envoyez une demande à Magic App. Nous vérifions auprès de PLAYTOWN et confirmons votre visite avant votre arrivée. Connectez-vous ou créez un compte avant l’envoi.",
-    "ar": "يرسل هذا طلب حجز إلى Magic App. نراجع مع PLAYTOWN ونؤكد زيارتك قبل الوصول. ستسجل الدخول أو تنشئ حسابًا قبل الإرسال."
+    "ar": "سيرسل هذا النموذج طلب حجز إلى Magic App. نتواصل مع PLAYTOWN لتأكيد زيارتك قبل وصولك. ستسجل الدخول أو تنشئ حسابًا قبل إرسال الطلب."
   },
   "Continue with my reservation →": {
     "fr": "Continuer ma demande →",
@@ -1322,7 +1322,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "One secret that would make it personal": {
     "fr": "Un petit secret pour personnaliser le moment",
-    "ar": "سر صغير يجعلها شخصية"
+    "ar": "تفصيل خاص يضيف لمسة شخصية للمفاجأة"
   },
   "Only Sam and the event team see this. Please share only what you are comfortable sharing.": {
     "fr": "Seuls Sam et l’équipe voient ces informations. Partagez uniquement ce que vous souhaitez.",
@@ -1342,7 +1342,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Colours, theme, photo or video coverage, and guest-gift quantity. Personalised names and dates will be approved with you before production.": {
     "fr": "Couleurs, thème, couverture photo ou vidéo et quantité de cadeaux invités. Les noms et dates personnalisés seront validés avec vous avant la production.",
-    "ar": "الألوان والموضوع والتغطية الفوتوغرافية أو الفيديو وعدد هدايا الضيوف. ستُراجع معك الأسماء والتواريخ المخصصة قبل الإنتاج."
+    "ar": "الألوان والطابع والتغطية الفوتوغرافية أو تصوير الفيديو وعدد هدايا الضيوف. نطلب موافقتك على الأسماء والتواريخ التي ستُطبع قبل تنفيذ الطلب."
   },
   "Your review": {
     "fr": "Votre avis",
@@ -1370,15 +1370,15 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Only share a photo you have permission to use, including permission for any children pictured.": {
     "fr": "Partagez uniquement une photo autorisée, avec l’accord nécessaire pour les enfants photographiés.",
-    "ar": "شارك فقط صورة لديك إذن باستخدامها، بما يشمل إذنًا للأطفال الظاهرين فيها."
+    "ar": "شارك فقط صورة لديك إذن باستخدامها، بما يشمل موافقة ولي أمر أي طفل يظهر فيها."
   },
   "You may publish my review and ratings": {
     "fr": "Vous pouvez publier mon avis et mes notes",
-    "ar": "يمكنك نشر تقييمي ودرجاتي"
+    "ar": "أوافق على نشر تقييمي وتعليقي"
   },
   "You may publish this photo": {
     "fr": "Vous pouvez publier cette photo",
-    "ar": "يمكنك نشر هذه الصورة"
+    "ar": "أوافق على نشر هذه الصورة"
   },
   "Something went wrong. Please try again.": {
     "fr": "Une erreur est survenue. Veuillez réessayer.",
@@ -1446,7 +1446,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Baptism & First Communion": {
     "fr": "Baptême et première communion",
-    "ar": "عماد ومناولة أولى"
+    "ar": "عمادة والمناولة الأولى"
   },
   "Family milestones, thoughtfully celebrated": {
     "fr": "Des étapes familiales célébrées avec soin",
@@ -1494,7 +1494,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Face Painting & Glitter": {
     "fr": "Maquillage artistique et paillettes",
-    "ar": "رسم على الوجوه وبريق"
+    "ar": "رسم على الوجوه وغليتر"
   },
   "Dog Show": {
     "fr": "Spectacle canin",
@@ -1502,7 +1502,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Acrobat": {
     "fr": "Acrobate",
-    "ar": "أكروبات"
+    "ar": "فنان أكروبات"
   },
   "BMX": {
     "fr": "BMX",
@@ -1510,7 +1510,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Juggler": {
     "fr": "Jongleur",
-    "ar": "بهلوان الكرات"
+    "ar": "فنان ألعاب خفة"
   },
   "Kids Theatre": {
     "fr": "Théâtre pour enfants",
@@ -1562,7 +1562,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Invite friends, collect tokens": {
     "fr": "Invitez vos amis, cumulez des jetons",
-    "ar": "ادعُ أصدقاءك واجمع الرموز"
+    "ar": "ادعُ أصدقاءك واجمع نقاط المكافآت"
   },
   "Behind the wonder": {
     "fr": "Les coulisses de l’émerveillement",
@@ -1586,7 +1586,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A little wonder is waiting for you.": {
     "fr": "Un peu d’émerveillement vous attend.",
-    "ar": "قليل من الدهشة ينتظرك."
+    "ar": "لحظات من الدهشة بانتظارك."
   },
   "Build a celebration with character": {
     "fr": "Composez une fête qui vous ressemble",
@@ -1674,7 +1674,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A birthday wish, a school adventure, a celebration just because. Start with yours.": {
     "fr": "Un vœu d’anniversaire, une aventure scolaire, une fête pour le plaisir. Commencez par la vôtre.",
-    "ar": "أمنية عيد ميلاد أو مغامرة مدرسية أو احتفال بلا سبب. ابدأ بمناسبتك."
+    "ar": "أمنية عيد ميلاد أو مغامرة مدرسية أو احتفال لمجرد الفرح. ابدأ بمناسبتك."
   },
   "The moments that stay with a family": {
     "fr": "Les moments qui restent dans une famille",
@@ -1690,7 +1690,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Bring your loved ones together. We help you shape the celebration around the ceremony, with the details that feel like you.": {
     "fr": "Réunissez vos proches. Nous vous aidons à imaginer la fête autour de la cérémonie, avec des détails à votre image.",
-    "ar": "اجمع أحبابك. نساعدك على تصميم الاحتفال حول المراسم، بتفاصيل تعبر عنك."
+    "ar": "اجمع أحبابك. نساعدك على التخطيط لاحتفال يرافق المراسم، بتفاصيل تعبّر عنك."
   },
   "A welcome, with love": {
     "fr": "Un accueil plein d’amour",
@@ -1698,11 +1698,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A gentle setting, thoughtful favours and family moments worth keeping. Start with a gathering after the ceremony or a reception of your own.": {
     "fr": "Un décor doux, des cadeaux attentionnés et des souvenirs de famille. Commencez par une réunion après la cérémonie ou une réception personnelle.",
-    "ar": "أجواء هادئة وهدايا مميزة ولحظات عائلية تستحق الحفظ. ابدأ بتجمع بعد المراسم أو باستقبال من اختيارك."
+    "ar": "أجواء هادئة وهدايا مميزة ولحظات عائلية تستحق أن تبقى. ابدأ بلقاء بعد المراسم أو بحفل استقبال من اختيارك."
   },
   "Plan a baptism celebration ↗": {
     "fr": "Préparer une fête de baptême ↗",
-    "ar": "خطط لاحتفال عماد ↗"
+    "ar": "خطط لاحتفال عمادة ↗"
   },
   "A milestone to remember": {
     "fr": "Une étape mémorable",
@@ -1714,7 +1714,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Plan a First Communion ↗": {
     "fr": "Préparer une première communion ↗",
-    "ar": "خطط لمناولة أولى ↗"
+    "ar": "خطط لاحتفال المناولة الأولى ↗"
   },
   "Balloons & flowers ↗": {
     "fr": "Ballons et fleurs ↗",
@@ -1746,7 +1746,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Explore published venues by their saved area, city or address.": {
     "fr": "Explorez les lieux publiés par quartier, ville ou adresse enregistrée.",
-    "ar": "استكشف الأماكن المنشورة حسب منطقتها أو مدينتها أو عنوانها المسجل."
+    "ar": "استكشف الأماكن المتاحة في الدليل حسب المنطقة أو المدينة أو العنوان."
   },
   "Area or city": {
     "fr": "Quartier ou ville",
@@ -1842,11 +1842,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We’re preparing this directory. Profiles appear once approved, and availability is checked before booking.": {
     "fr": "Nous préparons cet annuaire. Les profils apparaissent après validation et la disponibilité est vérifiée avant toute réservation.",
-    "ar": "نجهز هذا الدليل. تظهر الملفات بعد الموافقة، ويُراجع التوافر قبل الحجز."
+    "ar": "نعمل على إعداد هذا الدليل. تظهر الصفحات التعريفية بعد الموافقة عليها، ونتحقق من التوافر قبل الحجز."
   },
   "Only approved profiles appear. Search results do not confirm availability for your date.": {
     "fr": "Seuls les profils approuvés apparaissent. Les résultats ne confirment pas la disponibilité à votre date.",
-    "ar": "تظهر الملفات المعتمدة فقط. نتائج البحث لا تؤكد التوافر في تاريخك."
+    "ar": "تظهر الصفحات التعريفية المعتمدة فقط. نتائج البحث لا تؤكد التوافر في الموعد الذي اخترته."
   },
   "Explore all the shows ↗": {
     "fr": "Découvrir tous les spectacles ↗",
@@ -1902,7 +1902,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A creative double act": {
     "fr": "Un duo créatif",
-    "ar": "عرضان بإبداع مشترك"
+    "ar": "عرضان في باقة واحدة"
   },
   "Bundle idea": {
     "fr": "Idée de formule",
@@ -2034,7 +2034,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Share your link. When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.": {
     "fr": "Partagez votre lien. Lorsqu’un ami termine un spectacle de magie, sciences ou bulles entièrement payé, recevez un jeton.",
-    "ar": "شارك رابطك. عندما يكمل صديق عرض سحر أو علوم أو فقاعات مدفوعًا بالكامل، تحصل على رمز."
+    "ar": "شارك رابطك. عندما يحجز صديقك عرض سحر أو علوم أو فقاعات ويُقام العرض ويُدفع ثمنه بالكامل، تحصل على نقطة مكافأة."
   },
   "Get my invitation link ↗": {
     "fr": "Obtenir mon lien d’invitation ↗",
@@ -2042,7 +2042,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "One token per referred friend. Use tokens one by one or save five for a free magic show.": {
     "fr": "Un jeton par ami parrainé. Utilisez-les un par un ou gardez-en cinq pour un spectacle de magie offert.",
-    "ar": "رمز واحد لكل صديق مدعو. استخدم الرموز واحدًا واحدًا أو اجمع خمسة لعرض سحري مجاني."
+    "ar": "نقطة مكافأة واحدة لكل صديق تدعوه. استخدم نقاطك واحدة تلو الأخرى أو اجمع خمس نقاط للحصول على عرض سحري مجاني."
   },
   "Wonder has no age limit": {
     "fr": "L’émerveillement n’a pas d’âge",
@@ -2054,7 +2054,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Planning a wedding, private party or corporate event? Tell us about your guests and the atmosphere you want. We’ll plan the format with you.": {
     "fr": "Un mariage, une fête privée ou un événement d’entreprise ? Parlez-nous de vos invités et de l’ambiance souhaitée. Nous définirons la formule ensemble.",
-    "ar": "تخطط لزفاف أو حفلة خاصة أو مناسبة شركة؟ أخبرنا عن ضيوفك والأجواء التي تريدها. سنخطط معك لشكل العرض."
+    "ar": "تخطط لزفاف أو حفلة خاصة أو مناسبة للشركة؟ أخبرنا عن ضيوفك والأجواء التي تريدها. سنخطط معك لشكل العرض."
   },
   "Explore the Magic Show ↗": {
     "fr": "Découvrir le spectacle de magie ↗",
@@ -2086,7 +2086,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We check availability and the details, then send your proposal.": {
     "fr": "Nous vérifions la disponibilité et les détails, puis envoyons une proposition.",
-    "ar": "نراجع التوافر والتفاصيل ثم نرسل عرضنا."
+    "ar": "نراجع التوافر والتفاصيل ثم نرسل لك عرض السعر."
   },
   "Look forward to showtime": {
     "fr": "Préparez-vous au grand moment",
@@ -2094,7 +2094,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Review your proposal, the agreed payment terms and final confirmation. Then look forward to your celebration.": {
     "fr": "Vérifiez la proposition, les conditions de paiement convenues et la confirmation finale. Puis profitez de l’attente de votre fête.",
-    "ar": "راجع عرضنا وشروط الدفع المتفق عليها والتأكيد النهائي. ثم ترقب احتفالك."
+    "ar": "راجع عرض السعر وشروط الدفع المتفق عليها والتأكيد النهائي، ثم استعد لاحتفالك."
   },
   "The people behind the performance": {
     "fr": "Les personnes derrière le spectacle",
@@ -2114,7 +2114,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Is my date confirmed when I send a request?": {
     "fr": "Ma date est-elle confirmée quand j’envoie une demande ?",
-    "ar": "هل يتأكد تاريخي عندما أرسل الطلب؟"
+    "ar": "هل يتأكد حجز موعدي بمجرد إرسال الطلب؟"
   },
   "No. We check the date, venue and performers, then send your proposal. Your booking is confirmed separately after the agreed checks and deposit requirements.": {
     "fr": "Non. Nous vérifions la date, le lieu et les artistes, puis envoyons une proposition. La réservation est confirmée séparément après les vérifications et conditions d’acompte convenues.",
@@ -2126,7 +2126,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Yes. Add Sam’s shows and guest acts to one event box. We’ll check the complete plan and quote for your selection.": {
     "fr": "Oui. Ajoutez les spectacles de Sam et les numéros invités à une seule sélection. Nous vérifierons l’ensemble et établirons un devis.",
-    "ar": "نعم. أضف عروض سام والفنانين الضيوف إلى اختيارات واحدة. سنراجع الخطة كاملة ونعد عرض سعر لاختياراتك."
+    "ar": "نعم. أضف عروض سام وعروض الفنانين الضيوف إلى اختيارات مناسبتك. سنراجع الخطة كاملة ونعدّ عرض سعر لما اخترته."
   },
   "How is the price decided?": {
     "fr": "Comment le prix est-il établi ?",
@@ -2254,7 +2254,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Rhythm, precision and one more thing in the air. Juggling makes skill part of the spectacle.": {
     "fr": "Du rythme, de la précision et un objet de plus en l’air. Le jonglage transforme l’adresse en spectacle.",
-    "ar": "إيقاع ودقة وشيء آخر في الهواء. البهلوانيات تجعل المهارة جزءًا من المشهد."
+    "ar": "إيقاع ودقة وكرات تتطاير في الهواء. ألعاب الخفة تجعل المهارة جزءًا من متعة العرض."
   },
   "Bring the beat to life": {
     "fr": "Donnez vie au rythme",
@@ -2290,11 +2290,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "An entrance above the ordinary": {
     "fr": "Une entrée qui prend de la hauteur",
-    "ar": "دخول فوق المعتاد"
+    "ar": "إطلالة ترتفع فوق الجميع"
   },
   "A character above the crowd, a welcome with a twist. Stilt performers bring a different perspective.": {
     "fr": "Un personnage au-dessus de la foule, un accueil original. Les échassiers offrent une autre perspective.",
-    "ar": "شخصية تعلو الجمهور وترحيب مختلف. مؤدو العصي الطويلة يقدمون منظورًا جديدًا."
+    "ar": "شخصية تعلو الحاضرين وترحيب غير مألوف. يضيف فنانو المشي على العصي الطويلة لمسة مختلفة للمناسبة."
   },
   "Grace takes flight": {
     "fr": "La grâce prend son envol",
@@ -2386,7 +2386,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A little lift. A lot of colour.": {
     "fr": "Un peu de légèreté. Beaucoup de couleurs.",
-    "ar": "قليل من الارتفاع وكثير من الألوان."
+    "ar": "بالونات تحلّق وألوان تملأ المكان."
   },
   "A balloon arch, a playful backdrop or a colourful welcome. Choose balloon decoration on its own, or add it to your event plan.": {
     "fr": "Une arche de ballons, un fond joyeux ou un accueil coloré. Choisissez les ballons seuls ou ajoutez-les à votre projet.",
@@ -2426,7 +2426,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Share your colours, theme, venue and the arrangement you have in mind. We confirm the design, installation and collection details with you.": {
     "fr": "Précisez vos couleurs, thème, lieu et composition souhaitée. Nous confirmerons le design, l’installation et le retrait avec vous.",
-    "ar": "شارك الألوان والموضوع والمكان والتنسيق الذي تريده. نؤكد معك التصميم والتركيب والجمع."
+    "ar": "شاركنا الألوان والطابع والمكان والتنسيق الذي تريده. نؤكد معك التصميم وتفاصيل التركيب وإزالة التجهيزات بعد المناسبة."
   },
   "Share your flower preferences, colours, venue and inspiration. We confirm the floral arrangement, delivery and setup with you.": {
     "fr": "Précisez vos fleurs préférées, couleurs, lieu et inspirations. Nous confirmerons la composition, la livraison et l’installation.",
@@ -2434,7 +2434,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Tell us the event date, location, coverage you want and preferred style. We agree the photographer, edited-photo delivery and image-use permissions before booking.": {
     "fr": "Précisez la date, le lieu, la couverture et le style souhaités. Photographe, livraison des photos retouchées et droits d’utilisation sont convenus avant réservation.",
-    "ar": "أخبرنا بالتاريخ والمكان والتغطية والأسلوب المفضل. نتفق على المصور وتسليم الصور المعدلة وأذونات استخدامها قبل الحجز."
+    "ar": "أخبرنا بالتاريخ والمكان والتغطية والأسلوب المفضل. نتفق على المصور وتسليم الصور بعد معالجتها وأذونات استخدامها قبل الحجز."
   },
   "Tell us the coverage, video format and editing you have in mind. We confirm the videographer, delivery, music rights and publication permissions with you.": {
     "fr": "Précisez la couverture, le format vidéo et le montage souhaités. Nous confirmerons le vidéaste, la livraison, les droits musicaux et les autorisations de publication.",
@@ -2442,11 +2442,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Share your occasion, quantity, theme and preferred gifts. We agree materials, packaging, delivery and any personalised names or dates before production.": {
     "fr": "Précisez l’occasion, la quantité, le thème et les cadeaux souhaités. Matériaux, emballage, livraison, noms et dates personnalisés sont convenus avant production.",
-    "ar": "شارك المناسبة والكمية والموضوع والهدايا المفضلة. نتفق على المواد والتغليف والتوصيل والأسماء والتواريخ المخصصة قبل الإنتاج."
+    "ar": "شاركنا المناسبة والكمية والطابع والهدايا المفضلة. نتفق على المواد والتغليف والتوصيل وأي أسماء أو تواريخ ستُطبع قبل التنفيذ."
   },
   "Share your theme, colours and inspiration. We agree what is included in the decoration plan and the final design with you.": {
     "fr": "Partagez votre thème, couleurs et inspirations. Nous convenons du contenu de la décoration et du design final.",
-    "ar": "شارك الموضوع والألوان والإلهام. نتفق معك على محتوى خطة الديكور والتصميم النهائي."
+    "ar": "شاركنا الطابع والألوان والأفكار التي تلهمك. نتفق معك على ما تشمله خطة الديكور وعلى التصميم النهائي."
   },
   "Share your ideas with us. We’ll help plan the details for your event.": {
     "fr": "Partagez vos idées. Nous vous aiderons à préparer les détails de votre événement.",
@@ -2618,7 +2618,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Proposal chosen · awaiting Sam": {
     "fr": "Proposition choisie · en attente de Sam",
-    "ar": "تم اختيار العرض · بانتظار سام"
+    "ar": "تم اختيار عرض السعر · بانتظار سام"
   },
   "Confirmed": {
     "fr": "Confirmé",
@@ -2650,7 +2650,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your proposal choice is saved. Sam will review it and confirm your event.": {
     "fr": "Votre choix est enregistré. Sam l’examinera et confirmera votre événement.",
-    "ar": "اختيارك محفوظ. سيراجعه سام ويؤكد مناسبتك."
+    "ar": "حُفظ اختيارك لعرض السعر. سيراجعه سام ويؤكد مناسبتك."
   },
   "It’s happening! Your event is confirmed. Let the countdown begin.": {
     "fr": "C’est confirmé ! Votre événement aura lieu. Le compte à rebours commence.",
@@ -2674,7 +2674,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Proposal accepted": {
     "fr": "Proposition acceptée",
-    "ar": "تم قبول العرض"
+    "ar": "تم قبول عرض السعر"
   },
   "Booking confirmed": {
     "fr": "Réservation confirmée",
@@ -2734,7 +2734,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.": {
     "fr": "Choisir une proposition enregistre votre préférence. Sam confirme la réservation après vérification des détails et de la disponibilité des artistes.",
-    "ar": "اختيار العرض يحفظ تفضيلك. يؤكد سام الحجز بعد مراجعة تفاصيل المناسبة وتوافر الفنانين."
+    "ar": "يُحفظ اختيارك لعرض السعر كتفضيل. يؤكد سام الحجز بعد مراجعة تفاصيل المناسبة وتوافر الفنانين."
   },
   "The plan for your event": {
     "fr": "Le programme de votre événement",
@@ -2758,7 +2758,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Balance remaining": {
     "fr": "Solde restant",
-    "ar": "الرصيد المتبقي"
+    "ar": "المبلغ المتبقي"
   },
   "Payment agreement:": {
     "fr": "Accord de paiement :",
@@ -2786,7 +2786,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your gathering": {
     "fr": "Votre réunion",
-    "ar": "تجمعك"
+    "ar": "لقاؤك"
   },
   "The details, brought together": {
     "fr": "Les détails réunis",
@@ -2810,7 +2810,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "To change children, passes or visit details, contact Magic App before your visit.": {
     "fr": "Pour modifier les enfants, pass ou détails, contactez Magic App avant la visite.",
-    "ar": "لتغيير الأطفال أو بطاقات الدخول أو تفاصيل الزيارة، تواصل مع Magic App قبل زيارتك."
+    "ar": "لتعديل عدد الأطفال أو بياناتهم أو بطاقات الدخول أو تفاصيل الزيارة، تواصل مع Magic App قبل زيارتك."
   },
   "Services in your request": {
     "fr": "Services de votre demande",
@@ -2818,7 +2818,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Requested preferences. The proposal will confirm the selected services, arrangements and price.": {
     "fr": "Préférences demandées. La proposition confirmera les services, les modalités et le prix.",
-    "ar": "تفضيلات مطلوبة. سيؤكد عرضنا الخدمات المختارة والترتيبات والسعر."
+    "ar": "هذه تفضيلاتك المطلوبة. سيحدد عرض السعر الخدمات المختارة والترتيبات والسعر."
   },
   "PLAYTOWN reservation request": {
     "fr": "Demande de réservation PLAYTOWN",
@@ -2866,7 +2866,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Shape the proposal together": {
     "fr": "Construisons la proposition ensemble",
-    "ar": "لنصمم العرض معًا"
+    "ar": "لنعدّ عرض السعر معًا"
   },
   "The event team checks availability, venue needs and the services requested. Review the named performers or providers, what is included, the price, any transport or setup charges and the payment agreement.": {
     "fr": "L’équipe vérifie la disponibilité, les besoins du lieu et les services demandés. Examinez les artistes ou prestataires nommés, les prestations incluses, le prix, les frais de transport ou d’installation et l’accord de paiement.",
@@ -2898,7 +2898,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Agree any deposit, balance and payment timing.": {
     "fr": "Convenez de l’acompte, du solde et des échéances de paiement.",
-    "ar": "اتفق على العربون والرصيد ومواعيد الدفع."
+    "ar": "اتفق على العربون والمبلغ المتبقي ومواعيد الدفع."
   },
   "Ask which cancellation, rescheduling and refund conditions apply to your proposal.": {
     "fr": "Demandez quelles conditions d’annulation, de report et de remboursement s’appliquent.",
@@ -2906,7 +2906,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Share access needs, allergies or venue restrictions relevant to the services you choose.": {
     "fr": "Précisez les besoins d’accès, allergies ou restrictions du lieu pertinents pour vos services.",
-    "ar": "شارك احتياجات الوصول أو الحساسية أو قيود المكان المتعلقة بالخدمات المختارة."
+    "ar": "أخبرنا باحتياجات تسهيل الوصول أو أي حساسية أو قيود في المكان تتعلق بالخدمات التي تختارها."
   },
   "Let the team know if your plans change. Dates, performers and venue arrangements may need to be checked again.": {
     "fr": "Informez l’équipe si vos projets changent. Les dates, artistes et dispositions du lieu peuvent nécessiter une nouvelle vérification.",
@@ -2950,7 +2950,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Account and enquiry details can include your name, phone number, optional email, event date and venue, service choices, messages or notes, and the proposal, payment and event history recorded by the team. If you previously contacted the business, it may retain your contact details and short enquiry or event notes for customer follow-up.": {
     "fr": "Les informations de compte et de demande peuvent inclure votre nom, téléphone, e-mail facultatif, date et lieu de l’événement, services, messages ou notes, ainsi que les propositions, paiements et historique enregistrés par l’équipe. Si vous avez déjà contacté l’entreprise, elle peut conserver vos coordonnées et de courtes notes pour le suivi client.",
-    "ar": "قد تشمل تفاصيل الحساب والطلب اسمك ورقم هاتفك وبريدك الاختياري وتاريخ المناسبة ومكانها والخدمات والرسائل أو الملاحظات وسجل العروض والدفعات والمناسبات الذي يسجله الفريق. إذا تواصلت مع العمل سابقًا، فقد يحتفظ ببيانات التواصل وملاحظات قصيرة للمتابعة."
+    "ar": "قد تشمل تفاصيل الحساب والطلب اسمك ورقم هاتفك وبريدك الإلكتروني الاختياري وتاريخ المناسبة ومكانها والخدمات المختارة والرسائل أو الملاحظات، إضافة إلى عروض الأسعار والدفعات وسجل المناسبات الذي يحتفظ به الفريق. إذا سبق أن تواصلت مع الجهة المقدّمة للخدمة، فقد تحتفظ ببيانات التواصل وملاحظات مختصرة عن استفساراتك أو مناسباتك لمتابعة طلباتك."
   },
   "Only share information needed to arrange the event. Avoid putting sensitive information about guests or children into general notes when a private conversation would be more appropriate.": {
     "fr": "Partagez uniquement les informations nécessaires. Évitez les données sensibles sur les invités ou enfants dans les notes générales lorsqu’une conversation privée est plus appropriée.",
@@ -3014,7 +3014,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Retention depends on the record’s purpose, event or financial obligations and backup arrangements. Ask the team about the records involved in your request. A deletion request is reviewed; it does not silently change agreed event or payment records.": {
     "fr": "La conservation dépend de l’objectif du dossier, des obligations événementielles ou financières et des sauvegardes. Interrogez l’équipe sur les dossiers concernés. Une demande de suppression est examinée ; elle ne modifie pas silencieusement les engagements ou paiements convenus.",
-    "ar": "يعتمد الاحتفاظ على غرض السجل والتزامات المناسبة أو الالتزامات المالية وترتيبات النسخ الاحتياطي. اسأل الفريق عن السجلات المعنية. يُراجع طلب الحذف ولا يغير سجلات المناسبات أو الدفعات المتفق عليها بصمت."
+    "ar": "تعتمد مدة الاحتفاظ بالسجلات على الغرض منها والالتزامات المتعلقة بالمناسبة أو بالدفعات وترتيبات النسخ الاحتياطي. اسأل الفريق عن السجلات المعنية بطلبك. يخضع طلب الحذف للمراجعة ولا يؤدي تلقائيًا إلى تغيير سجلات المناسبات أو الدفعات المتفق عليها."
   },
   "Respect for every creator.": {
     "fr": "Le respect de chaque créateur.",
@@ -3022,7 +3022,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Behind every photograph, performance, piece of music and design is someone’s work. Here is how to contact us about content and find our software and font credits.": {
     "fr": "Derrière chaque photo, spectacle, musique et design se trouve un travail créatif. Voici comment nous contacter et consulter les crédits des logiciels et polices.",
-    "ar": "وراء كل صورة وعرض ومقطوعة موسيقية وتصميم عمل شخص. إليك كيفية التواصل بشأن المحتوى والعثور على حقوق البرامج والخطوط."
+    "ar": "وراء كل صورة وعرض ومقطوعة موسيقية وتصميم عملٌ لمبدع. إليك كيفية التواصل معنا بشأن المحتوى والاطلاع على حقوق البرامج والخطوط المستخدمة."
   },
   "Photographs, videos and creative work": {
     "fr": "Photos, vidéos et créations",
@@ -3034,7 +3034,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "If you supply media for the site, provide only material you own or have permission to publish. This includes any necessary permissions for identifiable people, children, performances, artwork and music included in the material. Sending a file alone is not evidence that all these permissions exist.": {
     "fr": "Fournissez uniquement des médias vous appartenant ou autorisés à la publication, avec les accords nécessaires pour les personnes identifiables, enfants, spectacles, œuvres et musiques. L’envoi d’un fichier ne prouve pas à lui seul ces autorisations.",
-    "ar": "إذا قدمت مواد للموقع، قدم فقط ما تملكه أو لديك إذن بنشره، بما يشمل أذونات الأشخاص المعروفين والأطفال والعروض والأعمال الفنية والموسيقى. إرسال الملف وحده لا يثبت وجود كل هذه الأذونات."
+    "ar": "إذا قدمت صورًا أو فيديوهات للموقع، قدم فقط ما تملكه أو لديك إذن بنشره. يشمل ذلك أي أذونات لازمة للأشخاص الذين يمكن التعرف إليهم، وموافقة أولياء أمور الأطفال، وحقوق العروض والأعمال الفنية والموسيقى الظاهرة أو المسموعة في المحتوى. إرسال الملف وحده لا يثبت توفر هذه الأذونات."
   },
   "Names, costumes and affiliations": {
     "fr": "Noms, costumes et affiliations",
@@ -3074,7 +3074,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "The website serves the following fonts locally. Their author notices and SIL Open Font License terms are retained:": {
     "fr": "Le site utilise les polices suivantes localement. Les mentions d’auteur et les conditions SIL Open Font License sont conservées :",
-    "ar": "يقدم الموقع الخطوط التالية محليًا مع الاحتفاظ بإشعارات المؤلف وشروط SIL Open Font License:"
+    "ar": "يحمّل الموقع الخطوط التالية من ملفاته المحلية، مع الاحتفاظ بإشعارات أصحابها وشروط ترخيص SIL Open Font License:"
   },
   "Software notices": {
     "fr": "Mentions des logiciels",
@@ -3082,7 +3082,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Third-party software keeps its own licences. Read the": {
     "fr": "Les logiciels tiers conservent leurs propres licences. Consultez les",
-    "ar": "تحتفظ برامج الجهات الأخرى بتراخيصها. اقرأ"
+    "ar": "تخضع برامج الجهات الأخرى لتراخيصها الخاصة. اقرأ"
   },
   "browser software notices": {
     "fr": "mentions des logiciels du navigateur",
@@ -3118,7 +3118,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Plan something personal. Only our event team sees your surprise notes.": {
     "fr": "Préparez un moment personnel. Seule notre équipe voit les notes de surprise.",
-    "ar": "خطط لشيء شخصي. يرى فريق المناسبة وحده ملاحظات المفاجأة."
+    "ar": "خطط لمفاجأة بلمسة شخصية. يطّلع فريق المناسبة وحده على ملاحظات المفاجأة."
   },
   "Booking as": {
     "fr": "Demande au nom de",
@@ -3134,7 +3134,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.": {
     "fr": "Ces informations servent à gérer votre événement. Le personnel autorisé et le support dont les accès sont journalisés peuvent consulter les dossiers. Conservez votre lien privé après l’envoi.",
-    "ar": "نستخدم هذه التفاصيل لإدارة مناسبتك. يمكن للموظفين المخولين ودعم المنصة المسجل الوصول إلى السجلات. احفظ رابطك الخاص بعد الإرسال."
+    "ar": "نستخدم هذه التفاصيل لإدارة مناسبتك. يمكن للموظفين المخولين وفريق دعم المنصة الوصول إلى سجلات المناسبة، مع تسجيل عمليات وصول الدعم. احفظ رابطك الخاص بعد الإرسال."
   },
   "Send my event request →": {
     "fr": "Envoyer ma demande →",
@@ -3326,7 +3326,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Package estimate": {
     "fr": "Estimation de la formule",
-    "ar": "تقدير الباقة"
+    "ar": "السعر التقديري للباقة"
   },
   "Personal quote": {
     "fr": "Devis personnalisé",
@@ -3354,7 +3354,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Get a popup when your event changes. New shows and offers use your choice above.": {
     "fr": "Recevez une notification lorsque votre événement change. Les nouveaux spectacles et offres suivent votre choix ci-dessus.",
-    "ar": "احصل على إشعار عند تغيير مناسبتك. تتبع العروض الجديدة اختيارك أعلاه."
+    "ar": "تلقَّ إشعارًا عند تحديث مناسبتك. تعتمد إشعارات العروض الفنية والعروض الترويجية الجديدة على تفضيلك أعلاه."
   },
   "Enable phone notifications": {
     "fr": "Activer les notifications",
@@ -3382,7 +3382,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "My issued rewards": {
     "fr": "Mes récompenses attribuées",
-    "ar": "مكافآتي الصادرة"
+    "ar": "المكافآت الممنوحة لي"
   },
   "No rewards issued yet.": {
     "fr": "Aucune récompense attribuée.",
@@ -3470,7 +3470,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Tell us the coverage and style you want. We agree the edited deliverables, format and delivery schedule in your proposal.": {
     "fr": "Précisez la couverture et le style souhaités. Les livrables retouchés, leur format et le calendrier de livraison sont convenus dans la proposition.",
-    "ar": "أخبرنا بالتغطية والأسلوب المطلوب. نتفق على المواد المعدلة وشكلها وجدول التسليم في عرضنا."
+    "ar": "أخبرنا بالتغطية والأسلوب المطلوب. نتفق في عرض السعر على الصور أو الفيديوهات النهائية بعد المعالجة، وصيغ الملفات ومواعيد التسليم."
   },
   "Will my pictures be posted publicly?": {
     "fr": "Mes images seront-elles publiées ?",
@@ -3490,7 +3490,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "The details for your gathering": {
     "fr": "Les détails de votre réunion",
-    "ar": "تفاصيل تجمعك"
+    "ar": "تفاصيل لقائك"
   },
   "Optional entertainment for the reception": {
     "fr": "Animation facultative pour la réception",
@@ -3534,43 +3534,43 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "{count} photo": {
     "fr": "{count} photo",
-    "ar": "{count} صورة"
+    "ar": "عدد الصور: {count}"
   },
   "{count} photos": {
     "fr": "{count} photos",
-    "ar": "{count} صور"
+    "ar": "عدد الصور: {count}"
   },
   "{count} portfolio photo": {
     "fr": "{count} photo de portfolio",
-    "ar": "{count} صورة من الأعمال"
+    "ar": "صور من الأعمال: {count}"
   },
   "{count} portfolio photos": {
     "fr": "{count} photos de portfolio",
-    "ar": "{count} صور من الأعمال"
+    "ar": "صور من الأعمال: {count}"
   },
   "{count} show to explore": {
     "fr": "{count} spectacle à découvrir",
-    "ar": "{count} عرض للاستكشاف"
+    "ar": "عروض للاستكشاف: {count}"
   },
   "{count} shows to explore": {
     "fr": "{count} spectacles à découvrir",
-    "ar": "{count} عروض للاستكشاف"
+    "ar": "عروض للاستكشاف: {count}"
   },
   "{count} service to explore": {
     "fr": "{count} service à découvrir",
-    "ar": "{count} خدمة للاستكشاف"
+    "ar": "خدمات للاستكشاف: {count}"
   },
   "{count} services to explore": {
     "fr": "{count} services à découvrir",
-    "ar": "{count} خدمات للاستكشاف"
+    "ar": "خدمات للاستكشاف: {count}"
   },
   "{count} match found": {
     "fr": "{count} résultat trouvé",
-    "ar": "{count} نتيجة"
+    "ar": "عدد النتائج: {count}"
   },
   "{count} matches found": {
     "fr": "{count} résultats trouvés",
-    "ar": "{count} نتائج"
+    "ar": "عدد النتائج: {count}"
   },
   "{count}% off": {
     "fr": "{count} % de réduction",
@@ -3578,23 +3578,23 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "{count} chosen item": {
     "fr": "{count} élément choisi",
-    "ar": "{count} عنصر مختار"
+    "ar": "العناصر المختارة: {count}"
   },
   "{count} chosen items": {
     "fr": "{count} éléments choisis",
-    "ar": "{count} عناصر مختارة"
+    "ar": "العناصر المختارة: {count}"
   },
   "{count} guests": {
     "fr": "{count} invités",
-    "ar": "{count} ضيوف"
+    "ar": "عدد الضيوف: {count}"
   },
   "{count} children": {
     "fr": "{count} enfants",
-    "ar": "{count} أطفال"
+    "ar": "عدد الأطفال: {count}"
   },
   "{count} minutes": {
     "fr": "{count} minutes",
-    "ar": "{count} دقائق"
+    "ar": "المدة بالدقائق: {count}"
   },
   "After the applause": {
     "fr": "Après les applaudissements",
@@ -3610,7 +3610,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Verified event review": {
     "fr": "Avis d’un événement vérifié",
-    "ar": "تقييم مناسبة موثقة"
+    "ar": "تقييم من مناسبة موثّقة"
   },
   "All ages": {
     "fr": "Tous âges",
@@ -3666,7 +3666,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Teddy Bear": {
     "fr": "Ours en peluche",
-    "ar": "دب دمية"
+    "ar": "دبدوب"
   },
   "Grey Gorilla": {
     "fr": "Gorille gris",
@@ -3750,7 +3750,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "No published places match yet.": {
     "fr": "Aucun lieu publié ne correspond pour le moment.",
-    "ar": "لا توجد أماكن منشورة مطابقة بعد."
+    "ar": "لا توجد أماكن في الدليل تطابق بحثك حاليًا."
   },
   "Try another area or spelling, or use Show all places to explore the directory.": {
     "fr": "Essayez un autre quartier ou une autre orthographe, ou affichez tous les lieux.",
@@ -3770,7 +3770,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your show catalogue is still here. Try opening the partner directory again.": {
     "fr": "Le catalogue de spectacles reste disponible. Réessayez d’ouvrir l’annuaire des partenaires.",
-    "ar": "كتالوج العروض ما زال متاحًا. حاول فتح دليل الشركاء مجددًا."
+    "ar": "قائمة العروض ما زالت متاحة. حاول فتح دليل الشركاء مجددًا."
   },
   "Try again": {
     "fr": "Réessayer",
@@ -3810,7 +3810,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "This profile isn’t available": {
     "fr": "Ce profil n’est pas disponible",
-    "ar": "هذا الملف غير متاح"
+    "ar": "هذه الصفحة التعريفية غير متاحة"
   },
   "Explore the current directory or ask us for help choosing a partner.": {
     "fr": "Explorez l’annuaire ou demandez-nous de l’aide pour choisir un partenaire.",
@@ -3830,11 +3830,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We couldn't open this profile. Please try again.": {
     "fr": "Impossible d’ouvrir ce profil. Réessayez.",
-    "ar": "تعذر فتح هذا الملف. حاول مجددًا."
+    "ar": "تعذر فتح هذه الصفحة التعريفية. حاول مجددًا."
   },
   "Profile link ↗": {
     "fr": "Lien du profil ↗",
-    "ar": "رابط الملف ↗"
+    "ar": "رابط الصفحة التعريفية ↗"
   },
   "Read their story ↗": {
     "fr": "Découvrir leur histoire ↗",
@@ -3854,7 +3854,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Exact event details below take priority. These preferences don’t confirm a booking.": {
     "fr": "Les détails précis ci-dessous sont prioritaires. Ces préférences ne confirment aucune réservation.",
-    "ar": "لتفاصيل المناسبة الدقيقة أدناه الأولوية. هذه التفضيلات لا تؤكد حجزًا."
+    "ar": "نعتمد تفاصيل المناسبة الدقيقة الواردة أدناه في حال اختلفت عن هذه التفضيلات. حفظ التفضيلات لا يؤكد الحجز."
   },
   "Let's plan together": {
     "fr": "Préparons ensemble",
@@ -3918,7 +3918,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Its listed age range overlaps your audience group. We’ll confirm suitability with you.": {
     "fr": "La tranche d’âge correspond à votre public. Nous confirmerons son adaptation avec vous.",
-    "ar": "الفئة العمرية المدرجة تتقاطع مع جمهورك. سنؤكد معك ملاءمته."
+    "ar": "الفئة العمرية المناسبة لهذا العرض تشمل أعمارًا من جمهورك. سنراجع معك مدى ملاءمته."
   },
   "A starting point from the shows that match your audience preferences.": {
     "fr": "Une piste parmi les spectacles correspondant à votre public.",
@@ -3990,7 +3990,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Choose two or three shows to see them together.": {
     "fr": "Choisissez deux ou trois spectacles à comparer.",
-    "ar": "اختر عرضين أو ثلاثة لمقارنتها."
+    "ar": "اختر عرضين أو ثلاثة لتتمكن من المقارنة بينها."
   },
   "Compare up to three shows at a time.": {
     "fr": "Comparez jusqu’à trois spectacles à la fois.",
@@ -4022,7 +4022,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Use my tokens on this magic show": {
     "fr": "Utiliser mes jetons pour ce spectacle de magie",
-    "ar": "استخدم رموزي لهذا العرض السحري"
+    "ar": "استخدم نقاط مكافآتي لهذا العرض السحري"
   },
   "We’ll apply your choice to your proposal after checking the show details.": {
     "fr": "Nous appliquerons votre choix après vérification du spectacle.",
@@ -4034,7 +4034,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "When a friend joins with your link and completes a fully paid Magic, Science or Bubbles show, you get one token.": {
     "fr": "Lorsqu’un ami rejoint par votre lien et termine un spectacle de magie, sciences ou bulles entièrement payé, vous recevez un jeton.",
-    "ar": "عندما ينضم صديق عبر رابطك ويكمل عرض سحر أو علوم أو فقاعات مدفوعًا بالكامل، تحصل على رمز."
+    "ar": "عندما ينضم صديق عبر رابطك ويحجز عرض سحر أو علوم أو فقاعات، تحصل على نقطة مكافأة بعد إقامة العرض ودفع ثمنه بالكامل."
   },
   "Invitation link copied. Paste it into WhatsApp to invite a friend.": {
     "fr": "Lien d’invitation copié. Collez-le dans WhatsApp pour inviter un ami.",
@@ -4054,7 +4054,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Let’s get you back in": {
     "fr": "Retrouvons votre accès",
-    "ar": "لنستعد دخولك"
+    "ar": "لنساعدك على الدخول مجددًا"
   },
   "Email me a reset link": {
     "fr": "Envoyez-moi un lien de réinitialisation",
@@ -4082,7 +4082,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Password reset. Please sign in with your new password.": {
     "fr": "Mot de passe réinitialisé. Connectez-vous avec le nouveau.",
-    "ar": "تمت استعادة كلمة المرور. سجل الدخول بالكلمة الجديدة."
+    "ar": "تم تعيين كلمة مرور جديدة. سجّل الدخول باستخدامها."
   },
   "No email on your account? Get help from Sam": {
     "fr": "Pas d’e-mail dans votre compte ? Demandez l’aide de Sam",
@@ -4098,11 +4098,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your code works once and expires 30 minutes after it is issued. Resetting signs out all existing customer sessions.": {
     "fr": "Le code fonctionne une fois et expire 30 minutes après émission. La réinitialisation déconnecte toutes les sessions client.",
-    "ar": "يعمل الرمز مرة واحدة وتنتهي صلاحيته بعد ٣٠ دقيقة من إصداره. تُسجل الاستعادة خروج جميع جلسات العميل."
+    "ar": "يُستخدم الرمز مرة واحدة وتنتهي صلاحيته بعد ٣٠ دقيقة من إصداره. تؤدي إعادة تعيين كلمة المرور إلى تسجيل خروجك من حساب العميل على جميع الأجهزة."
   },
   "The team will verify your identity before giving you a reset code. Automatic SMS delivery is not connected yet. If you also forgot your username, contact the business.": {
     "fr": "L’équipe vérifie votre identité avant de fournir le code. L’envoi automatique par SMS n’est pas disponible. Contactez l’équipe si vous avez oublié votre identifiant.",
-    "ar": "يتحقق الفريق من هويتك قبل إعطائك رمز الاستعادة. إرسال الرسائل النصية الآلي غير متاح بعد. تواصل مع العمل إذا نسيت اسم المستخدم أيضًا."
+    "ar": "يتحقق الفريق من هويتك قبل إعطائك رمز إعادة تعيين كلمة المرور. إرسال الرسائل النصية تلقائيًا غير متاح بعد. تواصل مع فريق العمل إذا نسيت اسم المستخدم أيضًا."
   },
   "Password help requested": {
     "fr": "Aide au mot de passe demandée",
@@ -4130,7 +4130,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Phone notifications are not connected yet.": {
     "fr": "Les notifications sur téléphone ne sont pas encore connectées.",
-    "ar": "إشعارات الهاتف غير متصلة بعد."
+    "ar": "خدمة إشعارات الهاتف غير متاحة بعد."
   },
   "This phone is linked to another account. Remove its notifications first.": {
     "fr": "Ce téléphone est lié à un autre compte. Supprimez d’abord ses notifications.",
@@ -4430,7 +4430,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Referral code not found for this business.": {
     "fr": "Code de parrainage introuvable pour cette entreprise.",
-    "ar": "رمز الدعوة غير موجود لهذا العمل."
+    "ar": "رمز الدعوة غير موجود لدى هذه الجهة المقدّمة للخدمة."
   },
   "Customer record unavailable": {
     "fr": "Dossier client indisponible",
@@ -4450,7 +4450,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Business not found": {
     "fr": "Entreprise introuvable",
-    "ar": "العمل غير موجود"
+    "ar": "الجهة المقدّمة للخدمة غير موجودة"
   },
   "Your request has been received.": {
     "fr": "Votre demande a été reçue.",
@@ -4482,7 +4482,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Make a wish. Make it yours.": {
     "fr": "Faites un vœu. Faites-en votre moment.",
-    "ar": "تمنَّ أمنية واجعلها لك."
+    "ar": "تمنَّ أمنية واحتفل على طريقتك."
   },
   "The candles, the wish, the first slice. A cake that feels part of your story.": {
     "fr": "Les bougies, le vœu, la première part. Un gâteau qui fait partie de votre histoire.",
@@ -4490,7 +4490,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Tell us your theme, preferred flavours and guest count. Design, size and delivery are agreed with you.": {
     "fr": "Précisez le thème, les saveurs et le nombre d’invités. Design, taille et livraison sont convenus avec vous.",
-    "ar": "أخبرنا بالموضوع والنكهات المفضلة وعدد الضيوف. نتفق معك على التصميم والحجم والتوصيل."
+    "ar": "أخبرنا بطابع الحفلة والنكهات المفضلة وعدد الضيوف. نتفق معك على التصميم والحجم والتوصيل."
   },
   "Your crowd. Your soundtrack.": {
     "fr": "Votre public. Votre bande-son.",
@@ -4538,7 +4538,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Drifting shapes, shimmering colours and surprises that float into view. A little daydream brought to life.": {
     "fr": "Des formes flottantes, des couleurs scintillantes et des surprises dans l’air. Un rêve éveillé prend vie.",
-    "ar": "أشكال طافية وألوان متلألئة ومفاجآت تطفو أمامك. حلم صغير يأخذ الحياة."
+    "ar": "أشكال طافية وألوان متلألئة ومفاجآت تظهر أمامك. حلم صغير يصبح حقيقة."
   },
   "Let us know who is attending and the atmosphere you would like.": {
     "fr": "Précisez qui sera présent et l’ambiance souhaitée.",
@@ -4558,7 +4558,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Share your theme and guest count so we can discuss the available creations.": {
     "fr": "Précisez le thème et le nombre d’invités pour discuter des créations possibles.",
-    "ar": "شارك الموضوع وعدد الضيوف لنناقش التشكيلات المتاحة."
+    "ar": "شاركنا طابع المناسبة وعدد الضيوف لنناقش الأشكال التي يمكن تنفيذها."
   },
   "Tell us the ages and interests of your guests. We agree the activities with you.": {
     "fr": "Précisez les âges et intérêts des invités. Nous convenons des activités ensemble.",
@@ -4602,7 +4602,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We confirm the rider, performance format and suitable venue arrangement with you.": {
     "fr": "Nous confirmons le cycliste, le format et les dispositions adaptées du lieu.",
-    "ar": "نؤكد معك مؤدي الدراجة وشكل العرض وترتيبات المكان المناسبة."
+    "ar": "نؤكد معك اسم مؤدي عرض الدراجات وشكل العرض وترتيبات المكان المناسبة."
   },
   "We confirm the costumes, performers and lighting conditions for your venue.": {
     "fr": "Nous confirmons les costumes, artistes et conditions d’éclairage du lieu.",
@@ -4662,7 +4662,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "A distinctive guest act gives your celebration another story to tell.": {
     "fr": "Un numéro invité original donne une autre histoire à votre fête.",
-    "ar": "عرض ضيف مميز يضيف حكاية أخرى إلى احتفالك."
+    "ar": "عرض مميز لفنان ضيف يضيف حكاية أخرى إلى احتفالك."
   },
   "Tell us what interests your guests. We confirm the performer and details before booking.": {
     "fr": "Précisez les intérêts des invités. Nous confirmons l’artiste et les détails avant réservation.",
@@ -4698,7 +4698,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote.": {
     "fr": "Ces décors illustrent les possibilités. Nous confirmerons thème, lieu, matériaux et design final dans le devis.",
-    "ar": "تعرض هذه التجهيزات الإمكانات المتاحة. نؤكد الموضوع والمكان والمواد والتصميم النهائي في عرض السعر."
+    "ar": "تعرض هذه التجهيزات بعض الأفكار الممكنة. نؤكد طابع المناسبة والمكان والمواد والتصميم النهائي في عرض السعر."
   },
   "These photos show past performances. We will confirm the performer, setup and availability for your date.": {
     "fr": "Ces photos montrent des spectacles passés. Nous confirmerons l’artiste, l’installation et la disponibilité à votre date.",
@@ -4774,11 +4774,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your details, handled with care": {
     "fr": "Vos informations, traitées avec soin",
-    "ar": "بياناتك بعناية"
+    "ar": "نتعامل مع بياناتك بعناية"
   },
   "We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Public customer reviews have separate text and photo permission choices. Contact the business if any published media needs attention.": {
     "fr": "Nous utilisons vos coordonnées et détails pour préparer et gérer la fête. Le marketing est facultatif. Les avis publics disposent d’autorisations distinctes pour texte et photo. Contactez l’équipe pour tout contenu à revoir.",
-    "ar": "نستخدم بيانات التواصل والمناسبة التي تقدمها لتحضير احتفالك وإدارته. إذن التسويق اختياري. للتقييمات العامة خيارات منفصلة للنص والصور. تواصل مع العمل إذا احتاجت مادة منشورة إلى مراجعة."
+    "ar": "نستخدم بيانات التواصل والمناسبة التي تقدمها لتحضير احتفالك وإدارته. الموافقة على الرسائل التسويقية اختيارية. لنشر نص تقييمك وصورته خيارا موافقة منفصلان. تواصل مع فريق العمل إذا احتاج أي محتوى منشور إلى مراجعة."
   },
   "Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.": {
     "fr": "Le lien privé donne accès à la proposition et aux détails. Gardez-le confidentiel. Le personnel et le support autorisés peuvent accéder aux dossiers ; les accès du support sont journalisés.",
@@ -4786,7 +4786,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "We count page views by source and clicks on shows, services and event types without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.": {
     "fr": "Nous comptons les visites par source et les clics sans identifier les visiteurs anonymes. Contactez l’équipe pour corriger vos dossiers ou discuter de leur conservation et suppression.",
-    "ar": "نحسب زيارات الصفحات حسب المصدر والنقرات دون تحديد هوية الزوار المجهولين. تواصل مع العمل لطلب تصحيح أو مناقشة الاحتفاظ بسجلاتك وحذفها."
+    "ar": "نحصي زيارات الصفحات بحسب المصدر والنقرات على العروض والخدمات وأنواع المناسبات، دون تحديد هوية الزوار المجهولين. تواصل مع فريق العمل لطلب تصحيح سجلاتك أو لمناقشة الاحتفاظ بها وحذفها."
   },
   "✦ Your magic begins in": {
     "fr": "✦ Votre magie commence dans",
@@ -4826,7 +4826,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Presented to": {
     "fr": "Décerné à",
-    "ar": "تُمنح إلى"
+    "ar": "مقدّمة إلى"
   },
   "Honorary assistant": {
     "fr": "Assistant honoraire",
@@ -4842,7 +4842,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "for a magical day with Sam.": {
     "fr": " pour une journée magique avec Sam.",
-    "ar": "ليوم سحري مع سام."
+    "ar": "ذكرى يوم سحري مع سام."
   },
   "Print certificate": {
     "fr": "Imprimer le certificat",
@@ -4858,7 +4858,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Create a personalized assistant magician or scientist certificate for a child or an adult.": {
     "fr": "Créez un certificat personnalisé d’assistant magicien ou scientifique pour un enfant ou un adulte.",
-    "ar": "أنشئ شهادة مخصصة لمساعد ساحر أو عالم لطفل أو شخص بالغ."
+    "ar": "أنشئ شهادة باسم طفل أو شخص بالغ لمشاركته كمساعد للساحر أو للعالِم."
   },
   "Make certificate →": {
     "fr": "Créer le certificat →",
@@ -4930,7 +4930,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Main age": {
     "fr": "Âge principal",
-    "ar": "العمر الغالب"
+    "ar": "الفئة العمرية الغالبة"
   },
   "Electricity needed": {
     "fr": "Électricité nécessaire",
@@ -4954,7 +4954,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Your event is accepted": {
     "fr": "Votre événement est accepté",
-    "ar": "تم قبول مناسبتك"
+    "ar": "تم قبول طلب مناسبتك"
   },
   "Your event is confirmed": {
     "fr": "Votre événement est confirmé",
@@ -4978,7 +4978,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Sam has accepted your event and is starting the preparations.": {
     "fr": "Sam a accepté votre événement et commence les préparatifs.",
-    "ar": "قبل سام مناسبتك ويبدأ التحضيرات."
+    "ar": "وافق سام على طلب مناسبتك وبدأ التحضيرات."
   },
   "Your event is confirmed. Open your event page for the latest details.": {
     "fr": "Votre événement est confirmé. Consultez sa page pour les derniers détails.",
@@ -5018,11 +5018,11 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Pin supplied by the venue.": {
     "fr": "Repère fourni par le lieu.",
-    "ar": "الموقع الدقيق مقدم من المكان."
+    "ar": "الموقع على الخريطة كما حدّده أصحاب المكان."
   },
   "Map search uses the supplied address; confirm the entrance with the venue.": {
     "fr": "La recherche utilise l’adresse fournie ; confirmez l’entrée avec le lieu.",
-    "ar": "يستخدم البحث العنوان المقدم؛ أكد المدخل مع المكان."
+    "ar": "يستخدم البحث في الخريطة العنوان المقدّم. تأكد من المدخل مع أصحاب المكان."
   },
   "A look around": {
     "fr": "Un aperçu",
@@ -5030,7 +5030,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Explore profile ↗": {
     "fr": "Découvrir le profil ↗",
-    "ar": "استكشف الملف ↗"
+    "ar": "استكشف الصفحة التعريفية ↗"
   },
   "Ask for": {
     "fr": "Demandez",
@@ -5074,7 +5074,7 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "Open your private event page for the agreed plan and recorded payments.": {
     "fr": "Ouvrez votre page privée pour le programme convenu et les paiements enregistrés.",
-    "ar": "افتح صفحة مناسبتك الخاصة للخطة المتفق عليها والدفعات المسجلة."
+    "ar": "افتح صفحة مناسبتك الخاصة للاطلاع على الخطة المتفق عليها والدفعات المسجلة."
   },
   "Listed pass total: USD": {
     "fr": "Total des pass : USD",
@@ -5110,35 +5110,35 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   },
   "tokens for later": {
     "fr": "jetons pour plus tard",
-    "ar": "رموزي لوقت لاحق"
+    "ar": "نقاط مكافآتي لوقت لاحق"
   },
   "token": {
     "fr": "jeton",
-    "ar": "رمز"
+    "ar": "نقطة مكافأة"
   },
   "tokens": {
     "fr": "jetons",
-    "ar": "رموز"
+    "ar": "نقاط مكافآت"
   },
   "{count} demo photo": {
     "fr": "{count} photo de démonstration",
-    "ar": "{count} صورة توضيحية"
+    "ar": "صور توضيحية: {count}"
   },
   "{count} demo photos": {
     "fr": "{count} photos de démonstration",
-    "ar": "{count} صور توضيحية"
+    "ar": "صور توضيحية: {count}"
   },
   "See the show in action": {
     "fr": "Voir le spectacle en action",
-    "ar": "شاهد العرض مباشرة"
+    "ar": "شاهد مقتطفات من العرض"
   },
   "{count} stars": {
     "fr": "{count} étoiles",
-    "ar": "{count} نجوم"
+    "ar": "عدد النجوم: {count}"
   },
   "{count} star": {
     "fr": "{count} étoile",
-    "ar": "{count} نجمة"
+    "ar": "عدد النجوم: {count}"
   },
   "Overall": {
     "fr": "Note générale",

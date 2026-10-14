@@ -57,7 +57,7 @@ test('count patterns localize display text while maintaining opaque interpolatio
   enableCustomerTranslations();setCustomerLanguage('fr');
   assert.equal(t('3 shows to explore'),'3 spectacles à découvrir');
   assert.ok(copy('14 portfolio photos').includes('14 photos de portfolio'));
-  setCustomerLanguage('ar');assert.equal(t('20 guests'),'20 ضيوف');
+  setCustomerLanguage('ar');assert.equal(t('20 guests'),'عدد الضيوف: 20');
   assert.ok(h`<p>${'20 guests'}</p>`.includes('<p>20 guests</p>'),'raw record interpolation is preserved');
 });
 
