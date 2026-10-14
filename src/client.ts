@@ -1,5 +1,6 @@
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
-import { matchesMultilingual, multilingualAliases } from "./multilingual-search.js";
+import { matchesMultilingual, multilingualAliases, multilingualMatchScore } from "./multilingual-search.js";
+import { paymentPreferences, venuePreferences, paymentPreferenceLabel, venuePreferenceLabel } from "./booking-preferences.js";
 import { h, t, copy, dateCopy, setCopy, customerError, dialogLanguageControl, customerLanguage, installCustomerLanguageSelector } from "./customer-i18n.js";
 import { canStaffAction, userCanStaffAction, configurableStaffActions, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
 import { renderWhatsAppCustomers } from "./whatsapp-customers-client.js";
@@ -243,7 +244,7 @@ type Field = {
   type?: string;
   value?: unknown;
   required?: boolean;
-  options?: { value: string; label: string }[];
+  options?: { value: string; label: string; disabled?: boolean }[];
   help?: string;
   wide?: boolean;
   min?: number;
@@ -259,7 +260,7 @@ function field(f: Field) {
     f.type === "textarea"
       ? h`<textarea ${attrs}>${e(value)}</textarea>`
       : f.type === "select"
-        ? h`<select ${attrs}>${f.options?.map((o) => h`<option data-customer-text="${e(o.label)}" value="${e(o.value)}" ${String(value) === o.value ? "selected" : ""}>${e(t(o.label))}</option>`).join("")}</select>`
+        ? h`<select ${attrs}>${f.options?.map((o) => h`<option data-customer-text="${e(o.label)}" value="${e(o.value)}" ${o.disabled ? 'disabled' : ''} ${String(value) === o.value ? "selected" : ""}>${e(t(o.label))}</option>`).join("")}</select>`
         : h`<input type="${e(f.type ?? "text")}" autocomplete="${e(f.autocomplete ?? "off")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
   if (f.type === "password")
     return h`<div class="field ${f.wide ? "wide" : ""}"><label for="f-${e(f.key)}">${copy(f.label)}</label><span class="password-control">${input}<button type="button" data-toggle-password aria-label="Show password" aria-pressed="false">Show</button></span>${f.help ? h`<small id="help-${e(f.key)}">${copy(f.help)}</small>` : ""}</div>`;
@@ -464,9 +465,11 @@ function characterGallery() {
     ["Mascots", /mascot/i],
   ] as const;
   const filters = themes.filter(([, pattern]) => photos.some((photo) => pattern.test(photo.caption)));
-  return h`<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? h`<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => h`<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${copy(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => h`<option value="${e(label)}">${copy(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><p class="character-empty" hidden>No photos match this search. Try another costume.</p>` : h('<p>Character photos are coming soon.</p>')}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
+  return h`<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? h`<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => h`<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${copy(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => h`<option value="${e(label)}">${copy(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><div class="character-empty" hidden><p>No photos match this search. Try another costume.</p><button type="button" class="outline small" data-clear-characters>Clear search and filters</button></div>` : h('<p>Character photos are coming soon.</p>')}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
 }
+let characterSearchController = new AbortController();
 function wireCharacterGallery(root: ParentNode = modal) {
+  characterSearchController.abort(); characterSearchController=new AbortController();
   const browser = root.querySelector<HTMLElement>(".character-browser");
   if (!browser) return;
   const search = browser.querySelector<HTMLInputElement>("#character-search");
@@ -486,16 +489,22 @@ function wireCharacterGallery(root: ParentNode = modal) {
     const query = search?.value.trim() ?? "";
     let visible = 0;
     for (const figure of figures) {
-      const caption = figure.querySelector("figcaption")?.textContent ?? "";
+      const caption = figure.dataset.searchCaption ?? figure.querySelector("figcaption")?.textContent ?? "";
       figure.hidden = (!!query && !matchesMultilingual([caption, ...Object.keys(multilingualAliases).filter(key => caption.toLowerCase().includes(key.toLowerCase()))], query)) || (selected !== "all" && !groups[selected]?.test(caption));
       if (!figure.hidden) visible++;
     }
     const count = browser.querySelector(".character-count");
-    if (count) count.textContent = `${visible} of ${figures.length} photos`;
+    if (count) count.innerHTML = copy('Photos shown') + ': ' + visible + ' / ' + figures.length;
     const empty = browser.querySelector<HTMLElement>(".character-empty");
     if (empty) empty.hidden = visible > 0;
     browser.querySelector(".show-detail-gallery")?.dispatchEvent(new Event("gallerychange"));
   };
+  browser.querySelector('[data-clear-characters]')?.addEventListener('click',()=>{
+    if(search)search.value=''; selected='all'; if(mobileSelect)mobileSelect.value='all';
+    filters.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.characterFilter==='all')));update();
+  });
+  browser.addEventListener('customerlanguagechange',update);
+  document.addEventListener('customerlanguagechange',()=>{if(browser.isConnected)update();},{signal:characterSearchController.signal});
   search?.addEventListener("input", update);
   search?.addEventListener("keydown", (event) => { if (event.key === "Enter") event.preventDefault(); });
   mobileSelect?.addEventListener("change", () => {
@@ -511,7 +520,7 @@ function wireCharacterGallery(root: ParentNode = modal) {
   });
 }
 function zoomableFigure(photo: { url: string; caption: string }) {
-  return h`<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
+  return h`<figure data-search-caption="${e(photo.caption)}"><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
 }
 function setupPhotoRails(root: ParentNode) {
   root.querySelectorAll<HTMLElement>(".show-detail-gallery").forEach((gallery) => {
@@ -1155,24 +1164,28 @@ function renderPublic() {
     const name = (ev.currentTarget as HTMLElement).dataset.enquiryDetails;
     if (name) enquiryDetails(name);
   });
+  const searchEmpty=document.createElement('div');searchEmpty.className='catalog-search-empty';searchEmpty.hidden=true;
+  searchEmpty.innerHTML=h('<h3>Let’s find another way in.</h3><p>No matching shows or services. Try a shorter name, another language or clear your search to explore everything.</p><button type="button" class="outline" data-reset-catalogue>See the full catalogue</button>');
+  const spellingHint=document.createElement('p');spellingHint.className='search-spelling-hint';spellingHint.setAttribute('role','status');spellingHint.hidden=true;setCopy(spellingHint,'Showing close spelling matches.');
+  app.querySelector('.show-search')!.after(spellingHint,searchEmpty);
+  searchEmpty.querySelector('button')!.addEventListener('click',()=>{const input=app.querySelector<HTMLInputElement>('#find-show')!;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));});
   on(app, "#find-show", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim();
     const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card")];
-    let found = 0;
-    for (const card of cards) {
-      const id = card.querySelector<HTMLElement>('[data-show-details]')?.dataset.showDetails;
-      const show = id ? catalog.packages.find(item => item.id === id && item.active) : undefined;
-      const service = card.querySelector<HTMLElement>('[data-enquiry-details]')?.dataset.enquiryDetails;
-      const values = show ? [show.name, publicShowName(show), show.description, show.category] : service && moreShowNames().includes(service) ? [service, experienceFor(service).heading, experienceFor(service).experience, ...(service === 'Characters' ? characterChoiceNames() : [])] : [];
-      card.hidden = !values.length || !matchesMultilingual(values, query);
-      if (!card.hidden) found++;
-    }
-    app.querySelectorAll<HTMLElement>("#shows .show-group").forEach((group) => {
-      group.hidden = !group.querySelector(".show-card:not([hidden])");
+    const matches=cards.map(card=>{
+      const id=card.querySelector<HTMLElement>('[data-show-details]')?.dataset.showDetails;
+      const show=id?catalog.packages.find(item=>item.id===id&&item.active):undefined;
+      const service=card.querySelector<HTMLElement>('[data-enquiry-details]')?.dataset.enquiryDetails;
+      const values=show?[show.name,publicShowName(show),show.description,show.category]:service&&moreShowNames().includes(service)?[service,experienceFor(service).heading,experienceFor(service).experience,...(service==='Characters'?characterChoiceNames():[])]:[];
+      return {card,score:values.length?multilingualMatchScore(values,query):null};
     });
-    const count = app.querySelector("#show-search-count");
-    if (count) count.textContent = query ? t(`${found} ${found === 1 ? "match" : "matches"} found`) : "";
+    const exact=matches.some(item=>item.score===0);let found=0;
+    for(const {card,score} of matches){card.hidden=score===null||(exact&&score!==0);if(!card.hidden)found++;}
+    app.querySelectorAll<HTMLElement>("#shows .show-group").forEach(group=>{group.hidden=!group.querySelector('.show-card:not([hidden])');});
+    const count=app.querySelector('#show-search-count');if(count)count.innerHTML=query?copy('Matches found')+': '+found:'';
+    searchEmpty.hidden=!query||found>0;spellingHint.hidden=!query||exact||!found;
   });
+  on(app,'#find-show','keydown',event=>{const key=event as KeyboardEvent;if(key.key==='Enter'){key.preventDefault();(key.currentTarget as HTMLInputElement).blur();app.querySelector('#shows .show-card:not([hidden])')?.scrollIntoView({block:'start',behavior:'smooth'});}});
   on(app, "[data-bundle-idea]", "click", (ev) => {
     const keys = (ev.currentTarget as HTMLElement).dataset.bundleIdea!.split(",");
     basket = [...new Set([...basket, ...keys])];
@@ -1333,6 +1346,16 @@ function requestedServicesSummary(b: Booking) {
 
   return b.requestedServices?.length ? h`<section class="requested-services"><h3>Services in your request</h3><p>${b.requestedServices.map(copy).join(" · ")}</p><small>Requested preferences. The proposal will confirm the selected services, arrangements and price.</small></section>` : "";
 }
+function paymentPreferenceField(value?: string): Field {
+  return {key:'paymentPreference',label:'Preferred payment method',type:'select',value:value??'undecided',options:[...paymentPreferences,{value:'card',label:'Visa / Mastercard — coming soon',disabled:true}],help:'This is a preference. The team confirms the accepted method and payment instructions; no payment is taken now.'};
+}
+function cardPaymentPreview() {
+  return h('<section class="card-payment-preview"><span class="card-payment-symbol" aria-hidden="true">▤</span><div><strong>Visa / Mastercard</strong><p>Secure card checkout is coming soon. Payment details will be entered with the payment provider after it is connected.</p></div><button type="button" disabled>Coming soon</button></section>');
+}
+function bookingPreferencesSummary(b: Booking) {
+  const venue=venuePreferenceLabel(b.venuePreference),payment=paymentPreferenceLabel(b.paymentPreference??b.playgroundRequest?.paymentPreference);
+  return venue||payment?h`<section class="booking-preferences"><h3>Your reservation preferences</h3>${venue?h`<p><strong>Event setting:</strong> ${copy(venue)}</p>`:''}${payment?h`<p><strong>Preferred payment method:</strong> ${copy(payment)}</p>`:''}<small>Preferences are subject to confirmation. They do not record payment or confirm a reservation.</small></section>`:'';
+}
 function eventFields(b?: Partial<Booking>): Field[] {
   return [
     {
@@ -1365,7 +1388,12 @@ function eventFields(b?: Partial<Booking>): Field[] {
       required: true,
     },
     {
+      key: "venuePreference", label: "Where will your event take place?", type: "select", value: b?.venuePreference??"undecided", options: [...venuePreferences],
+    },
+    paymentPreferenceField(b?.paymentPreference),
+    {
       key: "location",
+      help: "Give the address or preferred area. If you need a venue, tell us the city you have in mind.",
       label: "Venue / location",
       value: b?.location,
       required: true,
@@ -1441,11 +1469,12 @@ async function requestPlaytown(kind: 'visit'|'party') {
   let saved: Record<string,string>={};
   try { saved=JSON.parse(sessionStorage.getItem(key)||'{}'); } catch { /* A fresh draft is safe. */ }
   const requestId=saved.requestId||crypto.randomUUID();
-  const fields:Field[]=[{key:'date',label:'Visit date',type:'date',required:true},{key:'time',label:'Preferred arrival time (Beirut)',type:'time',required:true},{key:'children',label:'Number of children',type:'number',min:1,max:100,value:1,required:true},{key:'childAges',label:'Children’s ages',help:'For example: 4 and 7. Names are not needed.',required:true},{key:'notes',label:kind==='party'?'Tell us about your celebration':'Any questions or requests?',type:'textarea',wide:true}];
+  const fields:Field[]=[{key:'date',label:'Visit date',type:'date',required:true},{key:'time',label:'Preferred arrival time (Beirut)',type:'time',required:true},{key:'children',label:'Number of children',type:'number',min:1,max:100,value:1,required:true},{key:'childAges',label:'Children’s ages',help:'For example: 4 and 7. Names are not needed.',required:true},paymentPreferenceField(),{key:'notes',label:kind==='party'?'Tell us about your celebration':'Any questions or requests?',type:'textarea',wide:true}];
   openDialog(kind==='visit'?'Reserve a play visit · PLAYTOWN':'Plan a private event · PLAYTOWN',formBody(fields,
     (kind==='visit'?h('<fieldset class="playtown-pass-select"><legend>Choose a pass for each child</legend>')+playtown.passes.map(p=>h('<label>')+copy(p.name)+' · USD '+p.usd+h('<small>')+copy(p.description)+h('</small><input ')+ 'data-customer-quantity="'+e(p.name)+'" aria-label="'+e(t('Quantity:')+' '+t(p.name))+'" name="pass-'+p.id+'" type="number" min="0" max="100" step="1" value="0"></label>').join('')+h('</fieldset><p class="playtown-total" aria-live="polite"></p>'):h('<p>Private event arrangements and prices are quoted separately from day passes.</p>'))+h('<p>')+playtown.address+h('</p><p class="hint">This sends a reservation request to Magic App. We check with PLAYTOWN and confirm your visit before you arrive. You will sign in or create an account before sending.</p>'), 'Continue with my reservation →'));
+  modal.querySelector('.form-actions')?.before(document.createRange().createContextualFragment(cardPaymentPreview()));
   const form=modal.querySelector<HTMLFormElement>('form')!;
-  for(const control of form.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[name],textarea[name]'))if(saved[control.name]!==undefined)control.value=saved[control.name];
+  for(const control of form.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input[name],textarea[name],select[name]'))if(saved[control.name]!==undefined)control.value=saved[control.name];
   const save=()=>{const values=Object.fromEntries(new FormData(form).entries()) as Record<string,string>;values.requestId=requestId;try{sessionStorage.setItem(key,JSON.stringify(values));}catch{/* Draft storage optional. */}
     const total=form.querySelector('.playtown-total');if(total)total.innerHTML=copy('Listed pass total: USD')+' '+playtown.passes.reduce((sum,p)=>sum+Math.max(0,Number(values['pass-'+p.id])||0)*p.usd,0);};
   form.addEventListener('input',save);save();
@@ -1454,7 +1483,7 @@ async function requestPlaytown(kind: 'visit'|'party') {
     const children=Number(data.get('children'));
     if(kind==='visit'&&passes.reduce((sum,p)=>sum+p.quantity,0)!==children)throw Error('Choose one pass for each child.');
     try {await api('/customer/'+catalog.business.slug+'/me');} catch {customerAuth(false,true,()=>{void requestPlaytown(kind);});return;}
-    const result=await api<{path:string}>('/public/'+catalog.business.slug+'/playgrounds/playtown/requests','POST',{requestId,kind,date:String(data.get('date')),time:String(data.get('time')),children,childAges:String(data.get('childAges')),notes:String(data.get('notes')||''),passes});
+    const result=await api<{path:string}>('/public/'+catalog.business.slug+'/playgrounds/playtown/requests','POST',{requestId,kind,date:String(data.get('date')),time:String(data.get('time')),children,childAges:String(data.get('childAges')),paymentPreference:String(data.get('paymentPreference')||'undecided'),notes:String(data.get('notes')||''),passes});
     try {sessionStorage.removeItem(key);}catch{/* Optional storage. */} location.href=result.path;
   });
 }
@@ -1513,6 +1542,7 @@ async function requestForm(retainedForm?: FormData) {
       "Send my event request →",
     ),
   );
+  modal.querySelector('.form-actions')?.before(document.createRange().createContextualFragment(cardPaymentPreview()));
   if (retainedForm) {
     for (const control of modal.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("form input[name], form select[name], form textarea[name]")) {
       if (control.name === "occasion") { control.value = chosenOccasion; continue; }
@@ -4627,7 +4657,7 @@ async function openBooking(key: string) {
   }>(`/manage/bookings/${b.id}/checks`);
   openDialog(
     b.name,
-    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div>${requestedServicesSummary(b)}<div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div>${artistConfirmationSection(b)}${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
+    `<div class="booking-banner">${badge(b.status)}<small>Revision ${b.revision} · ${e(state!.business.timezone)}</small></div>${requestedServicesSummary(b)}${bookingPreferencesSummary(b)}<div class="details-grid"><div><small>Date & show time</small><strong>${day(b.date)} · ${e(b.time)}</strong></div><div><small>Venue</small><strong>${e(b.location)}</strong><br><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.location)}" target="_blank" rel="noopener noreferrer">Directions ↗</a></div><div><small>Customer</small><strong>${e(c?.name ?? "Assigned event")}</strong>${c ? `<p>${e(c.phone)} · ${e(c.email)}</p>` : ""}</div><div><small>Audience & setup</small><strong>${b.audience} guests · Age ${b.age} · ${b.space} m²</strong><p>${b.indoor ? "Indoor" : "Outdoor"} · ${b.power ? "Electricity available" : "No electricity"}</p></div></div>${checks.issues.length ? `<ul class="warn-list">${checks.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : '<p class="success">✓ No venue or scheduling conflicts found for the current selection.</p>'}<div class="tabs">${state!.user.role !== "performer" ? '<button id="edit-event" class="outline small">Edit event details</button><button id="quote-event" class="outline small">Build quote options</button><button id="customer-link" class="outline small">Create / replace private link</button><button id="event-money" class="outline small">Record payment / cost</button>' : ""}<button id="print-event" class="outline small">Print show-day card</button></div>${artistConfirmationSection(b)}${checks.assignments ? `<section class="panel"><h3>Your assigned shows</h3>${checks.assignments.length ? `<ul class="timeline">${checks.assignments.map((t) => `<li><time>${day(t.date)} · ${e(t.at)}</time><span>${e(t.label)} · ${t.duration} min</span></li>`).join("")}</ul>` : `<p class="muted">No individual shows assigned yet. Ask the organizer to confirm your role.</p>`}<p class="hint">${b.status === "cancelled" ? "This event is cancelled." : b.status === "completed" ? "This event is completed; assignments are shown for reference." : "Plan for the full event, including arrival, setup and pack-down. Your availability covers the entire event; show times alone do not shorten it."}</p></section>` : ""}<section class="panel"><h3>The running order</h3><ul class="timeline">${checks.timetable.map((t) => `<li><time>${e(t.at)}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} min` : ""}</span></li>`).join("")}</ul><p class="muted">Travel buffer: ${b.travel} minutes each side. Default changeovers: ${b.breakMinutes} minutes. ${b.runningOrder ? "Custom running order applied." : ""} Pack-down: ${b.teardown ?? 0} minutes.</p><p>${e(b.venueNotes)}</p></section>${
       staffCan("referrals")
         ? `<section class="panel"><h3>Referrals</h3>${
             state!.referrals
@@ -5558,7 +5588,7 @@ async function renderEvent() {
     cancelled:
       b.declined ? "Sam cannot take this request. Please contact us to discuss another date or show." : "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
-  app.innerHTML = h`<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1><span class="badge ${e(b.status)}">${copy(customerStatus(b.status, b.declined))}</span><p class="lead">${copy(descriptions[b.status])}</p>${customSummary(b)}${requestedServicesSummary(b)}<div class="progress">${[
+  app.innerHTML = h`<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1><span class="badge ${e(b.status)}">${copy(customerStatus(b.status, b.declined))}</span><p class="lead">${copy(descriptions[b.status])}</p>${customSummary(b)}${requestedServicesSummary(b)}${bookingPreferencesSummary(b)}<div class="progress">${[
     ["Request received", true],
     ["Proposal accepted", !!b.acceptedQuoteId],
     ["Booking confirmed", ["confirmed", "completed"].includes(b.status)],
@@ -5570,6 +5600,7 @@ async function renderEvent() {
     .join(
       "",
     )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${dateCopy(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? copy("Indoor") : copy("Outdoor")} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? h('<button id="event-details" class="outline small">Update venue & audience details</button>') : ""}</section>${b.quotes.length ? h`<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => h`<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? h`<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? h`<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? h`<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? copy("Your preferred plan ✓") : copy("Confirmed plan ✓")}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? h`<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your event</h2><ul class="timeline">${data.timetable.map((t) => h`<li><time>${t.at}</time><span>${copy(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? h`<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? h`<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? h`<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? h`<span class="badge">${e(p.name)} reviewed ✓</span>` : h`<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
+  app.querySelector('.event-page > .footer')?.insertAdjacentHTML('beforebegin',cardPaymentPreview());
   if (serviceOnly) {
     const facts = app.querySelectorAll('.event-page > .panel .details-grid > div');
     if (facts[2]) facts[2].innerHTML = h('<small>Your gathering</small><strong>') + copy(`${b.audience} guests`) + '</strong>';

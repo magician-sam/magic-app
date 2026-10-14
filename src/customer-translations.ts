@@ -5179,5 +5179,27 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
   "Event link is missing or expired.": {
     "fr": "Le lien de l’événement est absent ou expiré.",
     "ar": "رابط المناسبة مفقود أو انتهت صلاحيته."
-  }
+  },
+"Let’s find another way in.":{"fr":"Essayons une autre piste.","ar":"لنبحث بطريقة أخرى."},
+"No matching shows or services. Try a shorter name, another language or clear your search to explore everything.":{"fr":"Aucun spectacle ni service ne correspond. Essayez un nom plus court, une autre langue ou effacez la recherche pour tout explorer.","ar":"لم نجد عروضًا أو خدمات مطابقة. جرّب اسمًا أقصر أو لغة أخرى، أو امسح البحث لاستكشاف كل الخيارات."},
+"See the full catalogue":{"fr":"Voir tout le catalogue","ar":"شاهد الكتالوج كاملًا"},
+"Showing close spelling matches.":{"fr":"Résultats avec une orthographe proche.","ar":"نعرض نتائج قريبة من الكلمة التي كتبتها."},
+"Clear search and filters":{"fr":"Effacer la recherche et les filtres","ar":"مسح البحث والفلاتر"},
+"Preferred payment method":{"fr":"Mode de paiement souhaité","ar":"طريقة الدفع المفضّلة"},
+"Preferred payment method:":{"fr":"Mode de paiement souhaité :","ar":"طريقة الدفع المفضّلة:"},
+"Decide with the team":{"fr":"À convenir avec l’équipe","ar":"نتفق عليها مع الفريق"},
+"Whish Money":{"fr":"Whish Money","ar":"Whish Money"},
+"Pay on the spot":{"fr":"Payer sur place","ar":"الدفع في المكان"},
+"Visa / Mastercard — coming soon":{"fr":"Visa / Mastercard — bientôt disponible","ar":"Visa / Mastercard — قريبًا"},
+"This is a preference. The team confirms the accepted method and payment instructions; no payment is taken now.":{"fr":"Il s’agit d’une préférence. L’équipe confirme le mode accepté et les modalités ; aucun paiement n’est effectué maintenant.","ar":"هذا تفضيل فقط. يؤكد الفريق الطريقة المتاحة وتعليمات الدفع؛ لا يُطلب منك الدفع الآن."},
+"Secure card checkout is coming soon. Payment details will be entered with the payment provider after it is connected.":{"fr":"Le paiement sécurisé par carte sera bientôt disponible. Les coordonnées de paiement seront saisies auprès du prestataire une fois connecté.","ar":"الدفع الآمن بالبطاقة سيُتاح قريبًا. ستُدخل بيانات الدفع لدى مزوّد الخدمة بعد ربطه بالتطبيق."},
+"Coming soon":{"fr":"Bientôt disponible","ar":"قريبًا"},
+"Your reservation preferences":{"fr":"Vos préférences de réservation","ar":"تفضيلات حجزك"},
+"Event setting:":{"fr":"Lieu de l’événement :","ar":"مكان المناسبة:"},
+"Preferences are subject to confirmation. They do not record payment or confirm a reservation.":{"fr":"Les préférences restent à confirmer. Elles ne constituent ni un paiement ni une réservation confirmée.","ar":"التفضيلات بحاجة إلى تأكيد. لا تعني تسجيل دفعة أو تأكيد الحجز."},
+"Where will your event take place?":{"fr":"Où aura lieu votre événement ?","ar":"أين ستقام مناسبتك؟"},
+"At a venue":{"fr":"Dans un lieu de réception","ar":"في مكان للمناسبات"},
+"Give the address or preferred area. If you need a venue, tell us the city you have in mind.":{"fr":"Indiquez l’adresse ou la zone souhaitée. Si vous cherchez un lieu, précisez la ville envisagée.","ar":"أدخل العنوان أو المنطقة المفضّلة. إذا كنت تحتاج إلى مكان، أخبرنا بالمدينة التي تفكّر فيها."},
+"Photos shown":{"fr":"Photos affichées","ar":"الصور المعروضة"},
+"Matches found":{"fr":"Résultats trouvés","ar":"النتائج المطابقة"}
 });

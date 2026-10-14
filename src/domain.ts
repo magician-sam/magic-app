@@ -69,6 +69,8 @@ export const eventSchema = z.object({
   time,
   location: short.min(3),
   occasion: short.min(1),
+  venuePreference: z.enum(['undecided','home','venue','find_venue']).optional(),
+  paymentPreference: z.enum(['undecided','whish','on_arrival']).optional(),
   audience: z.number().int().min(1).max(10000),
   age: z.number().int().min(0).max(99),
   indoor: z.boolean(),

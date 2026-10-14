@@ -451,6 +451,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const account = await customerSession(req, business.id);
     const input = z.object({
       requestId: z.uuid(), kind: z.enum(['visit','party']), date, time,
+      paymentPreference: z.enum(['undecided','whish','on_arrival']).default('undecided'),
       children: z.number().int().min(1).max(100), childAges: short.min(1).max(200),
       notes: z.string().trim().max(1500).default(''),
       passes: z.array(z.object({id:z.enum(['basic','basic-artistic','playtown','playtown-artistic']),quantity:z.number().int().min(1).max(100)}).strict()).max(4),
@@ -470,7 +471,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         location:playtown.address+' · '+playtown.map,audience:input.children,age:0,indoor:true,power:false,space:1,source:'playtown',
         notes:'Children’s ages: '+input.childAges+'. '+(referenceTotalUsd===null?'Private event price to be quoted.':'Listed pass total: USD '+referenceTotalUsd+'. ')+'Requested arrival time; availability and arrangements must be confirmed. '+input.notes,
         requestedServices:passes.length?passes.map(p=>'PLAYTOWN · '+p.name+' × '+p.quantity):['PLAYTOWN · Private event'],
-        playgroundRequest:{requestId:input.requestId,provider:'playtown',kind:input.kind,children:input.children,childAges:input.childAges,passes,referenceTotalUsd,priceSource:'PLAYTOWN supplied price sheet · 12 October 2026'},
+        paymentPreference:input.paymentPreference,venuePreference:'venue',
+        playgroundRequest:{requestId:input.requestId,provider:'playtown',kind:input.kind,children:input.children,childAges:input.childAges,passes,referenceTotalUsd,paymentPreference:input.paymentPreference,priceSource:'PLAYTOWN supplied price sheet · 12 October 2026'},
         packageIds:[],packageSnapshot:[],performerIds:[],availability:{},status:'requested',quotes:[],acceptedQuoteId:'',travel:0,breakMinutes:0,checklist:[],venueNotes:'Confirm child eligibility, supervision, opening hours and entry with PLAYTOWN. No capacity has been reserved automatically.',backupPerformerIds:[],revision:1,createdAt:now,updatedAt:now};
       await store.put(business.id,'bookings',booking);
       await store.audit(business.id,'customer','playground.requested',booking.id,null,booking);
@@ -597,6 +599,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         space,
         status,
         paymentTerms: booking.paymentTerms,
+        paymentPreference: booking.paymentPreference,
+        venuePreference: booking.venuePreference,
         declined: booking.declined,
         quotes,
         acceptedQuoteId,

@@ -1855,12 +1855,14 @@ test("guest shows can be added, hidden and restored without losing old requests"
 
 test("family celebrations can request independent styling, capture and favours with account and visibility checks", async () => {
   const services = ["Decoration", "Balloon Decoration", "Floral Decoration", "Photography", "Videography", "Favours & Keepsakes"];
-  const body = { event: { ...event, occasion: "Baptism", packageIds: [], performerIds: [], requestedServices: services } };
+  const body = { event: { ...event, occasion: "Baptism",venuePreference:"home",paymentPreference:"whish", packageIds: [], performerIds: [], requestedServices: services } };
   assert.equal((await request("/public/test/requests", "POST", body, null)).status, 401);
   assert.equal((await request("/public/test/requests", "POST", { event: { ...body.event, requestedServices: ["Photography", "Photography"] } }, customerCookie)).status, 400);
   const info = await newRequest(body.event);
   const saved = await current(info.id);
   assert.equal(saved.occasion, "Baptism");
+  assert.equal(saved.venuePreference,"home");assert.equal(saved.paymentPreference,"whish");
+  assert.equal((await request("/public/test/requests","POST",{event:{...body.event,paymentPreference:"card"}},customerCookie)).status,400);
   assert.deepEqual(saved.requestedServices, services);
   assert.equal(saved.status, "requested");
   assert.equal(saved.quotes.length, 0);
@@ -1868,8 +1870,9 @@ test("family celebrations can request independent styling, capture and favours w
   assert.equal((await request("/public/test/requests", "POST", body, customerCookie)).status, 400);
   assert.deepEqual((await current(info.id)).requestedServices, services);
   assert.equal((await request("/manage/guest-services", "POST", { action: "restore", name: "Favours & Keepsakes" })).status, 200);
-  const communion = await newRequest({ ...body.event, occasion: "First Communion" });
+  const communion = await newRequest({ ...body.event, occasion: "First Communion", venuePreference:"venue",paymentPreference:"on_arrival" });
   assert.equal((await current(communion.id)).occasion, "First Communion");
+  assert.equal((await current(communion.id)).venuePreference,"venue");assert.equal((await current(communion.id)).paymentPreference,"on_arrival");
   const configured = guestServiceNames(["Balloon Styling", "Flower Arrangements", "Event Photography", "Video Coverage", "Guest Gifts"]);
   for (const missingDefault of services.slice(1)) assert.equal(configured.includes(missingDefault), false, missingDefault);
   assert.ok(configured.includes("Decoration"), "full styling remains separate from balloon and flower specialists");

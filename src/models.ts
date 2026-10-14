@@ -121,6 +121,8 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  venuePreference?: import('./booking-preferences.js').VenuePreference;
+  paymentPreference?: import('./booking-preferences.js').PaymentPreference;
   playgroundRequest?: import('./playtown.js').PlaygroundRequest;
   paymentTerms?: string;
   declined?: boolean;

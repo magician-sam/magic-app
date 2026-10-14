@@ -29,19 +29,30 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
   };
   catalogueSearch.addEventListener('input', update);
   clear.addEventListener('click', () => {
+    submitted++;
     catalogueSearch.value = '';
     catalogueSearch.dispatchEvent(new Event('input', { bubbles: true }));
     void searchPartners?.('');
     catalogueSearch.focus({ preventScroll: true });
   });
-  section.querySelector('form')!.addEventListener('submit', async event => {
+  let submitted = 0;
+  input.addEventListener('input', () => {
+    submitted++;
+    catalogueSearch.value=input.value;
+    catalogueSearch.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  section.querySelector('form')!.addEventListener('submit', event => {
     event.preventDefault();
     catalogueSearch.value = input.value.trim();
     catalogueSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    const partnerTarget = await searchPartners?.(catalogueSearch.value);
-    const target = root.querySelector('#shows .show-card:not([hidden])') ? '#shows' : partnerTarget ?? '#shows';
-    root.querySelector(target)!.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-    catalogueSearch.focus({ preventScroll: true });
+    const serial=++submitted, query=catalogueSearch.value;
+    const hasShows=!!root.querySelector('#shows .show-card:not([hidden])');
+    input.blur(); catalogueSearch.blur();
+    const scroll=(target:string)=>root.querySelector(target)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    scroll('.show-search');
+    void searchPartners?.(query).then(partnerTarget=>{
+      if(serial===submitted&&query===catalogueSearch.value&& !hasShows&&partnerTarget)scroll(partnerTarget);
+    }).catch(()=>{ /* The catalogue and its reset remain usable during a directory outage. */ });
   });
   section.querySelector('[data-discovery-help]')!.addEventListener('click', helpChoose);
   hero.after(section);

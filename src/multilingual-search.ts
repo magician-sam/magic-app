@@ -8,9 +8,9 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Close-up Magic': ['close up','closeup','magie de proximite','سحر قريب'],
   'Animation': ['animateur','animation festive','تنشيط','انيميشن'],
   'Balloon Twisting': ['balloon sculpture','sculpture ballons','تشكيل بالونات','نفخ بالونات'],
-  'Balloon Decoration': ['balloon decor','decoration ballons','ديكور بالونات','تزيين بالونات'],
-  'Full Decoration': ['event styling','decoration complete','ديكور','تزيين'],
-  'Floral Decoration': ['flowers','fleurs','floral','زهور','ورد','ازهار'],
+  'Balloon Decoration': ['balloon decor','decoration ballons','birthday balloons','ballons anniversaire','ديكور بالونات','تزيين بالونات'],
+  'Full Decoration': ['event styling','decoration complete','party decor','birthday decoration','decoration anniversaire','ديكور','تزيين','ديكور عيد ميلاد'],
+  'Floral Decoration': ['flowers','fleurs','floral','floral decor','ديكور زهور','ديكور ورد','زهور','ورد','ازهار'],
   'Photography': ['photographer','photographe','photos','تصوير','مصور','فوتوغرافي','فوتوغراف'],
   'Videography': ['videographer','videaste','video','film','فيديو','فيديوغرافي'],
   'Favours & Keepsakes': ['favors','favours','keepsakes','souvenirs','cadeaux invites','هدايا','تذكارات','توزيعات'],
@@ -42,6 +42,9 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Beirut': ['Beyrouth','بيروت'], 'Jounieh': ['Jounie','جونيه','جونية'], 'Tripoli': ['Tripoli','طرابلس'], 'Sidon': ['Saida','صيدا'],
   'Polar Bear': ['polar bear','ours polaire','دب قطبي'], 'Teddy Bear': ['teddy bear','ours en peluche','دب دمية'],
   'Rabbit': ['rabbit','bunny','lapin','ارنب'],
+  'Gorilla': ['gorille','غوريلا'],
+  'Dog Show': ['dog','dogs','chien','chiens','كلب','كلاب'],
+  'Kids Theatre': ['theatre enfants','مسرح اطفال'],
   'Panda': ['panda','باندا'],
   'Mickey Mouse': ['mickey','ميكي','ميكي ماوس'],
   'Minnie Mouse': ['minnie','ميني','ميني ماوس'],
@@ -49,7 +52,7 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'playgrounds': ['playground','aire de jeux','espace de jeux','ملعب اطفال','ملاعب اطفال'],
   'magic': ['magie','سحر'], 'science': ['sciences','علوم'], 'bubbles': ['bulles','فقاعات'],
 };
-for (const [key, canonical] of Object.entries({Juggler:'Juggling',BMX:'BMX Show','Dog Show':'Dog Show',Bunny:'Rabbit','LED Robot':'LED Dancing Suits'})) multilingualAliases[key] = multilingualAliases[canonical] ?? [];
+for (const [key, canonical] of Object.entries({Juggler:'Juggling',BMX:'BMX Show','Dog Show':'Dog Show',Bunny:'Rabbit','LED Robot':'LED Dancing Suits',Decoration:'Full Decoration',Cake:'Cakes',"Face Painting & Glitter":'Face Painting',"Children\u0027s Workshops":'Children’s Workshops'})) multilingualAliases[key] = multilingualAliases[canonical] ?? [];
 export function normalizeSearch(value: string): string {
   return value.normalize('NFKD').replace(/[\u0300-\u036f\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0640]/g,'')
     .replace(/[أإآٱ]/g,'ا').replace(/[ىی]/g,'ي').replace(/ک/g,'ك').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/[œŒ]/g,'oe').replace(/[æÆ]/g,'ae')
@@ -76,13 +79,44 @@ export function multilingualTerms(values: readonly string[]): string[] {
     return [value, ...(tr ? [copyKey!,tr.fr,tr.ar] : []), ...(aliasKey ? multilingualAliases[aliasKey] : [])];
   });
 }
-/** All query words must match a whole word or its prefix. Short words such as
- * DJ cannot accidentally match the middle of unrelated provider names. */
+const connectors = new Set(['the','a','an','de','des','du','la','le','les','un','une','et','في','و']);
+function wordsFor(value: string) {
+  return normalizeSearch(value).split(' ').map(word => /^[\u0600-\u06ff]+$/.test(word) && word.startsWith('ال') && word.length > 4 ? word.slice(2) : word).filter(word => word && !connectors.has(word));
+}
+/** Bounded edit distance includes adjacent swapped letters. Never fuzz short
+ * keys such as DJ, numbers, or a different writing system. */
+function spellingDistance(a: string, b: string, limit: number): number {
+  if (Math.abs(a.length-b.length)>limit || /\p{N}/u.test(a+b) || (a.length===4&&a[0]!==b[0]) || /[\u0600-\u06ff]/.test(a)!==/[\u0600-\u06ff]/.test(b)) return limit+1;
+  let older: number[] = [], previous = Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++) {
+    const row=[i];
+    for(let j=1;j<=b.length;j++) {
+      row[j]=Math.min(row[j-1]+1,previous[j]+1,previous[j-1]+Number(a[i-1]!==b[j-1]));
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])row[j]=Math.min(row[j],older[j-2]+1);
+    }
+    if(Math.min(...row)>limit)return limit+1;
+    older=previous;previous=row;
+  }
+  return previous[b.length];
+}
+/** Zero is a direct match; positive scores are spelling suggestions. Search
+ * screens can prefer exact results without making typos look unavailable. */
+export function multilingualMatchScore(values: readonly string[], query: string, rawValues: readonly string[] = []): number | null {
+  if(!query.trim())return 0;
+  const terms=wordsFor(query);if(!terms.length)return null;
+  const words=[...new Set([...multilingualTerms(values),...rawValues].flatMap(wordsFor))];
+  let score=0;
+  for(const term of terms) {
+    if(words.some(word=>term.length<3?word===term:word.startsWith(term)))continue;
+    if(term.length<4)return null;
+    const limit=term.length>=7?2:1;
+    const best=words.reduce((distance,word)=>Math.min(distance,word.length>=4?spellingDistance(term,word,limit):limit+1),limit+1);
+    if(best>limit)return null;score+=best;
+  }
+  return score;
+}
 export function matchesMultilingual(values: readonly string[], query: string, rawValues: readonly string[] = []): boolean {
-  const terms = normalizeSearch(query).split(' ').filter(Boolean);
-  if (!terms.length) return !query.trim();
-  const words = [...multilingualTerms(values),...rawValues].flatMap(value => normalizeSearch(value).split(' '));
-  return terms.every(term => words.some(word => term.length < 3 ? word === term : word.startsWith(term)));
+  return multilingualMatchScore(values,query,rawValues)!==null;
 }
 
 

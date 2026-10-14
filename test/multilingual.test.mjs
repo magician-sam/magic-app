@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { h, t, copy, enableCustomerTranslations, setCustomerLanguage } from '../dist/customer-i18n.js';
-import { matchesMultilingual, normalizeSearch, locationTerms } from '../dist/multilingual-search.js';
+import { matchesMultilingual, multilingualMatchScore, normalizeSearch, locationTerms } from '../dist/multilingual-search.js';
 import { noticeTitleView, noticeBodyView } from '../dist/customer-notice-view.js';
 import { playtownMatches, playtown } from '../dist/playtown.js';
 import { readDesignerAnswers, designerSummary } from '../dist/event-designer.js';
@@ -72,7 +72,7 @@ test('city aliases never add a particular street and proper provider names remai
   assert.equal(matchesMultilingual([], 'عين التينة',locationTerms(['Beyrouth'])),false);
   assert.ok(matchesMultilingual([], 'بيروت',locationTerms(['Beyrouth'])));
   assert.ok(matchesMultilingual([], 'عين التينة',locationTerms(['Ain El Tineh, Beirut'])));
-  assert.equal(matchesMultilingual([], 'photographe',['Photography']),false);
+  assert.ok(multilingualMatchScore([], 'photographe',['Photography'])>0,'similar proper names are spelling suggestions, not translated exact matches');
   assert.ok(matchesMultilingual(['photography'],'photographe'));
 });
 

@@ -22,6 +22,7 @@ export function playtownMatches(area: string, query: string) {
 }
 
 export type PlaygroundRequest = {
+  paymentPreference?: import('./booking-preferences.js').PaymentPreference;
   requestId: string; provider: 'playtown'; kind: 'visit' | 'party';
   children: number; childAges: string;
   passes: { id: string; name: string; quantity: number; unitUsd: number }[];
