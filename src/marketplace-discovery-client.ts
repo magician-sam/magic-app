@@ -16,6 +16,9 @@ const iconPaths: Record<string, string> = {
   decorate: '<path d="M4 3c0 10 16 10 16 0M8 8v6M16 8v6M12 9v11"/><circle cx="8" cy="17" r="3"/><circle cx="16" cy="17" r="3"/>',
   music: '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="17" cy="16" rx="3" ry="3"/>',
   food: '<path d="M3 3v6c0 4 6 4 6 0V3M6 3v18M17 3c-4 5-4 9 0 10v8M17 3v10"/>',
+  gift: '<path d="M3 10h18v4H3ZM5 14v8h14v-8M12 10v12"/><path d="M12 10C4 10 4 3 8 3c3 0 4 7 4 7Zm0 0c8 0 8-7 4-7-3 0-4 7-4 7Z"/>',
+  candle: '<path d="M8 12h8v10H8ZM5 22h14M12 12V9"/><path d="M12 2c-5 5-4 7 0 7s5-2 0-7Z"/>',
+  camera: '<path d="M3 7h4l2-3h6l2 3h4v14H3Z"/><circle cx="12" cy="13" r="4"/><path d="M18 10h1"/>',
   sparkle: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/>',
   heart: '<path d="M20 4a6 6 0 0 0-8 1 6 6 0 0 0-8-1c-5 5 0 10 8 17 8-7 13-12 8-17Z"/>',
   event: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 2v6M17 2v6M3 11h18M8 15h2M14 15h2"/>',
@@ -26,9 +29,12 @@ const cards = [
   ["Entertainment agencies", "teams", "#marketplace-agencies", "teams", "Planners & creative event teams"],
   ["Artists & shows", "magic", "#shows", "shows", "Magic, circus, comedy & more"],
   ["Science & workshops", "science", "#sam-shows", "science", "Discovery for curious minds"],
-  ["Decoration & styling", "decorate", "#party-shows", "styling", "Balloons, backdrops & colour"],
+  ["Decoration & flowers", "decorate", "#event-styling", "styling", "Full styling, balloons or flowers"],
+  ["Photography & video", "camera", "#photography-video", "capture", "Capture the people & the moment"],
   ["Music & sound", "music", "#event-extras", "music", "DJs, live acts & sound systems"],
   ["Food & cakes", "food", "#event-extras", "food", "Menus, treats & celebration cakes"],
+  ["Baptism & Communion", "candle", "#family-celebrations", "milestones", "Celebrate a meaningful family moment"],
+  ["Favours & keepsakes", "gift", "#favours-keepsakes", "keepsakes", "Thoughtful gifts for your guests"],
   ["Schools & festivals", "sparkle", "#marketplace-occasions", "schools", "Ideas for bringing a crowd together"],
 ] as const;
 type Directory = { partners: PublicPartner[]; total: number; next: string | null; workspaceReady: boolean };
@@ -93,9 +99,13 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   // Category links remain present even when the legacy catalogue has no F&B
   // records yet; route to the full shows section rather than a missing anchor.
   const occasions = document.createElement("section"); occasions.id = "marketplace-occasions"; occasions.className = "mp-occasions";
-  occasions.innerHTML = `<div><span class="eyebrow">Every occasion has a story</span><h2>What are we<br>bringing to life?</h2></div><div class="mp-occasion-options">${[["Birthday", "Birthday"], ["School event", "School"], ["Festival", "Festival"], ["Corporate event", "Corporate"], ["Wedding", "Wedding"], ["Christmas", "Christmas"]].map(([value, title]) => `<button type="button" data-mp-occasion="${value}">${title}<span aria-hidden="true">↗</span></button>`).join("")}<p>A birthday wish, a school adventure, a celebration just because. Start with yours.</p></div>`;
+  occasions.innerHTML = `<div><span class="eyebrow">Every occasion has a story</span><h2>What are we<br>bringing to life?</h2></div><div class="mp-occasion-options">${[["Birthday", "Birthday"], ["School event", "School"], ["Festival", "Festival"], ["Corporate event", "Corporate"], ["Wedding", "Wedding"], ["Christmas", "Christmas"], ["Baptism", "Baptism"], ["First Communion", "First Communion"]].map(([value, title]) => `<button type="button" data-mp-occasion="${value}">${title}<span aria-hidden="true">↗</span></button>`).join("")}<p>A birthday wish, a school adventure, a celebration just because. Start with yours.</p></div>`;
   inspiration.after(occasions);
   occasions.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.addEventListener("click", () => options.design(button.dataset.mpOccasion)));
+  const family = document.createElement("section"); family.id = "family-celebrations"; family.className = "family-celebrations";
+  family.innerHTML = '<div class="mp-section-intro"><div><p class="eyebrow">The moments that stay with a family</p><h2>A little occasion.<br>A lifetime of meaning.</h2></div><p>Bring your loved ones together. We help you shape the celebration around the ceremony, with the details that feel like you.</p></div><div class="family-occasion-grid"><article class="family-occasion family-baptism"><span class="family-occasion-art" aria-hidden="true">'+icon('heart')+'</span><span class="eyebrow">A welcome, with love</span><h3>Baptism</h3><p>A gentle setting, thoughtful favours and family moments worth keeping. Start with a gathering after the ceremony or a reception of your own.</p><button type="button" data-family-occasion="Baptism">Plan a baptism celebration ↗</button></article><article class="family-occasion family-communion"><span class="family-occasion-art" aria-hidden="true">'+icon('candle')+'</span><span class="eyebrow">A milestone to remember</span><h3>First Communion</h3><p>Flowers, a family table and a little joy for the children. Compose a celebration for one child or a shared gathering with other families.</p><button type="button" data-family-occasion="First Communion">Plan a First Communion ↗</button></article></div><nav class="family-detail-links" aria-label="Ideas for a family celebration"><a href="#event-styling">Balloons & flowers ↗</a><a href="#photography-video">Photos & films ↗</a><a href="#favours-keepsakes">Favours & keepsakes ↗</a></nav>';
+  occasions.after(family);
+  family.querySelectorAll<HTMLButtonElement>("button").forEach(button => button.addEventListener("click", () => options.design(button.dataset.familyOccasion)));
   const places = directorySection("venues", "marketplace-playgrounds", "Every story needs a setting", "Playgrounds & venues", "Room for little adventures and celebrations with character.", phone);
   const agencies = directorySection("companies", "marketplace-agencies", "Meet the minds behind the moment", "Entertainment agencies", "Event planners, creative companies and the people who bring the details together.", phone);
   const playButton = document.createElement("button"); playButton.type = "button"; playButton.className = "outline mp-plan-play";

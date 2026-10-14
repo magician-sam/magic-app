@@ -1852,3 +1852,25 @@ test("guest shows can be added, hidden and restored without losing old requests"
   publicBusiness = (await request("/public/test", "GET", undefined, null)).data.business;
   assert.ok(!guestServiceNames(publicBusiness.otherShowNames, publicBusiness.hiddenGuestServices).includes("Shadow Puppets"));
 });
+
+test("family celebrations can request independent styling, capture and favours with account and visibility checks", async () => {
+  const services = ["Decoration", "Balloon Decoration", "Floral Decoration", "Photography", "Videography", "Favours & Keepsakes"];
+  const body = { event: { ...event, occasion: "Baptism", packageIds: [], performerIds: [], requestedServices: services } };
+  assert.equal((await request("/public/test/requests", "POST", body, null)).status, 401);
+  assert.equal((await request("/public/test/requests", "POST", { event: { ...body.event, requestedServices: ["Photography", "Photography"] } }, customerCookie)).status, 400);
+  const info = await newRequest(body.event);
+  const saved = await current(info.id);
+  assert.equal(saved.occasion, "Baptism");
+  assert.deepEqual(saved.requestedServices, services);
+  assert.equal(saved.status, "requested");
+  assert.equal(saved.quotes.length, 0);
+  assert.equal((await request("/manage/guest-services", "POST", { action: "hide", name: "Favours & Keepsakes" })).status, 200);
+  assert.equal((await request("/public/test/requests", "POST", body, customerCookie)).status, 400);
+  assert.deepEqual((await current(info.id)).requestedServices, services);
+  assert.equal((await request("/manage/guest-services", "POST", { action: "restore", name: "Favours & Keepsakes" })).status, 200);
+  const communion = await newRequest({ ...body.event, occasion: "First Communion" });
+  assert.equal((await current(communion.id)).occasion, "First Communion");
+  const configured = guestServiceNames(["Balloon Styling", "Flower Arrangements", "Event Photography", "Video Coverage", "Guest Gifts"]);
+  for (const missingDefault of services.slice(1)) assert.equal(configured.includes(missingDefault), false, missingDefault);
+  assert.ok(configured.includes("Decoration"), "full styling remains separate from balloon and flower specialists");
+});

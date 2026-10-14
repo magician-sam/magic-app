@@ -1,5 +1,17 @@
 import type { Package } from "./models.js";
 
+/** Original service illustrations, distinct from real provider portfolio media. */
+export function serviceArtwork(name: string): string {
+  const art = [
+    [/photograph/i, '<rect x="12" y="27" width="56" height="37" rx="8"/><path d="m25 27 5-10h20l5 10M59 34h2"/><circle cx="40" cy="44" r="12"/><path d="M13 12h8M17 8v8M65 15h8M69 11v8"/>'],
+    [/videograph|video coverage|event film/i, '<rect x="13" y="24" width="54" height="43" rx="7"/><path d="M13 35h54m-50-9 8-10 12 10 8-10 12 10M35 44l14 8-14 8Z"/>'],
+    [/floral|flower decor|flower arrang/i, '<path d="M40 66V38m0 16c-13 0-17-7-17-13 10 0 17 5 17 13Zm0-8c13 0 17-7 17-13-10 0-17 5-17 13Z"/><path d="M40 13c7-9 15 0 11 8 13-2 15 10 4 15 7 9-4 17-15 7-11 10-22 2-15-7-11-5-9-17 4-15-4-8 4-17 11-8Z"/><circle cx="40" cy="28" r="6"/><path d="M24 69h32"/>'],
+    [/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i, '<rect x="14" y="29" width="52" height="13" rx="3"/><path d="M19 42v25h42V42M40 29v38M40 29c-26 0-24-19-14-19 10 0 14 19 14 19Zm0 0c26 0 24-19 14-19-10 0-14 19-14 19ZM10 15H4m3-3v6M70 52h7m-3.5-3.5v7"/>'],
+  ] as const;
+  const path = art.find(([pattern]) => pattern.test(name))?.[1];
+  return path ? `<svg class="service-illustration" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>` : "";
+}
+
 export function experienceFor(name: string) {
   const entries = [
     [/food|beverage|f&b/i, "hospitality", "Good company. Something delicious.", "Let the conversation flow over food and drinks chosen for your gathering.", "Share your guest count, menu ideas and dietary requirements. We confirm catering and serving arrangements with you."],
@@ -11,7 +23,12 @@ export function experienceFor(name: string) {
     [/bubble/i, "bubbles", "Wonder, floating by", "Drifting shapes, shimmering colours and surprises that float into view. A little daydream brought to life.", "Let us know who is attending and the atmosphere you would like."],
     [/close.up|magic/i, "magic", "Wonder, up close", "A little sleight of hand. A shared laugh. That delicious moment of “how did they do that?”", "Tell us whether you want a shared performance or more personal moments with your guests."],
     [/character/i, "party", "Make-believe makes an entrance", "A familiar face at the door, a colourful costume in the crowd. Invite a little make-believe into the celebration.", "Choose a costume idea. We confirm the exact character and availability for your event."],
-    [/decoration|balloon decor/i, "party", "Your occasion, in full colour", "Colour, shape and thoughtful little details. Give your celebration a setting that feels like you.", "Share your theme, colours and inspiration. The final design is agreed with you."],
+    [/balloon decor|balloons? styling/i, "balloon-styling", "A little lift. A lot of colour.", "A balloon arch, a playful backdrop or a colourful welcome. Choose balloon decoration on its own, or add it to your event plan.", "Share your colours, theme, venue and the arrangement you have in mind. We confirm the design, installation and collection details with you."],
+    [/floral|flower decor|flower arrang/i, "floral-styling", "Let your occasion bloom.", "From a welcome bouquet to flowers for the tables or backdrop. Bring a fresh flourish to your gathering, on its own or as part of the whole setting.", "Share your flower preferences, colours, venue and inspiration. We confirm the floral arrangement, delivery and setup with you."],
+    [/photograph/i, "capture", "Keep the feeling in the frame.", "The little looks. The big reactions. Photography to remember the people and moments that make your occasion yours.", "Tell us the event date, location, coverage you want and preferred style. We agree the photographer, edited-photo delivery and image-use permissions before booking."],
+    [/videograph|video coverage|event film/i, "capture", "A moment worth pressing play on.", "The atmosphere, the voices, the movement. Tell the story of your celebration through video, from a short highlight to broader event coverage.", "Tell us the coverage, video format and editing you have in mind. We confirm the videographer, delivery, music rights and publication permissions with you."],
+    [/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i, "keepsake", "A little thank-you. A lasting memory.", "A thoughtful favour for each guest, a personalised keepsake or a little gift to take home. Give your celebration something to be remembered by.", "Share your occasion, quantity, theme and preferred gifts. We agree materials, packaging, delivery and any personalised names or dates before production."],
+    [/decoration|balloon decor/i, "party", "Your occasion, in full colour", "Bring the whole setting together: balloons, backdrops and thoughtful styling details. Choose a complete decoration plan, or explore balloons and flowers separately.", "Share your theme, colours and inspiration. We agree what is included in the decoration plan and the final design with you."],
     [/face paint|glitter/i, "party", "A splash of imagination", "A brushstroke, a shimmer, a new character. Let imagination wear a little colour.", "Tell us the guest count and preferred designs so we can plan the arrangement."],
     [/balloon twist/i, "party", "A twist of imagination", "A simple balloon becomes something unexpected, one playful twist at a time.", "Share your theme and guest count so we can discuss the available creations."],
     [/animation/i, "party", "Come for the party. Be part of it.", "Games, movement and playful moments invite your guests into the action.", "Tell us the ages and interests of your guests. We agree the activities with you."],

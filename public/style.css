@@ -2340,6 +2340,10 @@ body.customer-surface { --font-body: "Nunito Sans", "Segoe UI", sans-serif; --fo
 [data-experience-theme="energy"] { --experience-accent: #936029; --experience-wash: #fff6e8; --experience-edge: #ecd1a2; }
 [data-experience-theme="spectacle"] { --experience-accent: #4f4a8f; --experience-wash: #f1f0ff; --experience-edge: #cecaed; }
 [data-experience-theme="hospitality"] { --experience-accent: #46613c; --experience-wash: #f1f6e9; --experience-edge: #cbd9b7; }
+[data-experience-theme="capture"] { --experience-accent: #395f7a; --experience-wash: #edf5fb; --experience-edge: #c8dcea; }
+[data-experience-theme="keepsake"] { --experience-accent: #914969; --experience-wash: #fdf0f5; --experience-edge: #efd0df; }
+[data-experience-theme="balloon-styling"] { --experience-accent: #9a4669; --experience-wash: #fff0f5; --experience-edge: #eed0dc; }
+[data-experience-theme="floral-styling"] { --experience-accent: #426548; --experience-wash: #eff7eb; --experience-edge: #cadfc3; }
 [data-experience-theme="sweet"] { --experience-accent: #994561; --experience-wash: #fff0f2; --experience-edge: #efbecb; }
 [data-experience-theme="nightlife"] { --experience-accent: #6543a0; --experience-wash: #f2edff; --experience-edge: #d1c1ee; }
 [data-experience-theme="sound"] { --experience-accent: #286d86; --experience-wash: #eaf6fb; --experience-edge: #b8d9e7; }

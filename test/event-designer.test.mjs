@@ -41,3 +41,14 @@ test('validated summary retains festival format and maps school stage for recomm
   assert.equal(designerSummary(answers), 'School event · A classroom workshop · 21–50 · Leave everyone speechless · Primary school · Indoors');
   assert.equal(designerAudienceAge({ ...answers, audience: 'Several school stages' }), null);
 });
+
+test('family milestones keep ceremony and gathering preferences distinct from party plans', () => {
+  const baptism = readDesignerAnswers({ occasion: 'Baptism', format: 'A gathering after the ceremony', guests: '21–50', feeling: 'Soft and elegant', audience: 'Family and friends of mixed ages', setting: 'A restaurant or reception venue' });
+  assert.equal(designerAudienceAge(baptism), null);
+  assert.match(designerSummary(baptism), /Baptism · A gathering after the ceremony/);
+  assert.equal(readDesignerAnswers({ ...baptism, occasion: 'First Communion' }).format, '');
+  assert.equal(readDesignerAnswers({ ...baptism, occasion: 'Birthday' }).feeling, '');
+  const communion = readDesignerAnswers({ occasion: 'First Communion', format: 'A shared celebration for several families', audience: 'Many children 6–12', setting: 'A garden celebration' });
+  assert.equal(designerAudienceAge(communion), 9);
+  assert.ok(designerSummary(communion).includes('A shared celebration for several families'));
+});
