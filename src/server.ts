@@ -1,3 +1,4 @@
+import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
 import { whatsappHistory } from "./whatsapp-history.js";
 import { whatsappCustomers } from "./whatsapp-customers.js";
@@ -444,6 +445,39 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     });
     res.status(201).json({ id: enquiry.id });
   });
+  writes.post('/api/public/:slug/playgrounds/playtown/requests', async (req, res) => {
+    const business = await businessBySlug(String(req.params.slug));
+    requireThat(business.slug === 'magic-by-sam', 'Playground not found.', 404);
+    const account = await customerSession(req, business.id);
+    const input = z.object({
+      requestId: z.uuid(), kind: z.enum(['visit','party']), date, time,
+      children: z.number().int().min(1).max(100), childAges: short.min(1).max(200),
+      notes: z.string().trim().max(1500).default(''),
+      passes: z.array(z.object({id:z.enum(['basic','basic-artistic','playtown','playtown-artistic']),quantity:z.number().int().min(1).max(100)}).strict()).max(4),
+    }).strict().parse(req.body);
+    validEventDate(business,input);
+    requireThat(new Set(input.passes.map(p=>p.id)).size===input.passes.length,'Choose each pass once.');
+    requireThat(input.kind==='visit' ? input.passes.reduce((sum,p)=>sum+p.quantity,0)===input.children : input.passes.length===0,'Choose one pass for each child. Private event prices are quoted separately.');
+    const passes=input.passes.map(p=>{const pass=playtown.passes.find(v=>v.id===p.id)!;return {id:pass.id,name:pass.name,quantity:p.quantity,unitUsd:pass.usd};});
+    const referenceTotalUsd=input.kind==='visit'?passes.reduce((sum,p)=>sum+p.quantity*p.unitUsd,0):null;
+    const result=await store.transaction(async()=>{
+      const existing=(await store.all<Booking>(business.id,'bookings')).find(b=>b.customerId===account.customerId&&b.playgroundRequest?.requestId===input.requestId);
+      if(existing) return {id:existing.id,path:await issueLink(business.id,existing.id),status:existing.status};
+      const now=new Date().toISOString();
+      const booking:Booking={id:id(),customerId:account.customerId,
+        name:input.kind==='visit'?'PLAYTOWN · Children’s play visit':'PLAYTOWN · Private event',
+        occasion:input.kind==='visit'?'Playground visit':'Private party',date:input.date,time:input.time,
+        location:playtown.address+' · '+playtown.map,audience:input.children,age:0,indoor:true,power:false,space:1,source:'playtown',
+        notes:'Children’s ages: '+input.childAges+'. '+(referenceTotalUsd===null?'Private event price to be quoted.':'Listed pass total: USD '+referenceTotalUsd+'. ')+'Requested arrival time; availability and arrangements must be confirmed. '+input.notes,
+        requestedServices:passes.length?passes.map(p=>'PLAYTOWN · '+p.name+' × '+p.quantity):['PLAYTOWN · Private event'],
+        playgroundRequest:{requestId:input.requestId,provider:'playtown',kind:input.kind,children:input.children,childAges:input.childAges,passes,referenceTotalUsd,priceSource:'PLAYTOWN supplied price sheet · 12 October 2026'},
+        packageIds:[],packageSnapshot:[],performerIds:[],availability:{},status:'requested',quotes:[],acceptedQuoteId:'',travel:0,breakMinutes:0,checklist:[],venueNotes:'Confirm child eligibility, supervision, opening hours and entry with PLAYTOWN. No capacity has been reserved automatically.',backupPerformerIds:[],revision:1,createdAt:now,updatedAt:now};
+      await store.put(business.id,'bookings',booking);
+      await store.audit(business.id,'customer','playground.requested',booking.id,null,booking);
+      return {id:booking.id,path:await issueLink(business.id,booking.id),status:booking.status};
+    });
+    res.status(201).json(result);
+  });
   writes.post("/api/public/:slug/requests", async (req, res) => {
     const business = await businessBySlug(String(req.params.slug));
     const account = await customerSession(req, business.id);
@@ -571,6 +605,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         revision,
         giftDetails: booking.giftDetails,
         requestedServices: booking.requestedServices ?? [],
+        playgroundRequest: booking.playgroundRequest,
         certificate: booking.certificate,
         customAnswers: booking.customAnswers ?? [],
       },
@@ -649,6 +684,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   });
   writes.post("/api/event/details", async (req, res) => {
     const { business, booking } = await eventAccess(req);
+    requireThat(!booking.playgroundRequest, 'Contact Magic App to change playground passes or visit arrangements.', 409);
     const input = z
       .object({
         revision: z.number().int(),

@@ -121,6 +121,7 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  playgroundRequest?: import('./playtown.js').PlaygroundRequest;
   paymentTerms?: string;
   declined?: boolean;
   requestedServices?: string[];

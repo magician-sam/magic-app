@@ -1,10 +1,12 @@
+import { playtownCard, openPlaytown } from './playtown-client.js';
+import { playtownMatches } from './playtown.js';
 import { locationView, mediaView, partnerCardView } from "./venue-profile-view.js";
 import type { PublicPartner, PublicListing } from "./marketplace-public.js";
 import { appendMarketplaceHelp, mountDiscoverySearch } from "./discovery-search.js";
 
 type Group = "venues" | "companies";
 type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; design: (occasion?: string) => void;
-  account: () => void; open: (title: string, html: string) => void };
+  reserve: (kind:'visit'|'party') => void; account: () => void; open: (title: string, html: string) => void };
 const e = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const iconPaths: Record<string, string> = {
   places: '<path d="m3 10 9-7 9 7v10H3Z"/><path d="M8 20v-7h8v7M2 10h20"/>',
@@ -119,6 +121,13 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   if (location.pathname.startsWith("/providers/")) void openProfile(location.pathname.split("/")[2], options);
   mountDiscoverySearch(root, () => options.design());
   appendMarketplaceHelp(root, businessSlug);
+  if(location.hash==='#playtown') openPlaytown(options);
+  root.addEventListener('click',event=>{const target=event.target as Element; if(target.closest('[data-playtown-open]'))openPlaytown(options);});
+  const searchTop=root.querySelector('.discovery-search');
+  if(searchTop) hero.before(searchTop);
+  const categoryGrid=root.querySelector('.mp-categories'); if(categoryGrid) hero.before(categoryGrid);
+  const context=document.createElement('div');context.className='marketplace-context';context.innerHTML='<a href="#marketplace-playgrounds">'+icon('places')+'<span>Find your place<small>Explore by area ↗</small></span></a><button type="button">'+icon('event')+'<span>Plan your occasion<small>Choose an event ↗</small></span></button>';hero.before(context);
+  context.querySelector('button')!.addEventListener('click',()=>options.design());
 }
 
 function directorySection(group: Group, id: string, eyebrow: string, title: string, note: string, phone: string) {
@@ -134,13 +143,14 @@ async function populate(section: HTMLElement, group: Group, options: MountOption
   const load = (directoryLoads.get(section) || 0) + 1; directoryLoads.set(section, load);
   const current = () => section.isConnected && directoryLoads.get(section) === load;
   results.setAttribute("aria-busy", "true");
-  results.innerHTML = '<p class="muted">Finding your next setting…</p>';
+  const pilot=group==='venues'&&playtownMatches(filters.area,filters.q)?playtownCard():'';
+  results.innerHTML = pilot+'<p class="muted">Finding your next setting…</p>';
   try {
     const { partners, total, ready } = await directory(group, filters);
     if (!current()) return;
     const filtered = Boolean(filters.area || filters.q);
     if (!partners.length) {
-      const noMatches = ready && filtered;
+      const noMatches = (ready || group === "venues") && filtered;
       results.innerHTML = `<div class="mp-directory-empty"><span class="eyebrow">Let’s set the scene</span><h3>${noMatches ? "No published places match yet." : group === "venues" ? "Looking for a place that fits?" : "Big ideas start with a conversation."}</h3><p>${noMatches ? "Try another area or spelling, or use Show all places to explore the directory." : group === "venues" ? "Tell us your area, date and guest count. We’ll help you explore playground and venue options." : "Share your occasion and the services you need. We’ll help you explore the right creative team."}</p><p class="mp-directory-note">${ready ? "Only approved profiles appear. Search results do not confirm availability for your date." : "We’re preparing this directory. Profiles appear once approved, and availability is checked before booking."}</p>${ready ? '<a class="mp-text-link" href="/partner?account=customer">Register your business ↗</a>' : '<a class="mp-text-link" href="#shows">Explore all the shows ↗</a>'}</div>`;
     } else {
       results.innerHTML = `<p class="mp-directory-count">${total} ${total === 1 ? "place" : "places"} to explore${filters.area ? " · " + e(filters.area) : ""}</p><div class="mp-partner-grid">${partners.map(partner => partnerCardView(partner, group === "venues")).join("")}</div>`;
@@ -150,7 +160,7 @@ async function populate(section: HTMLElement, group: Group, options: MountOption
     if (!current()) return;
     results.innerHTML = '<div class="mp-directory-empty"><h3>The directory couldn’t load.</h3><p>Your show catalogue is still here. Try opening the partner directory again.</p><button type="button" class="outline">Try again</button></div>';
     results.querySelector("button")!.addEventListener("click", () => void populate(section, group, options, filters));
-  } finally { if (current()) results.setAttribute("aria-busy", "false"); }
+  } finally { if (current()) { if(pilot) {results.insertAdjacentHTML('afterbegin',pilot);const empty=results.querySelector('.mp-directory-empty');if(empty)empty.remove();} results.setAttribute('aria-busy','false'); } }
 }
 async function openProfile(slug: string, options: MountOptions) {
   try {

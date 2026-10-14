@@ -5,6 +5,7 @@ import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
 import { appendMarketplaceHelp } from "./discovery-search.js";
+import { playtown } from './playtown.js';
 import { mountMarketplaceDiscovery } from "./marketplace-discovery-client.js";
 import { designerOccasions, designerSteps, emptyDesignerAnswers, readDesignerAnswers, designerAudienceAge, designerSummary } from "./event-designer.js";
 import { experienceFor, recommendationReasons } from "./visitor-experience.js";
@@ -1175,7 +1176,7 @@ function renderPublic() {
     ),
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, phone: contactPhone,
-    design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog });
+    reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog });
 }
 function enquiryLinks(name: string) {
   return `<button type="button" data-service-enquiry="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box · remove" : "＋ Add to my event"}</button>`;
@@ -1284,6 +1285,8 @@ function chooseCharacter() {
   });
 }
 function requestedServicesSummary(b: Booking) {
+  if (b.playgroundRequest) { const p=b.playgroundRequest; return '<section class="requested-services"><h3>PLAYTOWN reservation request</h3><p>'+e(p.kind==='visit'?'Children’s play visit':'Private event')+' · '+p.children+' children</p><p>Ages: '+e(p.childAges)+'</p>'+p.passes.map(pass=>'<p>'+e(pass.name)+' × '+pass.quantity+' · USD '+pass.unitUsd+' each</p>').join('')+'<p>'+(p.referenceTotalUsd===null?'Private event price to be quoted.':'Listed pass total: USD '+p.referenceTotalUsd+'.')+'</p><small>Entry and arrangements are subject to confirmation. No payment has been taken by submitting this request.</small></section>'; }
+
   return b.requestedServices?.length ? `<section class="requested-services"><h3>Guest acts in your request</h3><p>${b.requestedServices.map(e).join(" · ")}</p><small>Requested preferences. The proposal will confirm the acts, performers, duration and price.</small></section>` : "";
 }
 function eventFields(b?: Partial<Booking>): Field[] {
@@ -1399,6 +1402,28 @@ function eventFields(b?: Partial<Booking>): Field[] {
       wide: true,
     },
   ];
+}
+async function requestPlaytown(kind: 'visit'|'party') {
+  const key='playtown-request:'+catalog.business.slug+':'+kind;
+  let saved: Record<string,string>={};
+  try { saved=JSON.parse(sessionStorage.getItem(key)||'{}'); } catch { /* A fresh draft is safe. */ }
+  const requestId=saved.requestId||crypto.randomUUID();
+  const fields:Field[]=[{key:'date',label:'Visit date',type:'date',required:true},{key:'time',label:'Preferred arrival time (Beirut)',type:'time',required:true},{key:'children',label:'Number of children',type:'number',min:1,max:100,value:1,required:true},{key:'childAges',label:'Children’s ages',help:'For example: 4 and 7. Names are not needed.',required:true},{key:'notes',label:kind==='party'?'Tell us about your celebration':'Any questions or requests?',type:'textarea',wide:true}];
+  openDialog(kind==='visit'?'Reserve a play visit · PLAYTOWN':'Plan a private event · PLAYTOWN',formBody(fields,
+    (kind==='visit'?'<fieldset class="playtown-pass-select"><legend>Choose a pass for each child</legend>'+playtown.passes.map(p=>'<label>'+e(p.name)+' · USD '+p.usd+'<small>'+e(p.description)+'</small><input aria-label="Quantity: '+e(p.name)+'" name="pass-'+p.id+'" type="number" min="0" max="100" step="1" value="0"></label>').join('')+'</fieldset><p class="playtown-total" aria-live="polite"></p>':'<p>Private event arrangements and prices are quoted separately from day passes.</p>')+'<p>'+playtown.address+'</p><p class="hint">This sends a reservation request to Magic App. We check with PLAYTOWN and confirm your visit before you arrive. You will sign in or create an account before sending.</p>', 'Continue with my reservation →'));
+  const form=modal.querySelector<HTMLFormElement>('form')!;
+  for(const control of form.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[name],textarea[name]'))if(saved[control.name]!==undefined)control.value=saved[control.name];
+  const save=()=>{const values=Object.fromEntries(new FormData(form).entries()) as Record<string,string>;values.requestId=requestId;try{sessionStorage.setItem(key,JSON.stringify(values));}catch{/* Draft storage optional. */}
+    const total=form.querySelector('.playtown-total');if(total)total.textContent='Listed pass total: USD '+playtown.passes.reduce((sum,p)=>sum+Math.max(0,Number(values['pass-'+p.id])||0)*p.usd,0);};
+  form.addEventListener('input',save);save();
+  submit(form,async data=>{
+    save(); const passes=playtown.passes.map(p=>({id:p.id,quantity:Number(data.get('pass-'+p.id)||0)})).filter(p=>p.quantity>0);
+    const children=Number(data.get('children'));
+    if(kind==='visit'&&passes.reduce((sum,p)=>sum+p.quantity,0)!==children)throw Error('Choose one pass for each child.');
+    try {await api('/customer/'+catalog.business.slug+'/me');} catch {customerAuth(false,true,()=>{void requestPlaytown(kind);});return;}
+    const result=await api<{path:string}>('/public/'+catalog.business.slug+'/playgrounds/playtown/requests','POST',{requestId,kind,date:String(data.get('date')),time:String(data.get('time')),children,childAges:String(data.get('childAges')),notes:String(data.get('notes')||''),passes});
+    try {sessionStorage.removeItem(key);}catch{/* Optional storage. */} location.href=result.path;
+  });
 }
 async function requestForm(retainedForm?: FormData) {
   if (!basket.length && !guestBasket.length) { notify("Choose at least one show first."); return; }
@@ -1612,7 +1637,7 @@ function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
   showStep(initialOccasion && answers.occasion ? 1 : 0);
 }
 
-function customerAuth(orderAfter = false, register = true) {
+function customerAuth(orderAfter = false, register = true, afterAuth?: () => void) {
   const fields: Field[] = register
     ? [
         { key: "name", label: "Your name", required: true },
@@ -1697,7 +1722,7 @@ function customerAuth(orderAfter = false, register = true) {
     modal.append(forgot);
   }
   on(modal, "#switch-customer-auth", "click", () =>
-    customerAuth(orderAfter, !register),
+    customerAuth(orderAfter, !register, afterAuth),
   );
   submit(modal.querySelector("form")!, async (data) => {
     const result = await api<{ username?: string }>(
@@ -1709,6 +1734,7 @@ function customerAuth(orderAfter = false, register = true) {
       notify(
         `Your username is ${result.username}. Save it or change it in My account.`,
       );
+    if (afterAuth) { afterAuth(); return; }
     if (orderAfter) {
       notify("Account ready. Your chosen shows are still in the box.");
       await requestForm();
@@ -5494,6 +5520,12 @@ async function renderEvent() {
     .join(
       "",
     )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${day(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? "Indoor" : "Outdoor"} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? '<button id="event-details" class="outline small">Update venue & audience details</button>' : ""}</section>${b.quotes.length ? `<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => `<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? `<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? `<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? `<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? "Your preferred plan ✓" : "Confirmed plan ✓"}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? `<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your event</h2><ul class="timeline">${data.timetable.map((t) => `<li><time>${t.at}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? `<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? `<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? `<span class="badge">${e(p.name)} reviewed ✓</span>` : `<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
+  if (b.playgroundRequest) {
+    const details=app.querySelector('.event-page > .panel');
+    if(details) details.innerHTML='<div class="details-grid"><div><small>Requested arrival</small><strong>'+day(b.date)+' · '+e(b.time)+'</strong><p>'+e(data.business.timezone)+'</p></div><div><small>Playground</small><strong>'+playtown.address+'</strong><p><a href="'+playtown.map+'" target="_blank" rel="noopener noreferrer">Open exact location in Google Maps ↗</a></p></div></div><p class="hint">To change children, passes or visit details, contact Magic App before your visit.</p>';
+    const timeline=app.querySelector('.event-page > .panel .timeline');
+    if(timeline) timeline.closest('section')!.remove();
+  }
   if (b.giftDetails) {
     const gift = document.createElement("section");
     gift.className = "gift-card";
@@ -5521,7 +5553,7 @@ async function renderEvent() {
     updateCountdown();
     eventCountdownTimer = setInterval(updateCountdown, 60000);
   }
-  if (["confirmed", "completed"].includes(b.status)) {
+  if (!b.playgroundRequest && ["confirmed", "completed"].includes(b.status)) {
     const certificate = document.createElement("section");
     certificate.className = "certificate-card";
     certificate.innerHTML = b.certificate
