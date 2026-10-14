@@ -14,3 +14,6 @@ if (process.env.VERCEL) {
   for (const file of ["calendar.js", "reports.js", "guest-services.js"])
     await cp(`dist/${file}`, `public/${file}`);
 }
+
+await build({ entryPoints: ["src/customer-info-client.ts"], outfile: "dist/public/customer-info.js", bundle: true, minify: true, format: "esm", platform: "browser", target: "es2023", logLevel: "silent" });
+if (process.env.VERCEL) await cp("dist/public/customer-info.js", "public/customer-info.js");

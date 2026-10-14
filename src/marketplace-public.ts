@@ -1,3 +1,4 @@
+import { matchesMultilingual, locationTerms } from "./multilingual-search.js";
 import type { Express } from "express";
 import { z } from "zod";
 import type { Store } from "./store.js";
@@ -22,22 +23,32 @@ export class MarketplacePublic {
     if (await marketplaceSchemaState(this.store.db) === "absent")
       return { partners: [] as PublicPartner[], total: 0, next: null, workspaceReady: false };
     return this.store.transaction(async () => {
-      const locationText = ["country", "region", "city", "area", "address", "aliases"].map(field => `coalesce(json_extract(data,'$.publicLocation.${field}'),'')`).join(" || ' ' || ");
-      const predicate = `json_extract(data,'$.status')='approved' AND json_extract(data,'$.kind')=?
-        AND (?='' OR instr(lower(json_extract(data,'$.name')),lower(?))>0
-        OR instr(lower(json_extract(data,'$.publicDescription')),lower(?))>0
-        OR instr(lower(json_extract(data,'$.categories')),lower(?))>0
-        OR instr(lower(${locationText}),lower(?))>0)
-        AND (?='' OR instr(lower(${locationText}),lower(?))>0)`;
-      const args = [kind[query.group], query.q, query.q, query.q, query.q, query.q, query.area, query.area];
-      const count = await this.store.db.prepare(`SELECT count(*) AS n FROM marketplace_organizations WHERE ${predicate}`).get(...args);
-      const rows = await this.store.db.prepare(`SELECT id,slug FROM marketplace_organizations WHERE ${predicate} AND slug>? ORDER BY slug LIMIT 26`).all(...args, query.after);
-      const partners: PublicPartner[] = [];
-      for (const row of rows.slice(0, 25)) {
+      // Search only the approved public projection. Normalization is shared
+      // with customer clients; raw private organization data never enters it.
+      const rows = await this.store.db.prepare("SELECT id,slug FROM marketplace_organizations WHERE json_extract(data,'$.status')='approved' AND json_extract(data,'$.kind')=? ORDER BY slug").all(kind[query.group]);
+      const matches: PublicPartner[] = [];
+      for (const row of rows) {
         const value = publicOrganization(await this.storage.organization(String(row.id)));
-        if (value) partners.push(value);
+        if (!value) continue;
+        const loc = value.location;
+        const areas = loc ? [loc.country, loc.region, loc.city, loc.area, loc.address, ...loc.aliases].filter((v): v is string => typeof v === 'string') : [];
+        const placeTerms=locationTerms(areas);
+        if (!matchesMultilingual([],query.area,placeTerms)) continue;
+        const values = [value.description ?? '', ...value.categories];
+        // Configured listing names are searchable only after publication and
+        // only under their owning approved organization.
+        const offerings = query.q ? await this.store.db.prepare("SELECT data FROM marketplace_offerings WHERE organization_id=? AND json_extract(data,'$.status')='approved'").all(value.id) : [];
+        for (const row of offerings) {
+          const item = JSON.parse(String(row.data)) as {title?: string; categories?: string[]};
+          if (item.title) values.push(item.title);
+          values.push(...(item.categories ?? []));
+        }
+        // Provider names are literal proper names, not automatic translations
+        // of similarly named services. Public locations use geographic aliases.
+        if (matchesMultilingual(values,query.q,[value.name,...placeTerms])) matches.push(value);
       }
-      return { partners, total: Number(count?.n ?? 0), next: rows.length > 25 ? String(rows[24].slug) : null, workspaceReady: true };
+      const available = matches.filter(value => value.slug > query.after), partners = available.slice(0,25);
+      return { partners, total: matches.length, next: available.length > 25 ? partners[24].slug : null, workspaceReady: true };
     });
   }
   async profile(slug: string, input: unknown = {}) {

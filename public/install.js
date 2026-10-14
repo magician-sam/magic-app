@@ -1,3 +1,4 @@
+import { setCopy } from '/customer-info.js';
 (() => {
         const ua = navigator.userAgent;
         const onIphone = /iPhone|iPad|iPod/.test(ua);
@@ -9,7 +10,7 @@
         if (onWindows) document.getElementById('windows-steps').classList.add('active');
         const button = document.getElementById('install-now');
         const status = document.getElementById('install-status');
-        if (installed) status.textContent = 'Magic by Sam is already installed on this device.';
+        if (installed) setCopy(status, 'Magic by Sam is already installed on this device.');
         let promptEvent;
         window.addEventListener('beforeinstallprompt', event => {
           event.preventDefault();
@@ -21,8 +22,8 @@
           button.hidden = true;
           await promptEvent.prompt();
           const result = await promptEvent.userChoice;
-          status.textContent = result.outcome === 'accepted' ? 'Magic by Sam is being installed on this device.' : 'You can install it later from your browser menu.';
+          setCopy(status, result.outcome === 'accepted' ? 'Magic by Sam is being installed on this device.' : 'You can install it later from your browser menu.');
           promptEvent = undefined;
         });
-        window.addEventListener('appinstalled', () => { button.hidden = true; status.textContent = 'Magic by Sam is ready on your device.'; });
+        window.addEventListener('appinstalled', () => { button.hidden = true; setCopy(status, 'Magic by Sam is ready on your device.'); });
       })();

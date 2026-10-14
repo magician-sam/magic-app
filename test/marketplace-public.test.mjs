@@ -53,6 +53,15 @@ test("public profiles expose only approved own offerings and disappear immediate
   await assert.rejects(publicData.profile("venue"), /not found/);
   assert.equal((await publicData.directory({ group: "venues" })).total, 0);
 });
+
+test("multilingual directory search includes approved own listing names and excludes unpublished and private text", async t => {
+  const { publicData, storage, actor } = await fixture(t);
+  await storage.insertOffering({ id: "translated-photo", organizationId: "venue", status: "approved", title: "Photography", kind: "service", categories: ["creative"], revision: 0 },actor);
+  await storage.insertOffering({ id: "hidden-film", organizationId: "venue", status: "draft", title: "Videography", kind: "service", categories: ["creative"], revision: 0 },actor);
+  for(const q of ["photographe", "مُصَوِّر", "Photography"]) assert.deepEqual((await publicData.directory({group:"venues",q})).partners.map(p=>p.id),["venue"]);
+  for(const q of ["videaste", "فيديو", "Videography", "private-member", "paused", "%"]) assert.equal((await publicData.directory({group:"venues",q})).total,0,q);
+  assert.equal((await publicData.directory({group:"companies",q:"مصور"})).total,0,"no foreign listing alias exposure");
+});
 test("directory and profile pagination retain every approved item without repetition", async t => {
   const { publicData, storage, actor, org } = await fixture(t);
   for (let i = 0; i < 27; i++) {
@@ -113,3 +122,4 @@ test("area-filtered directory keeps its filter across pagination", async t => {
   assert.equal(first.total,28); assert.equal(first.partners.length,25); assert.equal(second.partners.length,3); assert.equal(second.next,null);
   assert.equal(new Set([...first.partners,...second.partners].map(p=>p.id)).size,28);
 });
+

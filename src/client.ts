@@ -1,3 +1,6 @@
+import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
+import { matchesMultilingual, multilingualAliases } from "./multilingual-search.js";
+import { h, t, copy, dateCopy, setCopy, customerError, dialogLanguageControl, customerLanguage, installCustomerLanguageSelector } from "./customer-i18n.js";
 import { canStaffAction, userCanStaffAction, configurableStaffActions, limitedStaff, staffViews, roleDescriptions, type StaffAction } from "./staff-permissions.js";
 import { renderWhatsAppCustomers } from "./whatsapp-customers-client.js";
 import { renderMessaging } from "./messaging-client.js";
@@ -53,7 +56,7 @@ const customerStatus = (status: string, declined?: boolean) =>
   status === "accepted" ? "Proposal chosen · awaiting Sam" :
   status === "cancelled" && declined ? "Request declined" : pretty(status);
 const day = (value: string) =>
-  new Date(`${value}T12:00:00`).toLocaleDateString("en-GB", {
+  new Date(`${value}T12:00:00`).toLocaleDateString(location.pathname === "/manage" ? "en-GB" : customerLanguage() === "ar" ? "ar-LB" : customerLanguage() === "fr" ? "fr-FR" : "en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -67,11 +70,11 @@ const localToday = () =>
     day: "2-digit",
   }).format(new Date());
 const badge = (value: string) =>
-  `<span class="badge ${e(value)}">${e(pretty(value))}</span>`;
+  h`<span class="badge ${e(value)}">${copy(pretty(value))}</span>`;
 const brand = (name = "Magic App", logo = "") =>
-  `<a href="/" class="brand">${logo ? `<img class="brand-logo" src="${e(logo)}" alt="${e(name)} logo" width="76" height="76" referrerpolicy="no-referrer">` : '<span class="brand-mark" aria-hidden="true">✦</span>'}<span>${e(name)}</span></a>`;
+  h`<a href="/" class="brand">${logo ? h`<img class="brand-logo" src="${e(logo)}" alt="${e(name)} logo" width="76" height="76" referrerpolicy="no-referrer">` : h('<span class="brand-mark" aria-hidden="true">✦</span>')}<span>${e(name)}</span></a>`;
 const empty = (title: string, description: string) =>
-  `<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${e(title)}</h3><p>${e(description)}</p></div>`;
+  h`<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${copy(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
 let state: Dashboard | undefined;
 let currentView = location.hash === "#whatsapp" ? "whatsapp" : "today";
@@ -140,9 +143,9 @@ let selectedPerformers: string[] = [];
 let noticeTimer: ReturnType<typeof setTimeout>;
 function notify(message: string) {
   const n = document.querySelector("#notice")!;
-  n.textContent = message;
+  n.textContent = t(message);
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => (n.textContent = ""), 6500);
+  noticeTimer = setTimeout(() => (setCopy(n, "")), 6500);
 }
 function trackInterest(kind: "show_open" | "show_add" | "service_open" | "service_add" | "occasion", key: string) {
   if (!catalog?.business.slug) return;
@@ -193,7 +196,8 @@ function on(
   );
 }
 function openDialog(title: string, content: string) {
-  modal.innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${e(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
+  modal.innerHTML = h`<div class="dialog-heading"><h2 id="dialog-title">${copy(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
+  modal.querySelector(".dialog-heading")!.after(dialogLanguageControl());
   modal.querySelector(".close")!.addEventListener("click", () => modal.close());
   if (!modal.open) modal.showModal();
   modal.scrollTop = 0;
@@ -205,8 +209,9 @@ document.addEventListener("click", (event) => {
   if (!input) return;
   input.type = input.type === "password" ? "text" : "password";
   const label = input.type === "password" ? "Show" : "Hide";
-  button.textContent = label;
-  button.setAttribute("aria-label", `${label} password`);
+  setCopy(button,label);
+  button.setAttribute("aria-label", t(`${label} password`));
+  button.setAttribute("data-customer-aria-label",`${label} password`);
   button.setAttribute("aria-pressed", String(input.type === "text"));
 });
 function submit(
@@ -219,13 +224,13 @@ function submit(
       "button[type=submit]",
     )!;
     const error = form.querySelector(".form-error")!;
-    error.textContent = "";
+    setCopy(error, "");
     button.disabled = true;
     try {
       await handler(new FormData(form));
     } catch (err) {
       error.textContent =
-        err instanceof Error ? err.message : "Unable to save. Try again.";
+        customerError(err instanceof Error ? err.message : "Unable to save. Try again.");
     } finally {
       button.disabled = false;
     }
@@ -247,23 +252,23 @@ type Field = {
 };
 function field(f: Field) {
   const value = f.value ?? "";
-  const attrs = `name="${e(f.key)}" id="f-${e(f.key)}" aria-label="${e(f.label)}" ${f.help ? `aria-describedby="help-${e(f.key)}"` : ""} ${f.required ? "required" : ""} ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""} ${f.type === "password" && (f.autocomplete === "new-password" || f.label.includes("7 characters")) ? 'minlength="7" maxlength="200"' : ""}`;
+  const attrs = `name="${e(f.key)}" id="f-${e(f.key)}" aria-label="${e(t(f.label))}" data-customer-aria-label="${e(f.label)}" ${f.help ? `aria-describedby="help-${e(f.key)}"` : ""} ${f.required ? "required" : ""} ${f.min !== undefined ? `min="${f.min}"` : ""} ${f.max !== undefined ? `max="${f.max}"` : ""} ${f.type === "password" && (f.autocomplete === "new-password" || f.label.includes("7 characters")) ? 'minlength="7" maxlength="200"' : ""}`;
   if (f.type === "checkbox")
-    return `<label class="check ${f.wide ? "wide" : ""}"><input type="checkbox" ${attrs} ${value ? "checked" : ""}>${e(f.label)}</label>`;
+    return h`<label class="check ${f.wide ? "wide" : ""}"><input type="checkbox" ${attrs} ${value ? "checked" : ""}>${copy(f.label)}</label>`;
   const input =
     f.type === "textarea"
-      ? `<textarea ${attrs}>${e(value)}</textarea>`
+      ? h`<textarea ${attrs}>${e(value)}</textarea>`
       : f.type === "select"
-        ? `<select ${attrs}>${f.options?.map((o) => `<option value="${e(o.value)}" ${String(value) === o.value ? "selected" : ""}>${e(o.label)}</option>`).join("")}</select>`
-        : `<input type="${e(f.type ?? "text")}" autocomplete="${e(f.autocomplete ?? "off")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
+        ? h`<select ${attrs}>${f.options?.map((o) => h`<option data-customer-text="${e(o.label)}" value="${e(o.value)}" ${String(value) === o.value ? "selected" : ""}>${e(t(o.label))}</option>`).join("")}</select>`
+        : h`<input type="${e(f.type ?? "text")}" autocomplete="${e(f.autocomplete ?? "off")}" ${attrs} value="${e(value)}" ${f.step ? `step="${e(f.step)}"` : ""}>`;
   if (f.type === "password")
-    return `<div class="field ${f.wide ? "wide" : ""}"><label for="f-${e(f.key)}">${e(f.label)}</label><span class="password-control">${input}<button type="button" data-toggle-password aria-label="Show password" aria-pressed="false">Show</button></span>${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</div>`;
-  return `<label class="field ${f.wide ? "wide" : ""} ${f.key === "referralCode" ? "referral-field" : ""}" for="f-${e(f.key)}">${e(f.label)}${input}${f.help ? `<small id="help-${e(f.key)}">${e(f.help)}</small>` : ""}</label>`;
+    return h`<div class="field ${f.wide ? "wide" : ""}"><label for="f-${e(f.key)}">${copy(f.label)}</label><span class="password-control">${input}<button type="button" data-toggle-password aria-label="Show password" aria-pressed="false">Show</button></span>${f.help ? h`<small id="help-${e(f.key)}">${copy(f.help)}</small>` : ""}</div>`;
+  return h`<label class="field ${f.wide ? "wide" : ""} ${f.key === "referralCode" ? "referral-field" : ""}" for="f-${e(f.key)}">${copy(f.label)}${input}${f.help ? h`<small id="help-${e(f.key)}">${copy(f.help)}</small>` : ""}</label>`;
 }
 const options = (values: string[]) =>
   values.map((v) => ({ value: v, label: pretty(v) }));
 function formBody(fields: Field[], extra = "", label = "Save changes") {
-  return `<form><div class="forms-grid">${fields.map(field).join("")}</div>${extra}<div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">${e(label)}</button></div></form>`;
+  return h`<form><div class="forms-grid">${fields.map(field).join("")}</div>${extra}<div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">${copy(label)}</button></div></form>`;
 }
 function formValues(data: FormData, fields: Field[]): Record<string, unknown> {
   return Object.fromEntries(
@@ -306,7 +311,7 @@ function choices(
   selected: string[],
   label: string,
 ) {
-  return `<fieldset><legend>${e(label)}</legend>${values.map((v) => `<label class="check"><input type="checkbox" name="${e(name)}" value="${e(v.id)}" ${selected.includes(v.id) ? "checked" : ""}>${e(v.name)}</label>`).join("") || "<small>Add a performer in the Performers section first.</small>"}</fieldset>`;
+  return h`<fieldset><legend>${copy(label)}</legend>${values.map((v) => h`<label class="check"><input type="checkbox" name="${e(name)}" value="${e(v.id)}" ${selected.includes(v.id) ? "checked" : ""}>${e(v.name)}</label>`).join("") || h("<small>Add a performer in the Performers section first.</small>")}</fieldset>`;
 }
 function selected(data: FormData, key: string) {
   return data.getAll(key).map(String);
@@ -327,13 +332,13 @@ function photoGallery(
 ) {
   const approved = (photos ?? []).filter((p) => p.approved);
   return approved.length
-    ? '<details class="photo-gallery"><summary>View photos (' +
+    ? h('<details class="photo-gallery"><summary>View photos (') +
         approved.length +
         ')</summary><div class="gallery-grid">' +
         approved
           .map(
             (p) =>
-              '<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ' +
+              h('<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ') +
               e(p.caption || "photo") +
               '"><img src="' +
               e(p.url) +
@@ -341,10 +346,10 @@ function photoGallery(
               e(p.caption) +
               '" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>' +
               e(p.caption) +
-              "</figcaption></figure>",
+              h("</figcaption></figure>"),
           )
           .join("") +
-        "</div></details>"
+        h("</div></details>")
     : "";
 }
 function bundleDetails(p: Package) {
@@ -359,7 +364,7 @@ function bundleDetails(p: Package) {
     : 0;
   const names = (p.bundleSnapshot ?? parts.filter((show): show is Package => !!show))
     .map((show) => show.name);
-  return `<div class="bundle-summary"><span class="eyebrow">In this bundle</span><div class="bundle-parts">${names.map((name) => `<span>${e(name)}</span>`).join("")}</div>${separate > p.price ? `<p class="bundle-saving"><strong>Save ${money(separate - p.price)}</strong><small>Instead of ${money(separate)} separately</small></p>` : ""}</div>`;
+  return h`<div class="bundle-summary"><span class="eyebrow">In this bundle</span><div class="bundle-parts">${names.map((name) => h`<span>${e(name)}</span>`).join("")}</div>${separate > p.price ? h`<p class="bundle-saving"><strong>Save ${money(separate - p.price)}</strong><small>Instead of ${money(separate)} separately</small></p>` : ""}</div>`;
 }
 const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {};
 const portfolioShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {
@@ -459,7 +464,7 @@ function characterGallery() {
     ["Mascots", /mascot/i],
   ] as const;
   const filters = themes.filter(([, pattern]) => photos.some((photo) => pattern.test(photo.caption)));
-  return `<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? `<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => `<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${e(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => `<option value="${e(label)}">${e(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><p class="character-empty" hidden>No photos match this search. Try another costume.</p>` : '<p>Character photos are coming soon.</p>'}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
+  return h`<section class="character-browser"><h3>Meet the characters</h3>${photos.length ? h`<div class="character-tools"><label for="character-search">Find a costume</label><input id="character-search" type="search" placeholder="Try rabbit, panda…" autocomplete="off"><div class="character-filters" role="group" aria-label="Filter character photos"><button type="button" data-character-filter="all" aria-pressed="true">All photos</button>${filters.map(([label]) => h`<button type="button" data-character-filter="${e(label)}" aria-pressed="false">${copy(label)}</button>`).join("")}</div><label class="character-select-label" for="character-type">Browse by type</label><select id="character-type" aria-label="Browse characters by type"><option value="all">All photos</option>${filters.map(([label]) => h`<option value="${e(label)}">${copy(label)}</option>`).join("")}</select><p class="character-count" role="status">${photos.length} photos</p></div><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div><p class="character-empty" hidden>No photos match this search. Try another costume.</p>` : h('<p>Character photos are coming soon.</p>')}<p class="privacy">These are costume ideas from past events. Tell us which one you like; we will confirm it for your date before booking.</p></section>`;
 }
 function wireCharacterGallery(root: ParentNode = modal) {
   const browser = root.querySelector<HTMLElement>(".character-browser");
@@ -478,11 +483,11 @@ function wireCharacterGallery(root: ParentNode = modal) {
   };
   let selected = "all";
   const update = () => {
-    const query = search?.value.trim().toLocaleLowerCase() ?? "";
+    const query = search?.value.trim() ?? "";
     let visible = 0;
     for (const figure of figures) {
       const caption = figure.querySelector("figcaption")?.textContent ?? "";
-      figure.hidden = (!!query && !caption.toLocaleLowerCase().includes(query)) || (selected !== "all" && !groups[selected]?.test(caption));
+      figure.hidden = (!!query && !matchesMultilingual([caption, ...Object.keys(multilingualAliases).filter(key => caption.toLowerCase().includes(key.toLowerCase()))], query)) || (selected !== "all" && !groups[selected]?.test(caption));
       if (!figure.hidden) visible++;
     }
     const count = browser.querySelector(".character-count");
@@ -506,7 +511,7 @@ function wireCharacterGallery(root: ParentNode = modal) {
   });
 }
 function zoomableFigure(photo: { url: string; caption: string }) {
-  return `<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
+  return h`<figure><button type="button" class="zoom-photo" data-zoom-photo aria-label="Enlarge ${e(photo.caption || "photo")}"><img src="${e(photo.url)}" alt="${e(photo.caption)}" loading="lazy" referrerpolicy="no-referrer"></button><figcaption>${e(photo.caption)}</figcaption></figure>`;
 }
 function setupPhotoRails(root: ParentNode) {
   root.querySelectorAll<HTMLElement>(".show-detail-gallery").forEach((gallery) => {
@@ -515,7 +520,7 @@ function setupPhotoRails(root: ParentNode) {
     gallery.classList.add("photo-rail");
     const controls = document.createElement("div");
     controls.className = "photo-rail-controls";
-    controls.innerHTML = '<button type="button" aria-label="Previous gallery photo">←</button><span aria-live="polite"></span><button type="button" aria-label="Next gallery photo">→</button>';
+    controls.innerHTML = h('<button type="button" aria-label="Previous gallery photo">←</button><span aria-live="polite"></span><button type="button" aria-label="Next gallery photo">→</button>');
     const thumbs = document.createElement("div");
     thumbs.className = "photo-rail-thumbs";
     thumbs.setAttribute("aria-label", "Choose a gallery photo");
@@ -524,7 +529,7 @@ function setupPhotoRails(root: ParentNode) {
       const button = document.createElement("button");
       button.type = "button";
       button.setAttribute("aria-label", `Show photo ${index + 1}: ${image.alt}`);
-      button.innerHTML = `<img src="${e(image.src)}" alt="" loading="lazy">`;
+      button.innerHTML = h`<img src="${e(image.src)}" alt="" loading="lazy">`;
       button.addEventListener("click", () => goTo(figure));
       thumbs.append(button);
     });
@@ -559,19 +564,19 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
   detail.dataset.experienceTheme = experience.theme;
   const info = document.createElement("section");
   info.className = "experience-story";
-  info.innerHTML = `<span class="eyebrow">${e(experience.heading)}</span><h3>What to look forward to</h3><p>${e(experience.experience)}</p><h4>Make it yours</h4><p>${e(experience.personal)}</p><p class="hint">The exact service details and availability are agreed before your booking is confirmed.</p>`;
+  info.innerHTML = h`<span class="eyebrow">${copy(experience.heading)}</span><h3>What to look forward to</h3><p>${copy(experience.experience)}</p><h4>Make it yours</h4><p>${copy(experience.personal)}</p><p class="hint">The exact service details and availability are agreed before your booking is confirmed.</p>`;
   const facts = detail.querySelector(".show-facts") ?? detail.querySelector(".show-detail-cta");
   if (facts) facts.after(info); else detail.querySelector("p:last-of-type")?.after(info);
   const videos = detail.querySelector(".show-video-gallery")?.closest("section");
   if (videos) {
     videos.classList.add("performance-preview");
-    videos.querySelector("h3")!.textContent = "See the show in action";
+    setCopy(videos.querySelector("h3")!, "See the show in action");
     const gallery = videos.querySelector(".show-video-gallery")!;
     const clips = [...gallery.children];
     if (clips.length > 1) {
       const more = document.createElement("details");
       more.className = "more-performance-clips";
-      more.innerHTML = `<summary>More performance clips (${clips.length - 1})</summary><div class="show-video-gallery"></div>`;
+      more.innerHTML = h`<summary>More performance clips (${clips.length - 1})</summary><div class="show-video-gallery"></div>`;
       clips.slice(1).forEach((clip) => more.querySelector("div")!.append(clip));
       gallery.after(more);
     }
@@ -580,15 +585,15 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
   setupPhotoRails(root);
   const questions = document.createElement("section");
   questions.className = "show-questions";
-  questions.innerHTML = '<h3>Before you choose</h3><details><summary>Can I combine this with another show?</summary><p>Yes. Add your favourites to the same event box. We review the whole selection together before sending your proposal.</p></details><details><summary>Can we adapt it to our celebration?</summary><p>Tell us about your audience, theme and the feeling you want. We discuss the available options and agree the exact format with you.</p></details><details><summary>When is the booking confirmed?</summary><p>Adding a show or sending a request does not reserve a date. We confirm the arrangements and agreed payment terms with you before confirming your booking.</p></details>';
-  if (/photograph|videograph|video coverage|event film/i.test(name)) questions.innerHTML='<h3>Before the first frame</h3><details><summary>Can I choose photography and video together?</summary><p>Yes. Add both to your event box. We agree the team and coverage with you before confirmation.</p></details><details><summary>What photos or videos will I receive?</summary><p>Tell us the coverage and style you want. We agree the edited deliverables, format and delivery schedule in your proposal.</p></details><details><summary>Will my pictures be posted publicly?</summary><p>Publication and image-use permissions are discussed separately from booking. Tell us your preferences, especially for children’s images.</p></details>';
-  if (/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name)) questions.innerHTML='<h3>Thoughtful down to the details</h3><details><summary>Can the gifts be personalised?</summary><p>Share the names, date, colours and idea you have in mind. We confirm the available options and ask you to approve spelling and design before production.</p></details><details><summary>How many should I order?</summary><p>Tell us whether you want one per guest, child or family. Quantity, packaging, lead time and delivery are agreed before confirmation.</p></details><details><summary>Can I order only the guest gifts?</summary><p>Yes. You can request keepsakes on their own or combine them with decoration, flowers and other services.</p></details>';
+  questions.innerHTML = h('<h3>Before you choose</h3><details><summary>Can I combine this with another show?</summary><p>Yes. Add your favourites to the same event box. We review the whole selection together before sending your proposal.</p></details><details><summary>Can we adapt it to our celebration?</summary><p>Tell us about your audience, theme and the feeling you want. We discuss the available options and agree the exact format with you.</p></details><details><summary>When is the booking confirmed?</summary><p>Adding a show or sending a request does not reserve a date. We confirm the arrangements and agreed payment terms with you before confirming your booking.</p></details>');
+  if (/photograph|videograph|video coverage|event film/i.test(name)) questions.innerHTML=h('<h3>Before the first frame</h3><details><summary>Can I choose photography and video together?</summary><p>Yes. Add both to your event box. We agree the team and coverage with you before confirmation.</p></details><details><summary>What photos or videos will I receive?</summary><p>Tell us the coverage and style you want. We agree the edited deliverables, format and delivery schedule in your proposal.</p></details><details><summary>Will my pictures be posted publicly?</summary><p>Publication and image-use permissions are discussed separately from booking. Tell us your preferences, especially for children’s images.</p></details>');
+  if (/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name)) questions.innerHTML=h('<h3>Thoughtful down to the details</h3><details><summary>Can the gifts be personalised?</summary><p>Share the names, date, colours and idea you have in mind. We confirm the available options and ask you to approve spelling and design before production.</p></details><details><summary>How many should I order?</summary><p>Tell us whether you want one per guest, child or family. Quantity, packaging, lead time and delivery are agreed before confirmation.</p></details><details><summary>Can I order only the guest gifts?</summary><p>Yes. You can request keepsakes on their own or combine them with decoration, flowers and other services.</p></details>');
   const extras = (/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name) ? ["Floral Decoration", "Balloon Decoration", "Photography"] : /photograph|videograph|video coverage|event film/i.test(name) ? ["Photography", "Videography", "Decoration"] : /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name) ? ["Decoration", "Balloon Decoration", "Floral Decoration"] : kind === "show" ? ["Characters", "Face Painting & Glitter", "Decoration"] : ["Balloon Twisting", "Animation", "Characters"]).filter((service) => service !== name && moreShowNames().includes(service));
-  if (extras.length) questions.insertAdjacentHTML("beforeend", `<h4>Explore a little extra</h4><div class="related-extras">${extras.map((service) => `<a href="${e(detailPageLink("service", service))}">${e(service)} ↗</a>`).join("")}</div>`);
+  if (extras.length) questions.insertAdjacentHTML("beforeend", h`<h4>Explore a little extra</h4><div class="related-extras">${extras.map((service) => h`<a href="${e(detailPageLink("service", service))}">${copy(service)} ↗</a>`).join("")}</div>`);
   detail.querySelector(".show-detail-footer")?.before(questions);
   const share = document.createElement("div");
   share.className = "show-share-actions";
-  share.innerHTML = `<a class="button outline small" href="${e(detailPageLink(kind, key))}">Open details page ↗</a><button type="button" class="outline small">Copy page link</button>`;
+  share.innerHTML = h`<a class="button outline small" href="${e(detailPageLink(kind, key))}">Open details page ↗</a><button type="button" class="outline small">Copy page link</button>`;
   share.querySelector("button")!.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(detailPageLink(kind, key)); notify("Show link copied. Share it with your family or friends."); }
     catch { openDialog("Share this show", field({ key: "show-link", label: "Copy this link", value: detailPageLink(kind, key), wide: true })); }
@@ -599,7 +604,7 @@ function setupPhotoZoom() {
   const lightbox = document.createElement("dialog");
   lightbox.className = "photo-lightbox";
   lightbox.setAttribute("aria-label", "Photo viewer");
-  lightbox.innerHTML = `<div class="lightbox-toolbar"><span class="lightbox-count" aria-live="polite"></span><div class="lightbox-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span class="lightbox-level" aria-live="polite">100%</span><button type="button" data-zoom-in aria-label="Zoom in">＋</button><button type="button" data-zoom-close aria-label="Close photo viewer">×</button></div></div><div class="lightbox-stage"><img alt="" referrerpolicy="no-referrer"></div><div class="lightbox-foot"><button type="button" data-zoom-prev aria-label="Previous photo">←</button><p class="lightbox-caption"></p><button type="button" data-zoom-next aria-label="Next photo">→</button></div>`;
+  lightbox.innerHTML = h`<div class="lightbox-toolbar"><span class="lightbox-count" aria-live="polite"></span><div class="lightbox-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span class="lightbox-level" aria-live="polite">100%</span><button type="button" data-zoom-in aria-label="Zoom in">＋</button><button type="button" data-zoom-close aria-label="Close photo viewer">×</button></div></div><div class="lightbox-stage"><img alt="" referrerpolicy="no-referrer"></div><div class="lightbox-foot"><button type="button" data-zoom-prev aria-label="Previous photo">←</button><p class="lightbox-caption"></p><button type="button" data-zoom-next aria-label="Next photo">→</button></div>`;
   document.body.append(lightbox);
   const stage = lightbox.querySelector<HTMLElement>(".lightbox-stage")!;
   const image = stage.querySelector<HTMLImageElement>("img")!;
@@ -690,37 +695,37 @@ function videoTile(link: string, showName: string, index: number, poster?: strin
       ? `https://player.vimeo.com/video${parsed.pathname}`
       : "";
   const player = /\.(mp4|webm)$/i.test(parsed.pathname)
-    ? `<video controls playsinline preload="metadata" src="${e(link)}"${poster ? ` poster="${e(poster)}"` : ""} aria-label="${e(showName)} video ${index + 1}"></video>`
+    ? h`<video controls playsinline preload="metadata" src="${e(link)}"${poster ? ` poster="${e(poster)}"` : ""} aria-label="${e(showName)} video ${index + 1}"></video>`
     : embed
-      ? `<iframe src="${e(embed)}" title="${e(showName)} video ${index + 1}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
-      : `<div class="show-video-link"><span aria-hidden="true">▶</span><a href="${e(link)}" target="_blank" rel="noopener noreferrer">Watch video ${index + 1} ↗</a></div>`;
-  return `<figure class="show-video-tile">${player}<figcaption>Video ${index + 1}</figcaption></figure>`;
+      ? h`<iframe src="${e(embed)}" title="${e(showName)} video ${index + 1}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+      : h`<div class="show-video-link"><span aria-hidden="true">▶</span><a href="${e(link)}" target="_blank" rel="noopener noreferrer">Watch video ${index + 1} ↗</a></div>`;
+  return h`<figure class="show-video-tile">${player}<figcaption>Video ${index + 1}</figcaption></figure>`;
 }
 function showCard(p: Package) {
   const photos = showPhotos(p);
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return `<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(publicShowName(p))}">${cover ? `<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? "Bundle offer" : e(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${e(publicShowName(p))}</button></h3><small class="show-subtitle">${e(publicShowTagline(p))}</small><p>${e(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? `${photoCount} ${isDemo ? "demo " : ""}photo${photoCount === 1 ? "" : "s"}` : "Photos coming soon"}${showVideos(p).length ? " · Video" : ""}</p><div class="show-meta">${e(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? "✓ Selected to compare" : "Compare this show"}</button></div></article>`;
+  return h`<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(t(publicShowName(p)))}">${cover ? h`<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : h`<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? copy("Bundle offer") : copy(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${copy(publicShowName(p))}</button></h3><small class="show-subtitle">${copy(publicShowTagline(p))}</small><p>${copy(p.description)}</p>${bundleDetails(p)}<p class="show-media-note">${photoCount ? copy(`${photoCount} ${isDemo ? "demo " : ""}${photoCount === 1 ? "photo" : "photos"}`) : copy("Photos coming soon")}${showVideos(p).length ? " · " + copy("Video") : ""}</p><div class="show-meta">${copy(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? copy("✓ Selected to compare") : copy("Compare this show")}</button></div></article>`;
 }
 function renderComparisonTray() {
   const tray = document.querySelector<HTMLElement>("#compare-tray");
   if (!tray) return;
   const chosen = comparisonIds.map((id) => catalog.packages.find((show) => show.id === id)).filter((show): show is Package => !!show);
   tray.hidden = chosen.length === 0;
-  tray.innerHTML = `<div><strong>Compare shows</strong><span>${chosen.length ? chosen.map((show) => e(publicShowName(show))).join(" · ") : "Choose two or three shows to see them together."}</span></div><button type="button" id="open-comparison" class="outline small" ${chosen.length < 2 ? "disabled" : ""}>Compare ${chosen.length || ""} shows</button>${chosen.length ? '<button type="button" id="clear-comparison" class="link small">Clear</button>' : ""}`;
+  tray.innerHTML = h`<div><strong>Compare shows</strong><span>${chosen.length ? chosen.map((show) => e(publicShowName(show))).join(" · ") : copy("Choose two or three shows to see them together.")}</span></div><button type="button" id="open-comparison" class="outline small" ${chosen.length < 2 ? "disabled" : ""}>Compare ${chosen.length || ""} shows</button>${chosen.length ? h('<button type="button" id="clear-comparison" class="link small">Clear</button>') : ""}`;
   on(tray, "#open-comparison", "click", () => {
-    openDialog("Compare your shows", `<div class="comparison-grid">${chosen.map((show) => {
+    openDialog("Compare your shows", h`<div class="comparison-grid">${chosen.map((show) => {
       const image = showPhotos(show)[0];
       const included = show.bundleIds?.length ? show.bundleIds.map((id) => catalog.packages.find((part) => part.id === id)).filter((part): part is Package => !!part).map((part) => publicShowName(part)).join(" + ") : "One show; combine it with others in your event box.";
-      return `<article class="comparison-card">${image ? `<img src="${e(image.url)}" alt="" loading="lazy">` : ""}<h3>${e(publicShowName(show))}</h3><p>${e(show.description)}</p><p><strong>Included:</strong> ${e(included)}</p><p><strong>Quote:</strong> ${e(price(show))}</p><button type="button" class="outline small" data-compare-add="${e(show.id)}">${basket.includes(show.id) ? "✓ In my event" : "＋ Add to my event"}</button></article>`;
+      return h`<article class="comparison-card">${image ? h`<img src="${e(image.url)}" alt="" loading="lazy">` : ""}<h3>${copy(publicShowName(show))}</h3><p>${e(show.description)}</p><p><strong>Included:</strong> ${e(included)}</p><p><strong>Quote:</strong> ${e(price(show))}</p><button type="button" class="outline small" data-compare-add="${e(show.id)}">${basket.includes(show.id) ? "✓ In my event" : copy("＋ Add to my event")}</button></article>`;
     }).join("")}</div><p class="hint">We’ll confirm the right format, venue needs, availability and price with you.</p>`);
     on(modal, "[data-compare-add]", "click", (event) => {
       const id = (event.currentTarget as HTMLElement).dataset.compareAdd!;
       if (togglePackage(id)) (event.currentTarget as HTMLButtonElement).textContent = basket.includes(id) ? "✓ In my event" : "＋ Add to my event";
     });
   });
-  on(tray, "#clear-comparison", "click", () => { comparisonIds = []; renderComparisonTray(); document.querySelectorAll<HTMLButtonElement>("[data-compare]").forEach((button) => { button.setAttribute("aria-pressed", "false"); button.textContent = "Compare this show"; }); });
+  on(tray, "#clear-comparison", "click", () => { comparisonIds = []; renderComparisonTray(); document.querySelectorAll<HTMLButtonElement>("[data-compare]").forEach((button) => { button.setAttribute("aria-pressed", "false"); setCopy(button, "Compare this show"); }); });
 }
 function showDetails(p: Package, inline = false) {
   if (!inline) trackInterest("show_open", p.id);
@@ -729,7 +734,7 @@ function showDetails(p: Package, inline = false) {
   const videos = showVideos(p);
   presentShowDetail(
     publicShowName(p),
-    `<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${e(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? "All ages" : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? "<li>Electricity needed</li>" : ""}</ul>${bundleDetails(p)}${photos.length ? `<section><h3>Photos</h3>${isDemo ? '<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>' : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : '<p class="show-media-empty">Photos will appear here when they are ready.</p>'}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${e(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? "✓ In your event box" : "＋ Add to my event"}</button></div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${copy(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? copy("All ages") : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? h("<li>Electricity needed</li>") : ""}</ul>${bundleDetails(p)}${photos.length ? h`<section><h3>Photos</h3>${isDemo ? h('<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>') : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : h('<p class="show-media-empty">Photos will appear here when they are ready.</p>')}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${copy(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -769,12 +774,12 @@ function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
   const node = document.querySelector("#event-box")!;
   const count = chosen.length + guestBasket.length;
-  node.innerHTML = `<span class="eyebrow">Your ideas, coming together</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Collect the acts and little touches that feel like you.</p>${count ? chosen.map((p) => `<div class="box-item"><span>${e(publicShowName(p))}<br><small>${e(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(publicShowName(p))}">×</button></div>`).join("") + guestBasket.map((name) => `<div class="box-item"><span>${e(name)}<br><small>${name === "Characters" && characterPreference ? `Ask for ${e(characterPreference)} · subject to confirmation` : "Availability & price to confirm"}</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : `<div class="box-empty"><span>✦</span>Every great event starts with a spark.<br><small>Add your first show or service.</small></div>`}${selectedPerformers.length ? `<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? `<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? "Your price" : "Package estimate"}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? "Personal quote" : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
+  node.innerHTML = h`<span class="eyebrow">Your ideas, coming together</span><h3>Your event box <span aria-hidden="true">✧</span></h3><p>Collect the acts and little touches that feel like you.</p>${count ? chosen.map((p) => h`<div class="box-item"><span>${copy(publicShowName(p))}<br><small>${copy(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(t(publicShowName(p)))}">×</button></div>`).join("") + guestBasket.map((name) => h`<div class="box-item"><span>${copy(name)}<br><small>${name === "Characters" && characterPreference ? `Ask for ${e(characterPreference)} · subject to confirmation` : copy("Availability & price to confirm")}</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : h`<div class="box-empty"><span>✦</span>Every great event starts with a spark.<br><small>Add your first show or service.</small></div>`}${selectedPerformers.length ? h`<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? h`<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? copy("Your price") : copy("Package estimate")}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? copy("Personal quote") : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. We’ll check availability and send your proposal. Your request is not a confirmed booking. Setup, breaks and travel are reviewed separately.</p>`;
   const planActions = document.createElement("div");
   planActions.className = "plan-actions";
   const phone = (catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "")).replace(/\D/g, "").replace(/^00/, "");
   const selectedText = selectionNames().filter(Boolean).join(", ");
-  planActions.innerHTML = `${count ? `<button type="button" class="outline small" id="save-plan">Save for later</button><button type="button" class="outline small" id="share-plan">Copy a link to share</button>${phone ? `<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’m planning ${chosenOccasion ? `a ${chosenOccasion.toLowerCase()} and considering` : "an event with"} ${selectedText}. Could you help me check availability?`)}" target="_blank" rel="noopener noreferrer">Ask on WhatsApp ↗</a><a class="button outline small mobile-call-link" href="tel:+${e(phone)}">Call us</a>` : ""}` : ""}${savedPlanExists() ? `<button type="button" class="link small" id="restore-plan">Restore saved plan</button><button type="button" class="link small" id="forget-plan">Forget saved copy</button>` : ""}<small>Saved plans stay on this device for 30 days. Shared links include only show choices.</small>`;
+  planActions.innerHTML = `${count ? h`<button type="button" class="outline small" id="save-plan">Save for later</button><button type="button" class="outline small" id="share-plan">Copy a link to share</button>${phone ? h`<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’m planning ${chosenOccasion ? `a ${chosenOccasion.toLowerCase()} and considering` : "an event with"} ${selectedText}. Could you help me check availability?`)}" target="_blank" rel="noopener noreferrer">Ask on WhatsApp ↗</a><a class="button outline small mobile-call-link" href="tel:+${e(phone)}">Call us</a>` : ""}` : ""}${savedPlanExists() ? h`<button type="button" class="link small" id="restore-plan">Restore saved plan</button><button type="button" class="link small" id="forget-plan">Forget saved copy</button>` : ""}${h("<small>Saved plans stay on this device for 30 days. Shared links include only show choices.</small>")}`;
   node.querySelector("#request")!.after(planActions);
   on(planActions, "#save-plan", "click", () => {
     try {
@@ -795,7 +800,7 @@ function renderBox() {
   if (count) {
     const bar = document.createElement('div');
     bar.className = 'mobile-event-bar';
-    bar.innerHTML = '<a href="#event-box"><strong>Your event · ' + count + '</strong><small>Review your choices</small></a><button type="button">Continue →</button>';
+    bar.innerHTML = h('<a href="#event-box"><strong>Your event · ') + count + h('</strong><small>Review your choices</small></a><button type="button">Continue →</button>');
     bar.querySelector('button')!.addEventListener('click', () => requestForm());
     app.append(bar);
   }
@@ -803,7 +808,7 @@ function renderBox() {
   if (chosen.length >= 2 || chosen.some((item) => item.bundleIds?.length)) {
     const label = document.createElement("label");
     label.className = "bundle-discount-request";
-    label.innerHTML = `<input type="checkbox" id="ask-bundle-discount" ${requestBundleDiscount ? "checked" : ""}><span><strong>Ask for a bundle discount</strong><small>We’ll review your mix of shows and send the best offer.</small></span>`;
+    label.innerHTML = h`<input type="checkbox" id="ask-bundle-discount" ${requestBundleDiscount ? "checked" : ""}><span><strong>Ask for a bundle discount</strong><small>We’ll review your mix of shows and send the best offer.</small></span>`;
     node.querySelector("#request")?.before(label);
     on(label, "#ask-bundle-discount", "change", (event) => {
       requestBundleDiscount = (event.currentTarget as HTMLInputElement).checked;
@@ -850,7 +855,7 @@ function togglePackage(key: string) {
   return true;
 }
 function samProfile() {
-  return `<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Sam is a magician and a member of the International Magicians Society. He personally performs the Magic, Science and Bubbles shows, bringing guests into the fun and making each celebration feel like its own story.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
+  return h`<article class="panel profile sam-profile"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam, the magician behind Magic by Sam" loading="lazy"><div><span class="eyebrow">The person behind the wonder</span><h3>Meet Sam</h3><p>Sam is a magician and a member of the International Magicians Society. He personally performs the Magic, Science and Bubbles shows, bringing guests into the fun and making each celebration feel like its own story.</p><a class="button outline" href="#shows">Explore Sam’s shows ↗</a></div></article>`;
 }
 function guestCatalogGroups() {
   const names = moreShowNames();
@@ -867,12 +872,12 @@ function guestCatalogGroups() {
     { id: "favours-keepsakes", title: "Favours & keepsakes", names: gifts },
     { id: "event-extras", title: "The finishing touches", names: extras },
   ];
-  return groups.filter((group) => group.names.length).map((group) => `<section class="show-group" id="${group.id}"><h3>${group.title}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
+  return groups.filter((group) => group.names.length).map((group) => h`<section class="show-group" id="${group.id}"><h3>${copy(group.title)}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
 }
 function adultMagicFeature() {
   const show = catalog.packages.find((p) => p.active && !p.bundleIds?.length && p.category.toLowerCase() === "magic");
   const closeUp = moreShowNames().includes("Close-up Magic");
-  return `<section id="adult-magic" class="section adult-magic-feature"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at an event" loading="lazy"><div><span class="eyebrow">Wonder has no age limit</span><h2>Magic for grown-up celebrations</h2><p>Planning a wedding, private party or corporate event? Tell us about your guests and the atmosphere you want. We’ll plan the format with you.</p><div class="actions">${show ? `<button type="button" data-show-details="${e(show.id)}">Explore the Magic Show ↗</button>` : '<a class="button" href="#sam-shows">Explore the shows ↗</a>'}${closeUp ? '<button type="button" class="outline" data-enquiry-details="Close-up Magic">Explore Close-up Magic ↗</button>' : ''}</div></div></section>`;
+  return h`<section id="adult-magic" class="section adult-magic-feature"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at an event" loading="lazy"><div><span class="eyebrow">Wonder has no age limit</span><h2>Magic for grown-up celebrations</h2><p>Planning a wedding, private party or corporate event? Tell us about your guests and the atmosphere you want. We’ll plan the format with you.</p><div class="actions">${show ? h`<button type="button" data-show-details="${e(show.id)}">Explore the Magic Show ↗</button>` : h('<a class="button" href="#sam-shows">Explore the shows ↗</a>')}${closeUp ? h('<button type="button" class="outline" data-enquiry-details="Close-up Magic">Explore Close-up Magic ↗</button>') : ''}</div></div></section>`;
 }
 function bundleIdeas() {
   const byCategory = (name: string) => catalog.packages.find((p) => p.active && !p.bundleIds?.length && p.category.toLowerCase() === name);
@@ -881,7 +886,7 @@ function bundleIdeas() {
     { title: "Magic & bubbles", note: "Sleight of hand meets floating daydreams.", shows: [magic, bubbles] },
     { title: "Magic & science", note: "A little mystery. A spark of discovery.", shows: [magic, science] },
     { title: "Science & bubbles", note: "Bright ideas and bubbles full of wonder.", shows: [science, bubbles] },
-  ].filter((idea) => idea.shows.every(Boolean)).map((idea) => `<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${idea.title}</h3><p>${idea.note}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
+  ].filter((idea) => idea.shows.every(Boolean)).map((idea) => h`<article class="bundle-idea"><span class="eyebrow">Bundle idea</span><h3>${copy(idea.title)}</h3><p>${copy(idea.note)}</p><small>Personal quote · ask for a bundle discount</small><button type="button" class="outline" data-bundle-idea="${idea.shows.map((show) => show!.id).join(",")}">Add both shows ↗</button></article>`).join("");
 }
 function mobileMenuMarkup() {
   const shows = catalog.packages.filter((show) => show.active && !show.bundleIds?.length);
@@ -894,9 +899,9 @@ function mobileMenuMarkup() {
   const capture = services.filter(name => /photograph|videograph|video coverage|event film/i.test(name));
   const gifts = services.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
   const special = services.filter((name) => !partyNames.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name));
-  const showButtons = (items: Package[]) => items.map((show) => `<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${e(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
-  const serviceButtons = (items: string[]) => items.map((name) => `<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${e(name)}</span><b aria-hidden="true">↗</b></button>`).join("");
-  const branch = (title: string, note: string, children: string, nested = false) => `<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${title}</strong><small>${note}</small></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
+  const showButtons = (items: Package[]) => items.map((show) => h`<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${copy(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
+  const serviceButtons = (items: string[]) => items.map((name) => h`<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${copy(name)}</span><b aria-hidden="true">↗</b></button>`).join("");
+  const branch = (title: string, note: string, children: string, nested = false) => h`<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${copy(title)}</strong><small>${copy(note)}</small></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
   const allShows = [
     shows.length ? branch("Sam’s shows", "Magic, science & bubbles", showButtons(shows), true) : "",
     party.length ? branch("Characters & party fun", "Colourful extras for your event", serviceButtons(party), true) : "",
@@ -905,19 +910,19 @@ function mobileMenuMarkup() {
     capture.length ? branch("Photography & video", "Photos and films for your occasion", serviceButtons(capture), true) : "",
     gifts.length ? branch("Favours & keepsakes", "Thoughtful little gifts for your guests", serviceButtons(gifts), true) : "",
     extras.length ? branch("The finishing touches", "Food, cakes, music & sound", serviceButtons(extras), true) : "",
-    '<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>',
+    h('<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>'),
   ].join("");
   const offers = bundles.length
-    ? `${showButtons(bundles)}<a class="mobile-menu-leaf" href="#offers"><span>See all bundle ideas</span><b aria-hidden="true">↗</b></a>`
-    : '<a class="mobile-menu-leaf" href="#offers"><span>Explore bundle ideas</span><b aria-hidden="true">↗</b></a>';
-  const marketplaceMenu = catalog.business.slug === "magic-by-sam" ? '<div class="mobile-menu-group"><span class="mobile-menu-group-title">The event marketplace</span><a href="#marketplace-playgrounds"><span><strong>Playgrounds & venues</strong><small>Find a place to celebrate or play</small></span><b aria-hidden="true">↗</b></a><a href="#marketplace-agencies"><span><strong>Entertainment agencies</strong><small>Creative companies and event teams</small></span><b aria-hidden="true">↗</b></a><a href="#event-styling"><span><strong>Decoration & flowers</strong><small>Full styling, balloons or flowers</small></span><b aria-hidden="true">↗</b></a><a href="#photography-video"><span><strong>Photography & video</strong><small>Photos and films for your occasion</small></span><b aria-hidden="true">↗</b></a><a href="#family-celebrations"><span><strong>Baptism & First Communion</strong><small>Family milestones, thoughtfully celebrated</small></span><b aria-hidden="true">↗</b></a><a href="#favours-keepsakes"><span><strong>Favours & keepsakes</strong><small>A little thank-you for each guest</small></span><b aria-hidden="true">↗</b></a><a href="#marketplace-categories"><span><strong>Explore every category</strong><small>The people, the place and the details</small></span><b aria-hidden="true">↗</b></a></div>' : "";
-  return `<div class="mobile-menu-backdrop" id="mobile-menu-backdrop" aria-hidden="true"></div><aside class="mobile-site-menu" id="mobile-site-menu" aria-label="Explore Magic by Sam" aria-hidden="true" inert><div class="mobile-menu-head"><span><span aria-hidden="true">✦</span> Magic by Sam</span><button type="button" class="mobile-menu-close" aria-label="Close menu">×</button></div><div class="mobile-menu-scroll"><div class="mobile-menu-intro"><span class="mobile-menu-spark" aria-hidden="true">✧</span><span class="eyebrow">Your invitation to wonder</span><h2>Where shall we begin?</h2><p>Find the moment that feels like yours.</p></div><nav aria-label="Phone menu">${marketplaceMenu}<div class="mobile-menu-group"><span class="mobile-menu-group-title">Explore the magic</span>${branch("All the shows", "Open the collection", allShows)}${party.length ? branch("Characters & party fun", "Costumes, games and colourful acts", serviceButtons(party)) : ""}${branch("Offers & bundles", "More wonder together", offers)}</div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Make it yours</span><a href="#event-box"><span><strong>Your event box</strong><small>${basket.length + guestBasket.length} chosen ${basket.length + guestBasket.length === 1 ? "item" : "items"}</small></span><b aria-hidden="true">↗</b></a><a href="#rewards"><span><strong>Free magic show</strong><small>Invite friends, collect tokens</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Behind the wonder</span><a href="#performers"><span><strong>Meet the people</strong><small>The faces behind the magic</small></span><b aria-hidden="true">↗</b></a><a href="#how"><span><strong>How it works</strong><small>From an idea to your event</small></span><b aria-hidden="true">↗</b></a><button type="button" id="mobile-customer-account"><span><strong>My account</strong><small>Your bookings and rewards</small></span><b aria-hidden="true">↗</b></button></div></nav><p class="mobile-menu-signoff">A little wonder is waiting for you. <span aria-hidden="true">✦</span></p></div></aside>`;
+    ? h`${showButtons(bundles)}<a class="mobile-menu-leaf" href="#offers"><span>See all bundle ideas</span><b aria-hidden="true">↗</b></a>`
+    : h('<a class="mobile-menu-leaf" href="#offers"><span>Explore bundle ideas</span><b aria-hidden="true">↗</b></a>');
+  const marketplaceMenu = catalog.business.slug === "magic-by-sam" ? h('<div class="mobile-menu-group"><span class="mobile-menu-group-title">The event marketplace</span><a href="#marketplace-playgrounds"><span><strong>Playgrounds & venues</strong><small>Find a place to celebrate or play</small></span><b aria-hidden="true">↗</b></a><a href="#marketplace-agencies"><span><strong>Entertainment agencies</strong><small>Creative companies and event teams</small></span><b aria-hidden="true">↗</b></a><a href="#event-styling"><span><strong>Decoration & flowers</strong><small>Full styling, balloons or flowers</small></span><b aria-hidden="true">↗</b></a><a href="#photography-video"><span><strong>Photography & video</strong><small>Photos and films for your occasion</small></span><b aria-hidden="true">↗</b></a><a href="#family-celebrations"><span><strong>Baptism & First Communion</strong><small>Family milestones, thoughtfully celebrated</small></span><b aria-hidden="true">↗</b></a><a href="#favours-keepsakes"><span><strong>Favours & keepsakes</strong><small>A little thank-you for each guest</small></span><b aria-hidden="true">↗</b></a><a href="#marketplace-categories"><span><strong>Explore every category</strong><small>The people, the place and the details</small></span><b aria-hidden="true">↗</b></a></div>') : "";
+  return h`<div class="mobile-menu-backdrop" id="mobile-menu-backdrop" aria-hidden="true"></div><aside class="mobile-site-menu" id="mobile-site-menu" aria-label="Explore Magic by Sam" aria-hidden="true" inert><div class="mobile-menu-head"><span><span aria-hidden="true">✦</span> Magic by Sam</span><button type="button" class="mobile-menu-close" aria-label="Close menu">×</button></div><div class="mobile-menu-scroll"><div class="mobile-menu-intro"><span class="mobile-menu-spark" aria-hidden="true">✧</span><span class="eyebrow">Your invitation to wonder</span><h2>Where shall we begin?</h2><p>Find the moment that feels like yours.</p></div><nav aria-label="Phone menu">${marketplaceMenu}<div class="mobile-menu-group"><span class="mobile-menu-group-title">Explore the magic</span>${branch("All the shows", "Open the collection", allShows)}${party.length ? branch("Characters & party fun", "Costumes, games and colourful acts", serviceButtons(party)) : ""}${branch("Offers & bundles", "More wonder together", offers)}</div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Make it yours</span><a href="#event-box"><span><strong>Your event box</strong><small>${copy(`${basket.length + guestBasket.length} chosen ${basket.length + guestBasket.length === 1 ? "item" : "items"}`)}</small></span><b aria-hidden="true">↗</b></a><a href="#rewards"><span><strong>Free magic show</strong><small>Invite friends, collect tokens</small></span><b aria-hidden="true">↗</b></a></div><div class="mobile-menu-group"><span class="mobile-menu-group-title">Behind the wonder</span><a href="#performers"><span><strong>Meet the people</strong><small>The faces behind the magic</small></span><b aria-hidden="true">↗</b></a><a href="#how"><span><strong>How it works</strong><small>From an idea to your event</small></span><b aria-hidden="true">↗</b></a><button type="button" id="mobile-customer-account"><span><strong>My account</strong><small>Your bookings and rewards</small></span><b aria-hidden="true">↗</b></button></div></nav><p class="mobile-menu-signoff">A little wonder is waiting for you. <span aria-hidden="true">✦</span></p></div></aside>`;
 }
 function setupMobileSiteMenu() {
   const header = app.querySelector<HTMLElement>(".site-header");
   if (!header) return;
-  header.insertAdjacentHTML("beforeend", '<button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-controls="mobile-site-menu" aria-expanded="false"><span class="mobile-menu-toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Explore</span></button>');
-  header.insertAdjacentHTML("beforeend", `<a class="phone-event-shortcut" href="#event-box" aria-label="Your event, ${basket.length + guestBasket.length} selected items"><svg width="17" height="20" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h14l1 13H2L3 8Z"/><path d="M6 9V6a4 4 0 0 1 8 0v3"/></svg><b>${basket.length + guestBasket.length}</b></a>`);
+  header.insertAdjacentHTML("beforeend", h('<button type="button" class="mobile-menu-toggle" id="mobile-menu-toggle" aria-controls="mobile-site-menu" aria-expanded="false"><span class="mobile-menu-toggle-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Explore</span></button>'));
+  header.insertAdjacentHTML("beforeend", h`<a class="phone-event-shortcut" href="#event-box" aria-label="Your event, ${basket.length + guestBasket.length} selected items"><svg width="17" height="20" viewBox="0 0 20 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h14l1 13H2L3 8Z"/><path d="M6 9V6a4 4 0 0 1 8 0v3"/></svg><b>${basket.length + guestBasket.length}</b></a>`);
   header.insertAdjacentHTML("afterend", mobileMenuMarkup());
   const toggle = header.querySelector<HTMLButtonElement>("#mobile-menu-toggle")!;
   const drawer = app.querySelector<HTMLElement>("#mobile-site-menu")!;
@@ -974,7 +979,7 @@ function presentShowDetail(title: string, content: string, inline: boolean) {
   if (!inline) { openDialog(title, content); return; }
   const target = app.querySelector("#standalone-show");
   if (!target) return;
-  target.innerHTML = `<a class="show-page-back" href="/b/${encodeURIComponent(catalog.business.slug)}#shows">← All the shows</a><h1>${e(title)}</h1>${content}`;
+  target.innerHTML = h`<a class="show-page-back" href="/b/${encodeURIComponent(catalog.business.slug)}#shows">← All the shows</a><h1>${copy(title)}</h1>${content}`;
   document.title = `${title} · ${catalog.business.name}`;
 }
 function renderDetailLanding() {
@@ -986,7 +991,7 @@ function renderDetailLanding() {
   const service = parts[3] === "service" && moreShowNames().includes(key) ? key : "";
   if (!show && !service) return false;
   const home = `/b/${encodeURIComponent(catalog.business.slug)}`;
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="${home}#shows">All the shows</a><button class="link" id="page-account">My account</button><a class="button outline small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main" class="standalone-layout"><article id="standalone-show" class="standalone-show"></article><aside id="event-box" class="event-box" aria-label="Your event box"></aside></main><section class="related-show-pages"><span class="eyebrow">Keep exploring</span><h2>More moments to make yours</h2><div>${catalog.packages.filter((item) => item.active && !item.bundleIds?.length && item.id !== show?.id).map((item) => `<a class="related-show-link" href="${e(detailPageLink("show", item.id))}"><strong>${e(publicShowName(item))}</strong><span>${e(publicShowTagline(item))} ↗</span></a>`).join("")}<a class="related-show-link" href="${home}#shows"><strong>See every show</strong><span>The full collection ↗</span></a></div></section><footer class="footer"><a href="${home}#shows">← Back to all the shows</a><span>${e(catalog.business.name)} · Make your event magical.</span></footer></div>`;
+  app.innerHTML = h`<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="${home}#shows">All the shows</a><button class="link" id="page-account">My account</button><a class="button outline small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main" class="standalone-layout"><article id="standalone-show" class="standalone-show"></article><aside id="event-box" class="event-box" aria-label="Your event box"></aside></main><section class="related-show-pages"><span class="eyebrow">Keep exploring</span><h2>More moments to make yours</h2><div>${catalog.packages.filter((item) => item.active && !item.bundleIds?.length && item.id !== show?.id).map((item) => h`<a class="related-show-link" href="${e(detailPageLink("show", item.id))}"><strong>${e(publicShowName(item))}</strong><span>${e(publicShowTagline(item))} ↗</span></a>`).join("")}<a class="related-show-link" href="${home}#shows"><strong>See every show</strong><span>The full collection ↗</span></a></div></section><footer class="footer"><a href="${home}#shows">← Back to all the shows</a><span>${e(catalog.business.name)} · Make your event magical.</span></footer></div>`;
   setupMobileSiteMenu();
   app.querySelectorAll<HTMLAnchorElement>("#mobile-site-menu a[href^='#']").forEach((link) => link.href = home + link.getAttribute("href"));
   on(app, "#page-account", "click", () => customerAccount());
@@ -997,7 +1002,10 @@ function renderDetailLanding() {
 }
 function polishVisitorCatalog() {
   app.querySelectorAll<HTMLElement>(".show-card").forEach((card) => {
-    const name = card.querySelector("h3")?.textContent ?? "";
+    const key = card.querySelector<HTMLElement>("[data-enquiry-details]")?.dataset.enquiryDetails;
+    const id = card.querySelector<HTMLElement>("[data-show-details]")?.dataset.showDetails;
+    const show = catalog.packages.find(p => p.id === id);
+    const name = key ?? (show ? publicShowName(show) : "");
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
   const groups = [
@@ -1014,16 +1022,16 @@ function polishVisitorCatalog() {
     if (!group) continue;
     group.classList.add("catalog-chapter");
     const count = group.querySelectorAll(".show-card").length;
-    group.querySelector("h3")?.insertAdjacentHTML("afterend", `<p class="catalog-chapter-note">${e(note)} <span>${count} ${["event-extras", "event-styling", "photography-video", "favours-keepsakes"].includes(id) ? (count === 1 ? "service" : "services") : (count === 1 ? "show" : "shows")} to explore</span></p>`);
+    group.querySelector("h3")?.insertAdjacentHTML("afterend", h`<p class="catalog-chapter-note">${copy(note)} <span>${copy(`${count} ${["event-extras", "event-styling", "photography-video", "favours-keepsakes"].includes(id) ? (count === 1 ? "service" : "services") : (count === 1 ? "show" : "shows")} to explore`)}</span></p>`);
     const jump = app.querySelector<HTMLAnchorElement>(`.show-jump a[href='#${id}']`);
-    if (jump) { jump.textContent = `${title} · ${count}`; }
-    else if (["event-extras", "event-styling", "photography-video", "favours-keepsakes"].includes(id)) app.querySelector(".show-jump")?.insertAdjacentHTML("beforeend", `<a href="#${id}">${e(title)} · ${count}</a>`);
+    if (jump) { jump.innerHTML = `${copy(title)} · ${count}`; }
+    else if (["event-extras", "event-styling", "photography-video", "favours-keepsakes"].includes(id)) app.querySelector(".show-jump")?.insertAdjacentHTML("beforeend", h`<a href="#${id}">${copy(title)} · ${count}</a>`);
   }
-  app.querySelector("#shows .section-heading")?.insertAdjacentHTML("afterend", '<p class="catalog-reassurance">The whole collection is here. Scroll to explore every show, or jump to a section below.</p>');
+  app.querySelector("#shows .section-heading")?.insertAdjacentHTML("afterend", h('<p class="catalog-reassurance">The whole collection is here. Scroll to explore every show, or jump to a section below.</p>'));
   if (catalog.reviews.length) {
     const trust = document.createElement("section");
     trust.className = "visitor-trust";
-    trust.innerHTML = `<div><span class="eyebrow">After the applause</span><h2>When the moment becomes a memory.</h2><a href="#customer-stories">Read our customer stories ↗</a></div><div class="trust-quotes">${catalog.reviews.slice(0, 2).map((review) => `<blockquote><span aria-label="${review.overall} out of 5 stars">${"★".repeat(review.overall)}</span><p>${e(review.text)}</p><small>Verified event review</small>${review.photo ? `<img src="${e(review.photo)}" alt="Customer-approved event memory" loading="lazy" referrerpolicy="no-referrer">` : ""}</blockquote>`).join("")}</div>`;
+    trust.innerHTML = h`<div><span class="eyebrow">After the applause</span><h2>When the moment becomes a memory.</h2><a href="#customer-stories">Read our customer stories ↗</a></div><div class="trust-quotes">${catalog.reviews.slice(0, 2).map((review) => h`<blockquote><span aria-label="${review.overall} out of 5 stars">${"★".repeat(review.overall)}</span><p>${e(review.text)}</p><small>Verified event review</small>${review.photo ? h`<img src="${e(review.photo)}" alt="Customer-approved event memory" loading="lazy" referrerpolicy="no-referrer">` : ""}</blockquote>`).join("")}</div>`;
     app.querySelector(".ribbon")?.after(trust);
     app.querySelector(".review")?.closest("section")?.setAttribute("id", "customer-stories");
   }
@@ -1039,7 +1047,7 @@ function renderPublic() {
     : catalog.business.intro;
   const contactPhone = catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "");
   const contactEmail = catalog.business.contactEmail || (catalog.business.slug === "magic-by-sam" ? "sam.wehbi@gmail.com" : "");
-  app.innerHTML = `<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? '<a href="#offers">Offers & bundles</a>' : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Real shows. Real smiles.</div><h1>Make your event<br><em>magical.</em></h1><p>${e(heroIntro)}</p><div class="actions"><a class="button" href="#shows">See the shows <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Choose your favourites. Request a personal quote.</div>${contactPhone ? `<a class="contact-link" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}" target="_blank" rel="noopener noreferrer">Questions? Chat with us on WhatsApp ↗</a>` : ""}<a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="hero-gallery" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at a celebration" loading="eager"><img src="/portfolio/sam-science-live-1.jpg" alt="Sam presenting the Science Show" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Magic by Sam · Live moments</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-live-1.jpg" alt="Sam presenting the Science Show" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">The stage is yours to imagine</span><h2>All the shows</h2></div><p>Follow your curiosity. Find an act that speaks to your occasion.</p></div><nav class="show-jump" aria-label="Browse show groups"><a href="#sam-shows">Sam’s shows</a><a href="#party-shows">Characters & party fun</a><a href="#special-acts">Special acts</a></nav><div class="show-proof"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam performing at a real event" loading="lazy"><div><strong>Meet Sam on stage.</strong><span>Sam personally performs the Magic, Science and Bubbles shows. Explore real event photos on each card.</span></div></div><div class="builder-layout"><div class="catalog-list"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div><section class="show-group" id="sam-shows"><h3>Sam’s signature shows</h3><div class="cards">${catalog.packages
+  app.innerHTML = h`<div class="wrap"><header class="site-header">${brand(catalog.business.name, catalog.business.logo)}<nav class="site-nav" aria-label="Main navigation"><a href="#shows">The shows</a><a href="#adult-magic">Adult magic</a>${catalog.packages.some((p) => p.bundleIds?.length) ? h('<a href="#offers">Offers & bundles</a>') : ""}<a href="#characters">Characters</a><a href="#rewards">Free show</a><button class="link" id="customer-account">My account</button><a href="#performers">The people</a><a href="#how">How it works</a><a class="button secondary small" href="#event-box">Your event box (${basket.length + guestBasket.length}) ↗</a></nav></header><main id="main"><section class="hero"><div class="hero-copy"><div class="eyebrow">✦ Real shows. Real smiles.</div><h1>Make your event<br><em>magical.</em></h1><p>${copy(heroIntro)}</p><div class="actions"><a class="button" href="#shows">See the shows <span aria-hidden="true">↗</span></a><button class="outline" id="help-choose">Help me choose</button></div><div class="micro muted">Choose your favourites. Request a personal quote.</div>${contactPhone ? h`<a class="contact-link" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}" target="_blank" rel="noopener noreferrer">Questions? Chat with us on WhatsApp ↗</a>` : ""}<a class="install-link" href="/install.html">↧ Install Magic by Sam on your phone</a></div><div class="hero-gallery" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic at a celebration" loading="eager"><img src="/portfolio/sam-science-live-1.jpg" alt="Sam presenting the Science Show" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Magic by Sam · Live moments</span></div><div class="mobile-hero-photos" aria-label="Real moments from Magic by Sam"><img src="/portfolio/sam-magic-live-2.jpg" alt="Sam performing magic" loading="eager"><img src="/portfolio/sam-science-live-1.jpg" alt="Sam presenting the Science Show" loading="eager"><img src="/portfolio/characters-rabbits.jpg" alt="Colourful event characters" loading="eager"><span>Real shows. Real smiles. ✦</span></div></section><div class="ribbon"><span><b>✧</b> Made for your celebration</span><span><b>◷</b> Availability checked personally</span><span><b>♡</b> A little extra imagination</span></div><section id="shows" class="section"><div class="section-heading"><div><span class="eyebrow">The stage is yours to imagine</span><h2>All the shows</h2></div><p>Follow your curiosity. Find an act that speaks to your occasion.</p></div><nav class="show-jump" aria-label="Browse show groups"><a href="#sam-shows">Sam’s shows</a><a href="#party-shows">Characters & party fun</a><a href="#special-acts">Special acts</a></nav><div class="show-proof"><img src="/portfolio/sam-magic-live-1.jpg" alt="Sam performing at a real event" loading="lazy"><div><strong>Meet Sam on stage.</strong><span>Sam personally performs the Magic, Science and Bubbles shows. Explore real event photos on each card.</span></div></div><div class="builder-layout"><div class="catalog-list"><div class="show-search"><label for="find-show">Find a show</label><input id="find-show" type="search" placeholder="Try clown, juggling, science…" autocomplete="off"><span id="show-search-count" role="status"></span></div><section class="show-group" id="sam-shows"><h3>Sam’s signature shows</h3><div class="cards">${catalog.packages
     .filter((p) => !p.bundleIds?.length)
     .map(showCard)
     .join(
@@ -1047,7 +1055,7 @@ function renderPublic() {
     )}</div></section>${guestCatalogGroups()}</div><aside class="event-box" id="event-box" aria-label="Your event box"></aside></div></section><section id="offers" class="section"><div class="section-heading"><div><span class="eyebrow">A creative double act</span><h2>Offers & bundles</h2></div><p>Two different talents, one shared moment. Choose a pairing or compose your own mix.</p></div><div class="bundle-ideas">${bundleIdeas()}</div><div class="bundle-invite"><span aria-hidden="true">✦</span><strong>Different arts. One celebration.</strong><p>Add two or more shows to your event box and ask for a bundle discount.</p><a class="button outline" href="#shows">Choose shows ↗</a></div><div class="cards">${catalog.packages
           .filter((p) => p.bundleIds?.length)
           .map(showCard)
-          .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>Your idea.<br> Our next conversation.</h2><div class="step"><span>01</span><b>Imagine the moment</b><p>Choose your shows and services. Tell us what you have in mind.</p></div><div class="step"><span>02</span><b>Shape it together</b><p>We check availability and the details, then send your proposal.</p></div><div class="step"><span>03</span><b>Look forward to showtime</b><p>Review your proposal, the agreed payment terms and final confirmation. Then look forward to your celebration.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">The people behind the performance</span><h2>Talent with a story to tell.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => `<article class="panel profile">${p.photo ? `<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : '<div class="profile-placeholder" aria-hidden="true">✦</div>'}<h3>${e(p.name)}</h3>${p.membershipVerified ? '<span class="badge">Verified membership</span>' : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? `<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : "Add to my event"}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? `<section class="section"><span class="eyebrow">After the applause</span><h2>The audience has the last word.</h2><div class="profile-grid">${catalog.reviews.map((r) => `<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? `<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? `<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? `<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? `<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? `<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
+          .join("")}</div></section>${referralPromo()}${adultMagicFeature()}<section class="how" id="how"><h2>Your idea.<br> Our next conversation.</h2><div class="step"><span>01</span><b>Imagine the moment</b><p>Choose your shows and services. Tell us what you have in mind.</p></div><div class="step"><span>02</span><b>Shape it together</b><p>We check availability and the details, then send your proposal.</p></div><div class="step"><span>03</span><b>Look forward to showtime</b><p>Review your proposal, the agreed payment terms and final confirmation. Then look forward to your celebration.</p></div></section><section id="performers" class="section"><div class="section-heading"><div><span class="eyebrow">The people behind the performance</span><h2>Talent with a story to tell.</h2></div></div><div class="profile-grid">${catalog.performers.map((p) => h`<article class="panel profile">${p.photo ? h`<img src="${e(p.photo)}" alt="${e(p.name)}" loading="lazy" referrerpolicy="no-referrer">` : h('<div class="profile-placeholder" aria-hidden="true">✦</div>')}<h3>${e(p.name)}</h3>${p.membershipVerified ? h('<span class="badge">Verified membership</span>') : ""}<p>${e(p.bio)}</p><p class="muted">${e(p.areas)}</p>${p.video ? h`<p><a href="${e(p.video)}" target="_blank" rel="noopener noreferrer">Watch a show ↗</a></p>` : ""}${photoGallery(p.gallery)}<button data-performer="${e(p.id)}" class="outline">${selectedPerformers.includes(p.id) ? "✓ Added · remove" : copy("Add to my event")}</button></article>`).join("") || samProfile()}</div></section>${catalog.reviews.length ? h`<section class="section"><span class="eyebrow">After the applause</span><h2>The audience has the last word.</h2><div class="profile-grid">${catalog.reviews.map((r) => h`<article class="review"><div class="review-stars" aria-label="${r.overall} out of 5 stars">${"★".repeat(r.overall)}${"☆".repeat(5 - r.overall)}</div><p>${e(r.text)}</p><small>${e(catalog.performers.find((p) => p.id === r.performerId)?.name ?? "Overall event")} · Verified event review</small>${r.photo ? h`<img src="${e(r.photo)}" alt="Customer-shared event memory" loading="lazy" width="180" referrerpolicy="no-referrer">` : ""}</article>`).join("")}</div></section>` : ""}</main><footer class="footer"><span>✦ ${e(catalog.business.name)} · A little wonder goes a long way.</span><div class="links">${catalog.business.instagram ? h`<a href="${e(catalog.business.instagram)}" target="_blank" rel="noopener noreferrer">Instagram ↗</a>` : ""}${contactPhone ? h`<a href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}${contactEmail ? h`<a href="mailto:${e(contactEmail)}">${e(contactEmail)}</a>` : ""}<a href="/manage">Backstage login</a><button class="link" id="privacy">Privacy</button></div></footer>${contactPhone ? h`<a class="whatsapp-button" href="https://wa.me/${e(contactPhone.replace(/\D/g, "").replace(/^00/, ""))}?text=${encodeURIComponent("Hello! I would like help planning an entertainment event.")}" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp (opens a new tab)">✆ Let’s chat on WhatsApp ↗</a>` : ""}</div>`;
   setupMobileSiteMenu();
   applyPublicSiteMedia();
   const mobilePhotos = app.querySelector<HTMLElement>(".mobile-hero-photos");
@@ -1085,7 +1093,7 @@ function renderPublic() {
   if (!catalog.packages.some((item) => item.bundleIds?.length)) {
     const offersLink = document.createElement("a");
     offersLink.href = "#offers";
-    offersLink.textContent = "Offers & bundles";
+    setCopy(offersLink, "Offers & bundles");
     document.querySelector(".site-nav a[href='#characters']")?.before(offersLink);
   }
   const moments = [
@@ -1099,8 +1107,8 @@ function renderPublic() {
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
-  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => `<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${e(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
-  strip.innerHTML = `<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
+  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => h`<figure><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${copy(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
+  strip.innerHTML = h`<div class="moments-track"><div class="moments-set">${tiles()}</div><div class="moments-set" aria-hidden="true">${tiles(true)}</div></div>`;
   if (moments.length) document.querySelector(".ribbon")?.after(strip);
   polishVisitorCatalog();
   renderBox();
@@ -1113,12 +1121,12 @@ function renderPublic() {
       ["A personal moment", review.personalMoment],
       ["A detail to remember", review.rememberedDetail],
     ].filter((item) => item[1]);
-    if (extras.length) card.insertAdjacentHTML("beforeend", `<div class="review-highlights">${extras.map(([label, value]) => `<p><strong>${e(label)}</strong><br>${e(value)}</p>`).join("")}</div>`);
+    if (extras.length) card.insertAdjacentHTML("beforeend", h`<div class="review-highlights">${extras.map(([label, value]) => h`<p><strong>${copy(label)}</strong><br>${e(value)}</p>`).join("")}</div>`);
     if (extras.length || review.text.length > 160) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "outline small";
-      button.textContent = "Read their story ↗";
+      setCopy(button, "Read their story ↗");
       button.setAttribute("aria-expanded", "false");
       button.addEventListener("click", () => {
         const expanded = card.classList.toggle("expanded");
@@ -1130,7 +1138,7 @@ function renderPublic() {
   });
   const faq = document.createElement('section');
   faq.className = 'event-faq';
-  faq.innerHTML = '<h2>Before the curtain rises</h2><details><summary>Is my date confirmed when I send a request?</summary><p>No. We check the date, venue and performers, then send your proposal. Your booking is confirmed separately after the agreed checks and deposit requirements.</p></details><details><summary>Can I combine different shows?</summary><p>Yes. Add Sam’s shows and guest acts to one event box. We’ll check the complete plan and quote for your selection.</p></details><details><summary>How is the price decided?</summary><p>We prepare a personal quote for the shows, event location and setup you need. No payment is collected when you send a request.</p></details><details><summary>What should I prepare at the venue?</summary><p>Tell us where the event will be held. We’ll confirm the setup details with you before booking.</p></details>';
+  faq.innerHTML = h('<h2>Before the curtain rises</h2><details><summary>Is my date confirmed when I send a request?</summary><p>No. We check the date, venue and performers, then send your proposal. Your booking is confirmed separately after the agreed checks and deposit requirements.</p></details><details><summary>Can I combine different shows?</summary><p>Yes. Add Sam’s shows and guest acts to one event box. We’ll check the complete plan and quote for your selection.</p></details><details><summary>How is the price decided?</summary><p>We prepare a personal quote for the shows, event location and setup you need. No payment is collected when you send a request.</p></details><details><summary>What should I prepare at the venue?</summary><p>Tell us where the event will be held. We’ll confirm the setup details with you before booking.</p></details>');
   app.querySelector('main')?.append(faq);
   const offers = app.querySelector('#offers');
   if (offers) app.querySelector('#sam-shows')?.after(offers);
@@ -1148,18 +1156,22 @@ function renderPublic() {
     if (name) enquiryDetails(name);
   });
   on(app, "#find-show", "input", (ev) => {
-    const query = (ev.currentTarget as HTMLInputElement).value.trim().toLocaleLowerCase();
+    const query = (ev.currentTarget as HTMLInputElement).value.trim();
     const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card")];
     let found = 0;
     for (const card of cards) {
-      card.hidden = !card.textContent?.toLocaleLowerCase().includes(query);
+      const id = card.querySelector<HTMLElement>('[data-show-details]')?.dataset.showDetails;
+      const show = id ? catalog.packages.find(item => item.id === id && item.active) : undefined;
+      const service = card.querySelector<HTMLElement>('[data-enquiry-details]')?.dataset.enquiryDetails;
+      const values = show ? [show.name, publicShowName(show), show.description, show.category] : service && moreShowNames().includes(service) ? [service, experienceFor(service).heading, experienceFor(service).experience, ...(service === 'Characters' ? characterChoiceNames() : [])] : [];
+      card.hidden = !values.length || !matchesMultilingual(values, query);
       if (!card.hidden) found++;
     }
     app.querySelectorAll<HTMLElement>("#shows .show-group").forEach((group) => {
       group.hidden = !group.querySelector(".show-card:not([hidden])");
     });
     const count = app.querySelector("#show-search-count");
-    if (count) count.textContent = query ? `${found} match${found === 1 ? "" : "es"} found` : "";
+    if (count) count.textContent = query ? t(`${found} ${found === 1 ? "match" : "matches"} found`) : "";
   });
   on(app, "[data-bundle-idea]", "click", (ev) => {
     const keys = (ev.currentTarget as HTMLElement).dataset.bundleIdea!.split(",");
@@ -1181,16 +1193,16 @@ function renderPublic() {
   });
   const occasionShortcuts = document.createElement("div");
   occasionShortcuts.className = "occasion-shortcuts";
-  occasionShortcuts.innerHTML = `<p>What are we celebrating?</p><div role="group" aria-label="Start planning by occasion">${publicOccasions.slice(0, 6).map((occasion) => `<button type="button" class="outline small" data-start-occasion="${e(occasion)}">${e(occasion === "School event" ? "School" : occasion === "Corporate event" ? "Corporate" : occasion)}</button>`).join("")}</div>`;
+  occasionShortcuts.innerHTML = h`<p>What are we celebrating?</p><div role="group" aria-label="Start planning by occasion">${publicOccasions.slice(0, 6).map((occasion) => h`<button type="button" class="outline small" data-start-occasion="${e(occasion)}">${e(occasion === "School event" ? "School" : occasion === "Corporate event" ? "Corporate" : occasion)}</button>`).join("")}</div>`;
   app.querySelector(".hero-copy .micro")!.before(occasionShortcuts);
-  app.querySelector("#help-choose")!.textContent = "Design my event";
+  setCopy(app.querySelector("#help-choose")!, "Design my event");
   app.querySelector(".hero-copy .actions a")!.innerHTML = 'Book your event <span aria-hidden="true">↗</span>';
   on(app, "[data-start-occasion]", "click", (event) => { const occasion = (event.currentTarget as HTMLElement).dataset.startOccasion!; trackInterest("occasion", occasion); helpChoose(occasion); });
   on(app, "#help-choose", "click", () => helpChoose());
   on(app, "#privacy", "click", () =>
     openDialog(
       "Your details, handled with care",
-      `<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Public customer reviews have separate text and photo permission choices. Contact the business if any published media needs attention.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source and clicks on shows, services and event types without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
+      h`<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Public customer reviews have separate text and photo permission choices. Contact the business if any published media needs attention.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source and clicks on shows, services and event types without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
     ),
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, phone: contactPhone,
@@ -1198,8 +1210,8 @@ function renderPublic() {
 }
 function enquiryLinks(name: string) {
   const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
-  const help = /^\d{7,16}$/.test(phone) ? `<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’d like help with ${name} for my event. I’m looking at ${detailPageLink("service", name)}`)}" target="_blank" rel="noopener noreferrer">Ask about this service ↗</a>` : "";
-  return `<button type="button" data-service-enquiry="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box · remove" : "＋ Add to my event"}</button>${help}`;
+  const help = /^\d{7,16}$/.test(phone) ? h`<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’d like help with ${name} for my event. I’m looking at ${detailPageLink("service", name)}`)}" target="_blank" rel="noopener noreferrer">Ask about this service ↗</a>` : "";
+  return h`<button type="button" data-service-enquiry="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box · remove" : copy("＋ Add to my event")}</button>${help}`;
 }
 function serviceEnquiry(name: string) { toggleGuest(name); modal.close(); }
 
@@ -1245,7 +1257,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return `<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? `<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || `<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${e(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${e(name)}</button></h3><small class="show-subtitle">${e(experienceFor(name).heading)}</small><p>${e(specialDescription)}</p>${photos.length || hasVideo ? `<p class="show-media-note">${photos.length ? `${photos.length} portfolio photo${photos.length === 1 ? "" : "s"}` : ""}${hasVideo ? `${photos.length ? " · " : ""}Video` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box" : "＋ Add to my event"}</button></div></article>`;
+  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${copy(name)}</button></h3><small class="show-subtitle">${copy(experienceFor(name).heading)}</small><p>${copy(specialDescription)}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
 }
 function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
@@ -1257,21 +1269,21 @@ function enquiryDetails(name: string, inline = false) {
   const isGift = /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name);
   const isEventExtra = /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name);
   const intro = isCapture || isDecoration || isGift
-    ? experienceFor(name).personal
+    ? copy(experienceFor(name).personal)
     : isActivity
-      ? "Tell us the ages, guest count, date and venue. We will confirm the activities, setup and price for your event."
-      : isEventExtra ? experienceFor(name).personal
-        : `Ask us about ${name} for your event. We will check the performer, availability, venue needs and price before confirming anything.`;
+      ? copy("Tell us the ages, guest count, date and venue. We will confirm the activities, setup and price for your event.")
+      : isEventExtra ? copy(experienceFor(name).personal)
+        : `${copy("Ask us about")} ${copy(name)} ${copy("for your event. We will check the performer, availability, venue needs and price before confirming anything.")}`;
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
-      ? `<section><h3>${isGift ? "Gift ideas" : isCapture ? "Portfolio" : isActivity ? "Activity ideas" : isDecoration ? "Decoration portfolio" : "Past event photos"}</h3><p class="show-demo-note">${isGift ? "Examples only. The gift, quantity, personalisation and delivery are agreed in your proposal." : isCapture ? "Portfolio examples. Coverage, delivery and any publication permissions are agreed separately." : isActivity ? "These photos show possible activities. We'll confirm the exact games or workshop plan for your event." : isDecoration ? "These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote." : "These photos show past performances. We will confirm the performer, setup and availability for your date."}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
-      : '<p class="show-media-empty">Share your ideas with us. We’ll help plan the details for your event.</p>';
+      ? h`<section><h3>${isGift ? copy("Gift ideas") : isCapture ? copy("Portfolio") : isActivity ? copy("Activity ideas") : isDecoration ? copy("Decoration portfolio") : copy("Past event photos")}</h3><p class="show-demo-note">${isGift ? copy("Examples only. The gift, quantity, personalisation and delivery are agreed in your proposal.") : isCapture ? copy("Portfolio examples. Coverage, delivery and any publication permissions are agreed separately.") : isActivity ? copy("These photos show possible activities. We'll confirm the exact games or workshop plan for your event.") : isDecoration ? copy("These setups show what is possible. We will confirm your theme, venue, materials and final design in your quote.") : copy("These photos show past performances. We will confirm the performer, setup and availability for your date.")}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
+      : h('<p class="show-media-empty">Share your ideas with us. We’ll help plan the details for your event.</p>');
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
-    ? '<button type="button" id="choose-character" class="outline">Choose a character ↗</button>' : '';
+    ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     name,
-    `<div class="show-detail"><p class="eyebrow">${isGift ? "Favours & keepsakes" : isCapture ? "Photography & video" : isDecoration ? "Event styling" : isActivity ? "Games & workshops" : isEventExtra ? "Event services" : "Guest entertainment"} · by request</p><p>${e(intro)}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? `<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -1294,7 +1306,7 @@ function chooseCharacter() {
           required: true,
         },
       ],
-      `<p>Pick a costume you love. These are ideas from real events; we’ll check the exact costume and your date.</p>${characterGallery()}`,
+      h`<p>Pick a costume you love. These are ideas from real events; we’ll check the exact costume and your date.</p>${characterGallery()}`,
       "Ask about this character →",
     ),
   );
@@ -1314,9 +1326,12 @@ function creativeServiceOnly(packageIds: string[], services: string[] = []) {
   return !packageIds.length && !!services.length && services.every(name => /decoration|balloons? styling|event styling|floral|flower arrang|photograph|videograph|video coverage|event film|favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
 }
 function requestedServicesSummary(b: Booking) {
-  if (b.playgroundRequest) { const p=b.playgroundRequest; return '<section class="requested-services"><h3>PLAYTOWN reservation request</h3><p>'+e(p.kind==='visit'?'Children’s play visit':'Private event')+' · '+p.children+' children</p><p>Ages: '+e(p.childAges)+'</p>'+p.passes.map(pass=>'<p>'+e(pass.name)+' × '+pass.quantity+' · USD '+pass.unitUsd+' each</p>').join('')+'<p>'+(p.referenceTotalUsd===null?'Private event price to be quoted.':'Listed pass total: USD '+p.referenceTotalUsd+'.')+'</p><small>Entry and arrangements are subject to confirmation. No payment has been taken by submitting this request.</small></section>'; }
+  if(b.playgroundRequest) {
+    const p=b.playgroundRequest;
+    return h`<section class="requested-services"><h3>PLAYTOWN reservation request</h3><p>${copy(p.kind==='visit'?'Children’s play visit':'Private event')} · ${copy(`${p.children} children`)}</p><p>${copy('Ages:')} ${e(p.childAges)}</p>${p.passes.map(pass=>h`<p>${copy(pass.name)} × ${pass.quantity} · USD ${pass.unitUsd} ${copy('each')}</p>`).join('')}<p>${p.referenceTotalUsd===null?copy('Private event price to be quoted.'):copy('Listed pass total: USD')+' '+p.referenceTotalUsd+'.'}</p><small>Entry and arrangements are subject to confirmation. No payment has been taken by submitting this request.</small></section>`;
+  }
 
-  return b.requestedServices?.length ? `<section class="requested-services"><h3>Services in your request</h3><p>${b.requestedServices.map(e).join(" · ")}</p><small>Requested preferences. The proposal will confirm the selected services, arrangements and price.</small></section>` : "";
+  return b.requestedServices?.length ? h`<section class="requested-services"><h3>Services in your request</h3><p>${b.requestedServices.map(copy).join(" · ")}</p><small>Requested preferences. The proposal will confirm the selected services, arrangements and price.</small></section>` : "";
 }
 function eventFields(b?: Partial<Booking>): Field[] {
   return [
@@ -1343,7 +1358,8 @@ function eventFields(b?: Partial<Booking>): Field[] {
     },
     {
       key: "time",
-      label: `Event start time (${catalog?.business.timezone ?? state?.business.timezone ?? "Asia/Beirut"})`,
+      label: "Event start time",
+      help: catalog?.business.timezone ?? state?.business.timezone ?? "Asia/Beirut",
       type: "time",
       value: b?.time,
       required: true,
@@ -1427,11 +1443,11 @@ async function requestPlaytown(kind: 'visit'|'party') {
   const requestId=saved.requestId||crypto.randomUUID();
   const fields:Field[]=[{key:'date',label:'Visit date',type:'date',required:true},{key:'time',label:'Preferred arrival time (Beirut)',type:'time',required:true},{key:'children',label:'Number of children',type:'number',min:1,max:100,value:1,required:true},{key:'childAges',label:'Children’s ages',help:'For example: 4 and 7. Names are not needed.',required:true},{key:'notes',label:kind==='party'?'Tell us about your celebration':'Any questions or requests?',type:'textarea',wide:true}];
   openDialog(kind==='visit'?'Reserve a play visit · PLAYTOWN':'Plan a private event · PLAYTOWN',formBody(fields,
-    (kind==='visit'?'<fieldset class="playtown-pass-select"><legend>Choose a pass for each child</legend>'+playtown.passes.map(p=>'<label>'+e(p.name)+' · USD '+p.usd+'<small>'+e(p.description)+'</small><input aria-label="Quantity: '+e(p.name)+'" name="pass-'+p.id+'" type="number" min="0" max="100" step="1" value="0"></label>').join('')+'</fieldset><p class="playtown-total" aria-live="polite"></p>':'<p>Private event arrangements and prices are quoted separately from day passes.</p>')+'<p>'+playtown.address+'</p><p class="hint">This sends a reservation request to Magic App. We check with PLAYTOWN and confirm your visit before you arrive. You will sign in or create an account before sending.</p>', 'Continue with my reservation →'));
+    (kind==='visit'?h('<fieldset class="playtown-pass-select"><legend>Choose a pass for each child</legend>')+playtown.passes.map(p=>h('<label>')+copy(p.name)+' · USD '+p.usd+h('<small>')+copy(p.description)+h('</small><input ')+ 'data-customer-quantity="'+e(p.name)+'" aria-label="'+e(t('Quantity:')+' '+t(p.name))+'" name="pass-'+p.id+'" type="number" min="0" max="100" step="1" value="0"></label>').join('')+h('</fieldset><p class="playtown-total" aria-live="polite"></p>'):h('<p>Private event arrangements and prices are quoted separately from day passes.</p>'))+h('<p>')+playtown.address+h('</p><p class="hint">This sends a reservation request to Magic App. We check with PLAYTOWN and confirm your visit before you arrive. You will sign in or create an account before sending.</p>'), 'Continue with my reservation →'));
   const form=modal.querySelector<HTMLFormElement>('form')!;
   for(const control of form.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input[name],textarea[name]'))if(saved[control.name]!==undefined)control.value=saved[control.name];
   const save=()=>{const values=Object.fromEntries(new FormData(form).entries()) as Record<string,string>;values.requestId=requestId;try{sessionStorage.setItem(key,JSON.stringify(values));}catch{/* Draft storage optional. */}
-    const total=form.querySelector('.playtown-total');if(total)total.textContent='Listed pass total: USD '+playtown.passes.reduce((sum,p)=>sum+Math.max(0,Number(values['pass-'+p.id])||0)*p.usd,0);};
+    const total=form.querySelector('.playtown-total');if(total)total.innerHTML=copy('Listed pass total: USD')+' '+playtown.passes.reduce((sum,p)=>sum+Math.max(0,Number(values['pass-'+p.id])||0)*p.usd,0);};
   form.addEventListener('input',save);save();
   submit(form,async data=>{
     save(); const passes=playtown.passes.map(p=>({id:p.id,quantity:Number(data.get('pass-'+p.id)||0)})).filter(p=>p.quantity>0);
@@ -1449,7 +1465,7 @@ async function requestForm(retainedForm?: FormData) {
   continueButtons.forEach((button) => {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
-    button.textContent = "Opening…";
+    setCopy(button, "Opening…");
   });
   let account: {
     profile: { name: string; phone: string; email: string };
@@ -1477,10 +1493,10 @@ async function requestForm(retainedForm?: FormData) {
   const creativeServices = guestBasket.some(name => /decoration|floral|flower|photograph|videograph|favou?rs?|keepsakes?|guest gifts?/i.test(name));
   const magicOnly = !guestBasket.length && basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
-  const giftExtras = `<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
+  const giftExtras = h`<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
   openDialog(
     "Tell us about your event",
-    `<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(e).join(" + ")}</span></p>${designerSummary(designerPreferences) ? `<div class="designer-plan-summary"><span class="eyebrow">Your starting idea</span><p>${e(designerSummary(designerPreferences))}</p><button type="button" class="link" id="edit-designer-plan">Edit these preferences ↗</button><small>Exact event details below take priority. These preferences don’t confirm a booking.</small></div>` : ""}` + formBody(
+    h`<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(copy).join(" + ")}</span></p>${designerSummary(designerPreferences) ? h`<div class="designer-plan-summary"><span class="eyebrow">Your starting idea</span><p>${designerSummary(designerPreferences).split(" · ").map(copy).join(" · ")}</p><button type="button" class="link" id="edit-designer-plan">Edit these preferences ↗</button><small>Exact event details below take priority. These preferences don’t confirm a booking.</small></div>` : ""}` + formBody(
       [
         ...fields,
         ...(creativeServices ? [{ key: "creative-brief", label: "Your styling, photos & gift ideas (optional)", type: "textarea" as const, wide: true, help: "Colours, theme, photo or video coverage, and guest-gift quantity. Personalised names and dates will be approved with you before production." }] : []),
@@ -1493,7 +1509,7 @@ async function requestForm(retainedForm?: FormData) {
           wide: f.type === "textarea",
         })),
       ],
-      `${extras.length ? `<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => `<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}${giftExtras}${tokenChoices ? `<div class="token-request"><label for="request-tokens"><strong>Use my tokens on this magic show</strong></label><select id="request-tokens" name="requestTokens"><option value="0">Save my ${account.rewards.tokens.balance} tokens for later</option>${Array.from({ length: tokenChoices }, (_, index) => index + 1).map((cost) => `<option value="${cost}">${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}</option>`).join("")}</select><small>We’ll apply your choice to your proposal after checking the show details.</small></div>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${selectionNames().map(e).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and selected services before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
+      h`${extras.length ? h`<fieldset><legend>A little extra wow? (optional)</legend><p>Pick only the extras you want. We will include them in your quote and check suitability before confirmation.</p>${extras.map((p) => h`<label class="check"><input type="checkbox" name="checkout-extra" value="${e(p.id)}">${e(p.name)} · ${e(price(p))}</label>`).join("")}</fieldset>` : ""}${giftExtras}${tokenChoices ? h`<div class="token-request"><label for="request-tokens"><strong>Use my tokens on this magic show</strong></label><select id="request-tokens" name="requestTokens"><option value="0">Save my ${account.rewards.tokens.balance} tokens for later</option>${Array.from({ length: tokenChoices }, (_, index) => index + 1).map((cost) => h`<option value="${cost}">${cost} token${cost === 1 ? "" : "s"} · ${cost === 5 ? "Free magic show" : `${cost * 10}% off`}</option>`).join("")}</select><small>We’ll apply your choice to your proposal after checking the show details.</small></div>` : ""}<p>Booking as <strong>${e(account.profile.name)}</strong> · ${e(account.profile.phone)}. You can edit these in My account.</p><p class="hint">${selectionNames().map(e).join(" + ")}<br>This is a request, not a confirmed booking. We’ll check the venue, date and selected services before confirming.</p><p class="privacy">We use these details to manage your event. Authorized staff and logged platform support can access event records. Save your private link after submitting.</p>`,
       "Send my event request →",
     ),
   );
@@ -1589,26 +1605,26 @@ function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
     const availableIdeas = moreShowNames();
     openDialog(
       "Design your event",
-      `<div class="chooser"><p class="chooser-context">${e(designerSummary(answers))}</p><p class="chooser-intro">${answers.occasion === "Playground visit" ? "These shows are optional additions. Ask us about a playground or play visit separately; adding a show doesn’t reserve playground entry." : "Here’s a first sketch of your celebration. Mix your favourites, swap an idea or explore every show."}</p><div class="chooser-results">${featured.map((p) => {
+      h`<div class="chooser"><p class="chooser-context">${designerSummary(answers).split(" · ").map(copy).join(" · ")}</p><p class="chooser-intro">${answers.occasion === "Playground visit" ? copy("These shows are optional additions. Ask us about a playground or play visit separately; adding a show doesn’t reserve playground entry.") : copy("Here’s a first sketch of your celebration. Mix your favourites, swap an idea or explore every show.")}</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
         const alternatives = ranked;
-        return `<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? `<img src="${e(photo.url)}" alt="" loading="eager">` : `<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${e(p.category)}</span><h3>${e(publicShowName(p))}</h3><small>${e(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => `<li>${e(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? `<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => `<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${e(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
-      }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? `<h3>A finishing flourish?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => `<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
+        return h`<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? h`<img src="${e(photo.url)}" alt="" loading="eager">` : h`<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${copy(p.category)}</span><h3>${copy(publicShowName(p))}</h3><small>${copy(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => h`<li>${copy(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? h`<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => h`<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${copy(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
+      }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? h`<h3>A finishing flourish?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => h`<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
     if (["Baptism", "First Communion"].includes(answers.occasion)) {
       const results = modal.querySelector(".chooser-results");
       const details = modal.querySelector(".chooser-extras");
       const heading = details?.previousElementSibling;
       if (results && details && heading) {
-        heading.textContent = "The details for your gathering";
+        setCopy(heading, "The details for your gathering");
         results.before(heading, details);
-        results.insertAdjacentHTML("beforebegin", '<h3>Optional entertainment for the reception</h3><p class="chooser-question-hint">Add a show if it suits your gathering. You can also request just styling, photos or guest gifts.</p>');
+        results.insertAdjacentHTML("beforebegin", h('<h3>Optional entertainment for the reception</h3><p class="chooser-question-hint">Add a show if it suits your gathering. You can also request just styling, photos or guest gifts.</p>'));
       }
     }
-    modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", `<p class="chooser-fit-note">For ${e(answers.guests)} guests, we’ll confirm the setup with you. Swap a suggestion without changing shows already in your event box.</p>`);
+    modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", h`<p class="chooser-fit-note">For ${e(answers.guests)} guests, we’ll confirm the setup with you. Swap a suggestion without changing shows already in your event box.</p>`);
     if (answers.occasion === "Playground visit") {
       const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
-      if (/^\d{7,16}$/.test(phone)) modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", `<a class="button outline" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! Please help me with ${designerSummary(answers)}. I’m looking at ${location.origin}/b/${catalog.business.slug}#marketplace-playgrounds`)}" target="_blank" rel="noopener noreferrer">Ask about my play visit ↗</a>`);
+      if (/^\d{7,16}$/.test(phone)) modal.querySelector(".chooser-intro")?.insertAdjacentHTML("afterend", h`<a class="button outline" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! Please help me with ${designerSummary(answers)}. I’m looking at ${location.origin}/b/${catalog.business.slug}#marketplace-playgrounds`)}" target="_blank" rel="noopener noreferrer">Ask about my play visit ↗</a>`);
     }
     on(modal, "[data-swap-show]", "change", (event) => {
       const select = event.currentTarget as HTMLSelectElement;
@@ -1633,10 +1649,10 @@ function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
     const continueButton = document.createElement("button");
     continueButton.id = "chooser-continue";
     continueButton.type = "button";
-    continueButton.textContent = "Continue with my event ↗";
+    setCopy(continueButton, "Continue with my event ↗");
     continueButton.disabled = !basket.length && !guestBasket.length;
     modal.querySelector(".chooser-bottom")!.after(continueButton);
-    modal.querySelectorAll<HTMLButtonElement>("[data-recommend]").forEach((button) => { if (basket.includes(button.dataset.recommend!)) button.textContent = "✓ Added · remove"; });
+    modal.querySelectorAll<HTMLButtonElement>("[data-recommend]").forEach((button) => { if (basket.includes(button.dataset.recommend!)) setCopy(button, "✓ Added · remove"); });
     modal.querySelectorAll<HTMLButtonElement>("[data-guest-idea]").forEach((button) => { if (guestBasket.includes(button.dataset.guestIdea!)) button.textContent = "✓ " + button.dataset.guestIdea + " · remove"; });
     continueButton.addEventListener("click", () => { if (continueWithPlan) continueWithPlan(); else void requestForm(); });
     on(modal, "#chooser-restart", "click", () => { suggestedIds = null; showStep(0); });
@@ -1650,7 +1666,7 @@ function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
     const step = steps[index];
     openDialog(
       "Let’s imagine your event",
-      `<div class="chooser" data-designer-occasion="${e(answers.occasion)}"><p class="chooser-progress">${index + 1} of ${steps.length}</p><progress class="designer-progress" aria-label="Event planner progress" max="${steps.length}" value="${index + 1}"></progress><h3>${e(step.title)}</h3><p class="chooser-question-hint">${e(step.hint)}</p><div class="chooser-options">${step.choices.map(([icon, label]) => `<button type="button" class="chooser-option${answers[step.key] === label ? " is-selected" : ""}" aria-pressed="${answers[step.key] === label}" data-chooser-choice="${e(label)}">${icon ? `<span aria-hidden="true">${icon}</span>` : ""}${e(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? '<button type="button" class="outline" id="chooser-back">← Back</button>' : '<span></span>'}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
+      h`<div class="chooser" data-designer-occasion="${e(answers.occasion)}"><p class="chooser-progress">${index + 1} of ${steps.length}</p><progress class="designer-progress" aria-label="Event planner progress" max="${steps.length}" value="${index + 1}"></progress><h3>${copy(step.title)}</h3><p class="chooser-question-hint">${copy(step.hint)}</p><div class="chooser-options">${step.choices.map(([icon, label]) => h`<button type="button" class="chooser-option${answers[step.key] === label ? " is-selected" : ""}" aria-pressed="${answers[step.key] === label}" data-chooser-choice="${e(label)}">${icon ? h`<span aria-hidden="true">${icon}</span>` : ""}${copy(label)}</button>`).join("")}</div><div class="chooser-bottom">${index ? h('<button type="button" class="outline" id="chooser-back">← Back</button>') : h('<span></span>')}<button type="button" class="link" id="chooser-all">See every show ↗</button></div></div>`,
     );
     on(modal, "[data-chooser-choice]", "click", (ev) => {
       answers[step.key] = (ev.currentTarget as HTMLElement).dataset.chooserChoice!;
@@ -1725,22 +1741,22 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
       ];
   openDialog(
     register ? (orderAfter ? "Your shows are saved" : "Your next happy memory starts here") : "Welcome back to the fun",
-    (orderAfter ? `<div class="signup-progress"><strong>1 of 2 · ${register ? "Create your account" : "Sign in"}</strong><span>Your choices are saved. Next, tell us about your event.</span><ul class="signup-selections" aria-label="Your selected shows">${selectionNames().map((name) => `<li>${e(name)}</li>`).join("")}</ul><p>Keep your event details, proposals and rewards together in your own account.</p></div>` : "") + formBody(
+    (orderAfter ? h`<div class="signup-progress"><strong>1 of 2 · ${register ? copy("Create your account") : copy("Sign in")}</strong><span>Your choices are saved. Next, tell us about your event.</span><ul class="signup-selections" aria-label="Your selected shows">${selectionNames().map((name) => h`<li>${copy(name)}</li>`).join("")}</ul><p>Keep your event details, proposals and rewards together in your own account.</p></div>` : "") + formBody(
       fields,
-      '<p class="privacy">Your account shows only your own events. Keep your sign-in name and password safe. Phone verification is not connected yet.</p>',
+      h('<p class="privacy">Your account shows only your own events. Keep your sign-in name and password safe. Phone verification is not connected yet.</p>'),
       register ? (orderAfter ? "Create account & continue →" : "Create my customer account") : (orderAfter ? "Sign in & continue →" : "Sign in"),
     ) +
-      '<button class="link" id="switch-customer-auth">' +
+      h('<button class="link" id="switch-customer-auth">') +
       (register
-        ? "Already have an account? Sign in"
-        : "New here? Create an account") +
-      "</button>",
+        ? copy("Already have an account? Sign in")
+        : copy("New here? Create an account")) +
+      h("</button>"),
   );
   if (register) {
     const referral = modal.querySelector('.referral-field');
     if (referral) {
       const details = document.createElement('details'); details.className = 'referral-entry wide';
-      details.innerHTML = '<summary>Have a friend’s referral code? (optional)</summary>';
+      details.innerHTML = h('<summary>Have a friend’s referral code? (optional)</summary>');
       details.open = Boolean((referral.querySelector('input') as HTMLInputElement)?.value);
       referral.before(details); details.append(referral);
     }
@@ -1750,7 +1766,7 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
   if (!register) {
     const forgot = document.createElement("button");
     forgot.className = "link";
-    forgot.textContent = "Forgot password?";
+    setCopy(forgot,"Forgot password?");
     forgot.addEventListener("click", () => customerResetRequest());
     modal.append(forgot);
   }
@@ -1784,21 +1800,21 @@ function emailResetRequest(staff: boolean) {
     { key: "email", label: "Email address on your account", type: "email", autocomplete: "email", required: true },
   ];
   openDialog("Forgot your password?", formBody(fields,
-    "<p>We’ll email you a private link to choose a new password. It works once and expires after 30 minutes.</p>", "Email me a reset link")
-    + (!staff ? '<button class="link" id="manual-recovery">No email on your account? Get help from Sam</button>' : ""));
+    h("<p>We’ll email you a private link to choose a new password. It works once and expires after 30 minutes.</p>"), "Email me a reset link")
+    + (!staff ? h('<button class="link" id="manual-recovery">No email on your account? Get help from Sam</button>') : ""));
   if (!staff) on(modal, "#manual-recovery", "click", () => customerManualResetRequest());
   submit(modal.querySelector("form")!, async (data) => {
     const response = await api<{ message: string }>("/reset/request", "POST", {
       ...Object.fromEntries(data), ...(!staff ? { slug: catalog.business.slug } : {}),
     });
-    openDialog("Check your email", `<p>${e(response.message)}</p>`);
+    openDialog("Check your email", h`<p>${e(response.message)}</p>`);
   });
 }
 function emailResetComplete(code: string, staff: boolean) {
   openDialog("Choose a new password", formBody([
     { key: "password", label: "New password (7 characters minimum)", type: "password", autocomplete: "new-password", required: true },
     { key: "confirmPassword", label: "Repeat your new password", type: "password", autocomplete: "new-password", required: true },
-  ], "<p>Resetting your password signs out your other devices.</p>", "Save my new password"));
+  ], h("<p>Resetting your password signs out your other devices.</p>"), "Save my new password"));
   submit(modal.querySelector("form")!, async (data) => {
     if (data.get("password") !== data.get("confirmPassword")) throw new Error("The passwords don’t match. Please try again.");
     await api("/reset/complete", "POST", { code, password: data.get("password") });
@@ -1826,10 +1842,10 @@ function customerManualResetRequest() {
           required: true,
         },
       ],
-      "<p>The team will verify your identity before giving you a reset code. Automatic SMS delivery is not connected yet. If you also forgot your username, contact the business.</p>",
+      h("<p>The team will verify your identity before giving you a reset code. Automatic SMS delivery is not connected yet. If you also forgot your username, contact the business.</p>"),
       "Request password help",
     ) +
-      '<button class="link" id="have-reset-code">I already have a reset code</button>',
+      h('<button class="link" id="have-reset-code">I already have a reset code</button>'),
   );
   on(modal, "#have-reset-code", "click", () => customerResetComplete());
   submit(modal.querySelector("form")!, async (data) => {
@@ -1840,11 +1856,11 @@ function customerManualResetRequest() {
     );
     openDialog(
       "Password help requested",
-      "<p>" +
+      h("<p>") +
         e(response.message) +
-        "</p>" +
+        h("</p>") +
         (catalog.business.whatsapp
-          ? '<a class="button outline" target="_blank" rel="noopener noreferrer" href="https://wa.me/' +
+          ? h('<a class="button outline" target="_blank" rel="noopener noreferrer" href="https://wa.me/') +
             e(catalog.business.whatsapp.replace(/\D/g, "")) +
             "?text=" +
             encodeURIComponent(
@@ -1852,7 +1868,7 @@ function customerManualResetRequest() {
             ) +
             '">Contact us on WhatsApp</a>'
           : "") +
-        '<button id="have-reset-code">Enter my reset code</button>',
+        h('<button id="have-reset-code">Enter my reset code</button>'),
     );
     on(modal, "#have-reset-code", "click", () =>
       customerResetComplete(String(data.get("username"))),
@@ -1885,7 +1901,7 @@ function customerResetComplete(username = "", code = "") {
           required: true,
         },
       ],
-      "<p>Your code works once and expires 30 minutes after it is issued. Resetting signs out all existing customer sessions.</p>",
+      h("<p>Your code works once and expires 30 minutes after it is issued. Resetting signs out all existing customer sessions.</p>"),
       "Reset my password",
     ),
   );
@@ -1911,23 +1927,23 @@ async function customerResetQueue() {
   >("/manage/customer-resets");
   openDialog(
     "Customer password help",
-    "<p>Verify the customer’s identity through an established contact channel before issuing a code. A supplied name and phone alone are not proof. Codes are never sent automatically.</p>" +
+    h("<p>Verify the customer’s identity through an established contact channel before issuing a code. A supplied name and phone alone are not proof. Codes are never sent automatically.</p>") +
       (requests
         .map(
           (r) =>
-            '<div class="row"><div><h3>' +
+            h('<div class="row"><div><h3>') +
             e(r.name) +
-            "</h3><p>" +
+            h("</h3><p>") +
             e(r.username) +
             " · " +
             e(r.phone) +
-            '</p></div><button class="outline small" data-reset-request="' +
+            h('</p></div><button class="outline small" data-reset-request="') +
             e(r.id) +
             '">' +
             (r.issued ? "Replace reset code" : "Review request") +
-            "</button></div>",
+            h("</button></div>"),
         )
-        .join("") || "<p>No open reset requests.</p>"),
+        .join("") || h("<p>No open reset requests.</p>")),
   );
   on(modal, "[data-reset-request]", "click", (ev) => {
     const r = requests.find(
@@ -1945,11 +1961,11 @@ async function customerResetQueue() {
             required: true,
           },
         ],
-        "<p>" +
+        h("<p>") +
           e(r.name) +
           " · " +
           e(r.username) +
-          "</p><p>A new code invalidates any previous code. Share it only with the verified customer.</p>",
+          h("</p><p>A new code invalidates any previous code. Share it only with the verified customer.</p>"),
         "Issue private reset code",
       ),
     );
@@ -1969,7 +1985,7 @@ async function customerResetQueue() {
         result.code;
       openDialog(
         "Private reset details",
-        "<p>Valid for 30 minutes and one use. Copy now; the code is not stored in readable form.</p>" +
+        h("<p>Valid for 30 minutes and one use. Copy now; the code is not stored in readable form.</p>") +
           field({
             key: "reset-link",
             label: "Private reset link",
@@ -1980,19 +1996,19 @@ async function customerResetQueue() {
             label: "Private reset code",
             value: result.code,
           }) +
-          "<p>No message has been sent. Share privately with the verified customer.</p>",
+          h("<p>No message has been sent. Share privately with the verified customer.</p>"),
       );
     });
   });
 }
 function tokenLadder() {
-  return '<div class="token-ladder" aria-label="Magic show token rewards">' +
+  return h('<div class="token-ladder" aria-label="Magic show token rewards">') +
     [10, 20, 30, 40, 100].map((percent, index) =>
-      `<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? "Free magic show" : `${percent}% off`}</strong></div>`
-    ).join("") + '</div>';
+      h`<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? copy("Free magic show") : `${percent}% off`}</strong></div>`
+    ).join("") + h('</div>');
 }
 function referralPromo() {
-  return `<section id="rewards" class="section referral-promo"><div><span class="eyebrow">Your friends bring the magic</span><h2>Invite friends.<br><em>Get a free magic show.</em></h2><p>Share your link. When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.</p><button type="button" id="referral-account">Get my invitation link ↗</button><small>One token per referred friend. Use tokens one by one or save five for a free magic show.</small></div>${tokenLadder()}</section>`;
+  return h`<section id="rewards" class="section referral-promo"><div><span class="eyebrow">Your friends bring the magic</span><h2>Invite friends.<br><em>Get a free magic show.</em></h2><p>Share your link. When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.</p><button type="button" id="referral-account">Get my invitation link ↗</button><small>One token per referred friend. Use tokens one by one or save five for a free magic show.</small></div>${tokenLadder()}</section>`;
 }
 async function offerNotification() {
   try {
@@ -2007,10 +2023,10 @@ async function offerNotification() {
     const banner = document.createElement("div");
     banner.className = "offer-notification";
     const text = document.createElement("span");
-    text.textContent = `✦ New offer: ${latest.title}`;
+    text.innerHTML = `${copy("✦ New offer:")} ${e(latest.title)}`;
     const link = document.createElement("a");
     link.href = "#shows";
-    link.textContent = "See offer ↗";
+    setCopy(link, "See offer ↗");
     link.addEventListener("click", () => {
       localStorage.setItem(key, latest.id);
       banner.remove();
@@ -2100,58 +2116,58 @@ async function customerAccount() {
   ];
   openDialog(
     "My little world of wonder",
-    "<p>Your username: <strong>" +
+    h("<p>Your username: <strong>") +
       e(account.username) +
-      '</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>' +
+      h('</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>') +
       formBody(fields) +
-      (account.pushEnabled && "serviceWorker" in navigator && "PushManager" in window ? '<div class="account-push"><h3>Phone alerts</h3><p>Get a popup when your event changes. New shows and offers use your choice above.</p><button type="button" class="outline small" id="enable-phone-alerts">Enable phone notifications</button> <button type="button" class="link" id="disable-phone-alerts">Turn off</button><p id="phone-alert-status" role="status"></p></div>' : '') +
-      (account.notifications.length ? '<section class="account-announcements"><h3>Your updates</h3>' + account.notifications.map((item) => `<div class="announcement"><strong>${e(item.title)}</strong><span>${e(item.body)}</span></div>`).join('') + '</section>' : '') +
-      '<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>' +
+      (account.pushEnabled && "serviceWorker" in navigator && "PushManager" in window ? h('<div class="account-push"><h3>Phone alerts</h3><p>Get a popup when your event changes. New shows and offers use your choice above.</p><button type="button" class="outline small" id="enable-phone-alerts">Enable phone notifications</button> <button type="button" class="link" id="disable-phone-alerts">Turn off</button><p id="phone-alert-status" role="status"></p></div>') : '') +
+      (account.notifications.length ? h('<section class="account-announcements"><h3>Your updates</h3>') + account.notifications.map((item) => h`<div class="announcement"><strong>${noticeTitleView(item.title)}</strong><span>${noticeBodyView(item.body,item.kind)}</span></div>`).join('') + h('</section>') : '') +
+      h('<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>') +
       account.rewards.tokens.balance +
       ' token' + (account.rewards.tokens.balance === 1 ? '' : 's') +
       ' ready to use</h3><p>When a friend joins with your link and completes a fully paid Magic, Science or Bubbles show, you get one token.</p>' +
       tokenLadder() +
-      '<p class="hint">Choose how many to use on one magic show. Spend 2 from a balance of 3 and keep 1. Ask us to apply your choice to your proposal. Extra tokens can be added by our team.</p></section>' +
-      (account.announcements.length ? '<section class="account-announcements"><h3>New offers for you</h3>' +
-        account.announcements.map((item) => '<a class="announcement" href="#shows" data-announcement="' + e(item.id) + '"><strong>✦ ' + e(item.title) + '</strong><span>' + e(item.description) + '</span></a>').join('') + '</section>' : '') +
-      "<h3>My issued rewards</h3>" +
+      h('<p class="hint">Choose how many to use on one magic show. Spend 2 from a balance of 3 and keep 1. Ask us to apply your choice to your proposal. Extra tokens can be added by our team.</p></section>') +
+      (account.announcements.length ? h('<section class="account-announcements"><h3>New offers for you</h3>') +
+        account.announcements.map((item) => h('<a class="announcement" href="#shows" data-announcement="') + e(item.id) + '"><strong>✦ ' + e(item.title) + h('</strong><span>') + e(item.description) + h('</span></a>')).join('') + h('</section>') : '') +
+      h("<h3>My issued rewards</h3>") +
       (account.rewards.awards
         .map(
           (a) =>
-            '<div class="row"><div><strong>' +
+            h('<div class="row"><div><strong>') +
             e(pretty(a.kind)) +
             " · " +
             a.percent +
             "%</strong><p>" +
             e(a.terms) +
-            "</p></div>" +
+            h("</p></div>") +
             badge(a.status) +
-            "</div>",
+            h("</div>"),
         )
-        .join("") || "<p>No rewards issued yet.</p>") +
-      "<p class=\"referral-code-line\">Your referral code: <strong>" +
+        .join("") || h("<p>No rewards issued yet.</p>")) +
+      h("<p class=\"referral-code-line\">Your referral code: <strong>") +
       e(account.referralCode) +
-      '</strong> <button type="button" class="outline small" id="copy-referral-code">Copy code</button></p><p><a href="' +
+      h('</strong> <button type="button" class="outline small" id="copy-referral-code">Copy code</button></p><p><a href="') +
       e(invitationLink) +
       '">Open my invitation link ↗</a> <button type="button" class="outline small" id="copy-referral-link">Copy invitation link</button></p>' +
-      account.bookings.filter((b) => b.status === "confirmed").map((b) => `<div class="account-milestone"><strong>✦ ${e(b.name)} is confirmed!</strong><span>Your countdown and assistant certificate are ready.</span><button type="button" class="small" data-customer-event="${e(b.id)}">Open my event ↗</button></div>`).join("") +
-      '<h3>My celebrations</h3>' +
+      account.bookings.filter((b) => b.status === "confirmed").map((b) => h`<div class="account-milestone"><strong>✦ ${e(b.name)} is confirmed!</strong><span>Your countdown and assistant certificate are ready.</span><button type="button" class="small" data-customer-event="${e(b.id)}">Open my event ↗</button></div>`).join("") +
+      h('<h3>My celebrations</h3>') +
       (account.bookings
         .map(
           (b) =>
-            '<div class="row"><div><h3>' +
+            h('<div class="row"><div><h3>') +
             e(b.name) +
-            "</h3><p>" +
-            day(b.date) +
+            h("</h3><p>") +
+            dateCopy(b.date) +
             " · " +
-            e(customerStatus(b.status, b.declined)) +
-            '</p></div><button class="outline small" data-customer-event="' +
+            copy(customerStatus(b.status, b.declined)) +
+            h('</p></div><button class="outline small" data-customer-event="') +
             e(b.id) +
             '">Open my event</button></div>',
         )
         .join("") ||
-        "<p>Your first happy day is waiting. Add a show to your event box.</p>") +
-      '<button class="link" id="customer-password">Change password</button><button class="link" id="customer-logout">Sign out</button>',
+        h("<p>Your first happy day is waiting. Add a show to your event box.</p>")) +
+      h('<button class="link" id="customer-password">Change password</button><button class="link" id="customer-logout">Sign out</button>'),
   );
   submit(modal.querySelector("form")!, async (data) => {
     await api(`/customer/${catalog.business.slug}/profile`, "PUT", {
@@ -2176,7 +2192,7 @@ async function customerAccount() {
       const bytes = Uint8Array.from(atob(key.publicKey.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - key.publicKey.length % 4) % 4)), (character) => character.charCodeAt(0));
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
       await api(`/customer/${catalog.business.slug}/push-device`, "POST", subscription.toJSON());
-      status.textContent = "Phone notifications are on. We’ll alert you when your event changes.";
+      setCopy(status, "Phone notifications are on. We’ll alert you when your event changes.");
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to enable notifications on this phone.";
     }
@@ -2190,7 +2206,7 @@ async function customerAccount() {
         await api(`/customer/${catalog.business.slug}/push-device`, "DELETE", { endpoint: subscription.endpoint });
         await subscription.unsubscribe();
       }
-      status.textContent = "Phone notifications are off on this device.";
+      setCopy(status, "Phone notifications are off on this device.");
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : "Unable to turn off notifications.";
     }
@@ -2228,7 +2244,7 @@ async function customerAccount() {
             required: true,
           },
         ],
-        "<p>All customer sessions will be signed out.</p>",
+        h("<p>All customer sessions will be signed out.</p>"),
       ),
     );
     submit(modal.querySelector("form")!, async (data) => {
@@ -5542,35 +5558,35 @@ async function renderEvent() {
     cancelled:
       b.declined ? "Sam cannot take this request. Please contact us to discuss another date or show." : "This event has been cancelled. Please contact the business about any remaining payment or refund.",
   };
-  app.innerHTML = `<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1><span class="badge ${e(b.status)}">${e(customerStatus(b.status, b.declined))}</span><p class="lead">${e(descriptions[b.status])}</p>${customSummary(b)}${requestedServicesSummary(b)}<div class="progress">${[
+  app.innerHTML = h`<main id="main" class="event-page">${brand(data.business.name, data.business.logo)}<p class="eyebrow">Just for your celebration · Private event page</p><h1>${e(b.name)}</h1><span class="badge ${e(b.status)}">${copy(customerStatus(b.status, b.declined))}</span><p class="lead">${copy(descriptions[b.status])}</p>${customSummary(b)}${requestedServicesSummary(b)}<div class="progress">${[
     ["Request received", true],
     ["Proposal accepted", !!b.acceptedQuoteId],
     ["Booking confirmed", ["confirmed", "completed"].includes(b.status)],
   ]
     .map(
       ([label, done]) =>
-        `<span class="${done ? "done" : ""}">${done ? "✓" : "○"} ${label}</span>`,
+        h`<span class="${done ? "done" : ""}">${done ? "✓" : "○"} ${copy(String(label))}</span>`,
     )
     .join(
       "",
-    )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${day(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? "Indoor" : "Outdoor"} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? '<button id="event-details" class="outline small">Update venue & audience details</button>' : ""}</section>${b.quotes.length ? `<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => `<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? `<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? `<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? `<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? "Your preferred plan ✓" : "Confirmed plan ✓"}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? `<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your event</h2><ul class="timeline">${data.timetable.map((t) => `<li><time>${t.at}</time><span>${e(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? `<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? `<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? `<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? `<span class="badge">${e(p.name)} reviewed ✓</span>` : `<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
+    )}</div><section class="panel"><div class="details-grid"><div><small>When</small><strong>${dateCopy(b.date)} · ${e(b.time)}</strong><p>${e(data.business.timezone)}</p></div><div><small>Where</small><strong>${e(b.location)}</strong></div><div><small>Your audience</small><strong>${b.audience} guests · Main age ${b.age}</strong></div><div><small>Venue setup</small><strong>${b.indoor ? copy("Indoor") : copy("Outdoor")} · ${b.space} m² · ${b.power ? "Electricity" : "No electricity"}</strong></div></div>${!["completed", "cancelled"].includes(b.status) ? h('<button id="event-details" class="outline small">Update venue & audience details</button>') : ""}</section>${b.quotes.length ? h`<section><h2>Your happy possibilities</h2><div class="quote-options">${b.quotes.map((q) => h`<article class="quote-card"><h3>${e(q.name)}</h3><p>${q.packageIds.map((p) => e(publicPackageLabel(data.packages.find((v) => v.id === p)?.name))).join(" + ")}</p><div class="amount">${money(q.amount)}</div>${b.status === "quoted" ? h`<p>Proposed deposit: ${money(q.deposit)}</p>` : ""}<p>${e(q.notes)}</p>${rewardSummary(q)}${b.status === "quoted" ? h`<button data-accept="${q.id}">Choose this option</button>` : q.id === b.acceptedQuoteId ? h`<span class="badge ${b.status === "accepted" ? "accepted" : "confirmed"}">${b.status === "accepted" ? copy("Your preferred plan ✓") : copy("Confirmed plan ✓")}</span>` : ""}</article>`).join("")}</div>${b.status === "quoted" || b.status === "accepted" ? h`<p class="privacy">Choosing a proposal saves your preference. Sam confirms the booking after checking the event details and performer availability.</p>` : ""}</section>` : ""}<section class="panel"><h2>The plan for your event</h2><ul class="timeline">${data.timetable.map((t) => h`<li><time>${t.at}</time><span>${copy(t.label)}${t.duration ? ` · ${t.duration} minutes` : ""}</span></li>`).join("")}</ul><small>Provisional until confirmed. The team reviews travel and setup.</small></section>${b.acceptedQuoteId ? h`<section class="panel"><h3>Payments at a glance</h3><div class="details-grid"><div><small>Agreed total</small><strong>${money(data.totals.agreed)}</strong></div><div><small>Recorded payments</small><strong>${money(data.totals.paid)}</strong></div><div><small>Balance remaining</small><strong>${money(data.totals.balance)}</strong></div></div>${b.paymentTerms ? h`<p><strong>Payment agreement:</strong> ${e(b.paymentTerms)}</p>` : ""}<p class="privacy">Please arrange payment directly with the business. This page does not collect card details.</p></section>` : ""}${b.status === "completed" ? h`<section class="panel"><h2>How was your little moment of wonder?</h2><div class="actions">${[{ id: "", name: "Overall event" }, ...data.performers].map((p) => (data.reviewed.includes(p.id) ? h`<span class="badge">${e(p.name)} reviewed ✓</span>` : h`<button data-review="${p.id}" class="outline">Review ${e(p.name)}</button>`)).join("")}</div></section>` : ""}<footer class="footer"><span>Keep this link private. It gives access to your event.</span><a href="/b/${e(data.business.slug)}">Back to the shows ↗</a></footer></main>`;
   if (serviceOnly) {
     const facts = app.querySelectorAll('.event-page > .panel .details-grid > div');
-    if (facts[2]) facts[2].innerHTML = '<small>Your gathering</small><strong>' + b.audience + ' guests</strong>';
+    if (facts[2]) facts[2].innerHTML = h('<small>Your gathering</small><strong>') + copy(`${b.audience} guests`) + '</strong>';
     facts[3]?.remove();
     const timeline = app.querySelector('.event-page > .panel .timeline');
-    if (timeline) timeline.closest('section')!.innerHTML = '<h2>The details, brought together</h2><p>We’ll agree the design, coverage, gift quantities and delivery or setup arrangements in your proposal.</p><small>Your request does not confirm availability or reserve a service.</small>';
+    if (timeline) timeline.closest('section')!.innerHTML = h('<h2>The details, brought together</h2><p>We’ll agree the design, coverage, gift quantities and delivery or setup arrangements in your proposal.</p><small>Your request does not confirm availability or reserve a service.</small>');
   }
   if (b.playgroundRequest) {
     const details=app.querySelector('.event-page > .panel');
-    if(details) details.innerHTML='<div class="details-grid"><div><small>Requested arrival</small><strong>'+day(b.date)+' · '+e(b.time)+'</strong><p>'+e(data.business.timezone)+'</p></div><div><small>Playground</small><strong>'+playtown.address+'</strong><p><a href="'+playtown.map+'" target="_blank" rel="noopener noreferrer">Open exact location in Google Maps ↗</a></p></div></div><p class="hint">To change children, passes or visit details, contact Magic App before your visit.</p>';
+    if(details) details.innerHTML=h('<div class="details-grid"><div><small>Requested arrival</small><strong>')+dateCopy(b.date)+' · '+e(b.time)+h('</strong><p>')+e(data.business.timezone)+h('</p></div><div><small>Playground</small><strong>')+playtown.address+h('</strong><p><a href="')+playtown.map+'" target="_blank" rel="noopener noreferrer">Open exact location in Google Maps ↗</a></p></div></div><p class="hint">To change children, passes or visit details, contact Magic App before your visit.</p>';
     const timeline=app.querySelector('.event-page > .panel .timeline');
     if(timeline) timeline.closest('section')!.remove();
   }
   if (b.giftDetails) {
     const gift = document.createElement("section");
     gift.className = "gift-card";
-    gift.innerHTML = `<span class="eyebrow">✦ A gift made of memories</span><h2>For ${e(b.giftDetails.recipientName)}</h2><p>${e(b.giftDetails.message || "A little wonder is on its way.")}</p><strong>${b.status === "confirmed" ? "Your magical day is booked" : "Your magical day is being planned"}</strong><small>${b.giftDetails.flexibleDate ? "The date will be decided together" : `${day(b.date)} · ${e(b.time)}`}</small><span class="gift-brand">Magic by Sam ✦</span><button type="button" id="print-gift" class="outline small">Print gift card</button>`;
+    gift.innerHTML = h`<span class="eyebrow">✦ A gift made of memories</span><h2>For ${e(b.giftDetails.recipientName)}</h2><p>${e(b.giftDetails.message || "A little wonder is on its way.")}</p><strong>${b.status === "confirmed" ? copy("Your magical day is booked") : copy("Your magical day is being planned")}</strong><small>${b.giftDetails.flexibleDate ? copy("The date will be decided together") : `${dateCopy(b.date)} · ${e(b.time)}`}</small><span class="gift-brand">Magic by Sam ✦</span><button type="button" id="print-gift" class="outline small">Print gift card</button>`;
     app.querySelector(".progress")?.after(gift);
     on(app, "#print-gift", "click", () => {
       document.body.classList.add("print-gift");
@@ -5581,7 +5597,7 @@ async function renderEvent() {
   if (b.status === "confirmed" && data.startsAt) {
     const countdown = document.createElement("section");
     countdown.className = "event-countdown";
-    countdown.innerHTML = '<span class="eyebrow">✦ Your magic begins in</span><strong id="countdown-value"></strong><p>Your event mission: get ready to be surprised.</p>';
+    countdown.innerHTML = h('<span class="eyebrow">✦ Your magic begins in</span><strong id="countdown-value"></strong><p>Your event mission: get ready to be surprised.</p>');
     app.querySelector(".progress")?.after(countdown);
     const updateCountdown = () => {
       const minutes = Math.max(0, Math.ceil((new Date(data.startsAt).getTime() - Date.now()) / 60000));
@@ -5589,7 +5605,7 @@ async function renderEvent() {
       const hours = Math.floor(minutes % 1440 / 60);
       const remainder = minutes % 60;
       const target = countdown.querySelector("#countdown-value");
-      if (target) target.textContent = minutes ? `${days} days · ${hours} hours · ${remainder} minutes` : "It's showtime!";
+      if (target) target.innerHTML = minutes ? `${days} ${copy("days")} · ${hours} ${copy("hours")} · ${remainder} ${copy("minutes")}` : copy("It's showtime!");
     };
     updateCountdown();
     eventCountdownTimer = setInterval(updateCountdown, 60000);
@@ -5598,8 +5614,8 @@ async function renderEvent() {
     const certificate = document.createElement("section");
     certificate.className = "certificate-card";
     certificate.innerHTML = b.certificate
-      ? `<span class="eyebrow">✦ Your starring moment</span><h2>Certificate of Wonder</h2><p>Presented to <strong>${e(b.certificate.starName)}</strong></p><p>Honorary assistant ${e(b.certificate.role)} for a magical day with Sam.</p><small>${day(b.date)} · Magic by Sam</small><div class="actions"><button type="button" id="print-certificate">Print certificate</button><button type="button" id="edit-certificate" class="outline">Change name</button></div>`
-      : `<span class="eyebrow">✦ A keepsake for your star</span><h2>Make their day official.</h2><p>Create a personalized assistant magician or scientist certificate for a child or an adult.</p><button type="button" id="edit-certificate">Make certificate →</button>`;
+      ? h`<span class="eyebrow">✦ Your starring moment</span><h2>Certificate of Wonder</h2><p>Presented to <strong>${e(b.certificate.starName)}</strong></p><p>Honorary assistant ${copy(b.certificate.role)} for a magical day with Sam.</p><small>${dateCopy(b.date)} · Magic by Sam</small><div class="actions"><button type="button" id="print-certificate">Print certificate</button><button type="button" id="edit-certificate" class="outline">Change name</button></div>`
+      : h`<span class="eyebrow">✦ A keepsake for your star</span><h2>Make their day official.</h2><p>Create a personalized assistant magician or scientist certificate for a child or an adult.</p><button type="button" id="edit-certificate">Make certificate →</button>`;
     app.querySelector(".event-countdown, .progress")?.after(certificate);
     on(app, "#print-certificate", "click", () => {
       document.body.classList.add("print-certificate");
@@ -5611,7 +5627,7 @@ async function renderEvent() {
         { key: "starName", label: "Star’s name", value: b.certificate?.starName ?? "", required: true },
         { key: "role", label: "Assistant role", type: "select", value: b.certificate?.role ?? "magician", options: options(["magician", "scientist"]) },
       ];
-      openDialog("A certificate for your star", formBody(certificateFields, "<p class=\"privacy\">Use the name you want to appear on the printable certificate.</p>", "Create certificate"));
+      openDialog("A certificate for your star", formBody(certificateFields, h("<p class=\"privacy\">Use the name you want to appear on the printable certificate.</p>"), "Create certificate"));
       submit(modal.querySelector("form")!, async (form) => {
         await api("/event/certificate", "POST", formValues(form, certificateFields));
         modal.close();
@@ -5624,7 +5640,7 @@ async function renderEvent() {
     const q = b.quotes.find((q) => q.id === quoteId)!;
     openDialog(
       "Choose this happy possibility?",
-      `<h3>${e(q.name)}</h3><p>Total ${money(q.amount)} · Deposit ${money(q.deposit)}</p><p>${e(q.notes)}</p>${rewardSummary(q)}<p class="hint">Your choice will be sent for final confirmation. It does not reserve the date until the business confirms.</p><form><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">Accept this proposal</button></div></form>`,
+      h`<h3>${e(q.name)}</h3><p>Total ${money(q.amount)} · Deposit ${money(q.deposit)}</p><p>${e(q.notes)}</p>${rewardSummary(q)}<p class="hint">Your choice will be sent for final confirmation. It does not reserve the date until the business confirms.</p><form><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">Accept this proposal</button></div></form>`,
     );
     submit(modal.querySelector("form")!, async () => {
       await api("/event/accept", "POST", { quoteId, revision: b.revision });
@@ -5642,7 +5658,7 @@ async function renderEvent() {
       "Fine-tune your event details",
       formBody(
         fields,
-        '<p class="hint">Changes to a confirmed event require the business to check and confirm the details again.</p>',
+        h('<p class="hint">Changes to a confirmed event require the business to check and confirm the details again.</p>'),
       ),
     );
     submit(modal.querySelector("form")!, async (form) => {
@@ -5711,7 +5727,7 @@ function reviewForm(performerId: string) {
     "A few words after the applause",
     formBody(
       fields,
-      '<p class="privacy">Private feedback is never displayed publicly. Photo permission is separate from review permission.</p>',
+      h('<p class="privacy">Private feedback is never displayed publicly. Photo permission is separate from review permission.</p>'),
       "Send my review",
     ),
   );
@@ -5742,6 +5758,17 @@ async function start() {
     return;
   }
   document.body.classList.add("customer-surface");
+  installCustomerLanguageSelector();
+  document.addEventListener('invalid',event=>{
+    const control=event.target;
+    if(!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement))return;
+    const v=control.validity;
+    control.setCustomValidity(t(v.valueMissing ? 'Please complete this field.' : v.typeMismatch ? (control instanceof HTMLInputElement && control.type === 'email' ? 'Enter a valid email address.' : 'Please check this field.') : v.tooShort ? 'Use at least 7 characters.' : v.patternMismatch ? 'Use the format shown in the help text.' : v.rangeUnderflow || v.rangeOverflow || v.stepMismatch ? 'Enter a number within the allowed range.' : 'Please check this field.'));
+  },true);
+  document.addEventListener('input',event=> { const control=event.target;if(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)control.setCustomValidity(''); });
+  document.addEventListener('customerlanguagechange',()=>document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea').forEach(control=>control.setCustomValidity('')));
+  const initialLoading = app.querySelector(".loading p"); if(initialLoading)setCopy(initialLoading,"Setting the stage…");
+  const skipLink = document.querySelector(".skip"); if (skipLink) setCopy(skipLink,"Skip to content");
   setupPhotoZoom();
   if (location.pathname === "/event") {
     await renderEvent();
@@ -5795,8 +5822,9 @@ async function start() {
   }
 }
 start().catch((error) => {
-  app.innerHTML = `<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
+  app.innerHTML = h`<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });
+
 
 
 

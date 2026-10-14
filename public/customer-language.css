@@ -1,0 +1,17 @@
+
+/* Shared customer languages. Administration never receives this selector. */
+.customer-language-bar{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;padding:.45rem max(1rem,calc((100vw - 1240px)/2));background:#f6f2ff;color:#30214a;position:relative;z-index:21}
+.customer-language-bar select{width:auto;max-width:100%;padding:.35rem 2rem .35rem .7rem;border-radius:999px;border:1px solid #c8badc;background:#fff;font:inherit;font-size:.88rem}
+.customer-copy{display:contents}
+html[dir=rtl] .customer-surface{font-family:Tahoma,Arial,sans-serif;letter-spacing:normal;font-family:Tahoma,Arial,sans-serif}
+html[dir=rtl] .customer-surface :is(h1,h2,h3,button,input,select,textarea){letter-spacing:normal;font-family:Tahoma,Arial,sans-serif}
+html[dir=rtl] .customer-surface :is(input[type=tel],input[type=email],input[type=password],input[type=url],input[type=date],input[type=time]){direction:ltr;text-align:start}
+html[dir=rtl] .customer-surface .mobile-site-menu{left:auto;right:0;transform:translateX(105%)}
+html[dir=rtl] .customer-surface.site-menu-open .mobile-site-menu{transform:translateX(0)}
+.customer-surface :is(button,.button,label){overflow-wrap:anywhere}
+.customer-surface :is(.forms-grid,.site-nav,.chooser-options)>*{min-width:0}
+
+.dialog-language{display:flex;justify-content:flex-end;margin-block:.5rem 1rem}.dialog-language select{width:auto;max-width:100%;padding:.3rem .7rem;border-radius:999px;font:inherit;background:#faf7ff;border:1px solid #c8badc}html[dir=rtl] .customer-surface :is(.dialog-heading,.details-grid,.show-meta,.catalog-chapter,.mp-category,.mobile-menu-branch summary){text-align:start}
+
+
+html[dir=rtl] .customer-surface .guide-steps{padding-right:24px;padding-left:0}html[dir=rtl] .customer-surface .guide-steps>li{padding-right:8px;padding-left:0}html[dir=rtl] .customer-surface :is([data-zoom-prev],[data-zoom-next],.photo-rail-controls button){transform:scaleX(-1)}

@@ -1,3 +1,4 @@
+import { matchesMultilingual } from "./multilingual-search.js";
 /** Owner-supplied pilot listing. Price sheet received 12 October 2026.
  * Kept separate from partner workspaces: no identity or approval grants. */
 export const playtown = {
@@ -17,9 +18,7 @@ export const playtown = {
 } as const;
 
 export function playtownMatches(area: string, query: string) {
-  const location = 'Ain El Tineh Beirut Beyrouth Lebanon عين التينة بيروت لبنان'.toLowerCase();
-  const words = `${location} PLAYTOWN play town playground play visit kids kart arts crafts spa birthday`.toLowerCase();
-  return location.includes(area.trim().toLowerCase()) && words.includes(query.trim().toLowerCase());
+  return matchesMultilingual([playtown.address],area) && matchesMultilingual([playtown.name,playtown.address,...playtown.passes.flatMap(pass => [pass.name,pass.description])],query);
 }
 
 export type PlaygroundRequest = {
