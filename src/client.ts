@@ -1131,7 +1131,7 @@ function renderPublic() {
   const strip = document.createElement("div");
   strip.className = "moments-strip";
   strip.setAttribute("aria-label", "Real moments from our shows and events");
-  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => h`<figure${duplicate ? ' aria-hidden="true" data-moment-duplicate' : ''}><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : kind === "playground" ? 'data-playtown-open' : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="lazy"><figcaption>${copy(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
+  const tiles = (duplicate = false) => moments.map(([url, label, kind, key]) => h`<figure${duplicate ? ' aria-hidden="true" data-moment-duplicate' : ''}><button type="button" ${kind === "show" ? `data-show-details="${e(key)}"` : kind === "playground" ? 'data-playtown-open' : `data-enquiry-details="${e(key)}"`} aria-label="Explore ${e(key)}" ${duplicate ? 'tabindex="-1"' : ""}><img src="${e(url)}" alt="" loading="eager" decoding="async" fetchpriority="low"><figcaption>${copy(label)} <span aria-hidden="true">↗</span></figcaption></button></figure>`).join("");
   // Each half fills even a wide screen when the owner hides most photos.
   const copies = Math.max(1, Math.ceil(Math.max(1920,window.innerWidth) / Math.max(1, moments.length * 160)));
   const repeated = Array.from({length: copies}, (_, index) => tiles(index > 0)).join('');
