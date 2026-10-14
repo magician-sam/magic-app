@@ -50,7 +50,7 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     input.blur(); catalogueSearch.blur();
     const scroll=(target:string)=>root.querySelector(target)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
     scroll('.show-search');
-    void searchPartners?.(query).then(partnerTarget=>{
+    if(!hasShows)void searchPartners?.(query).then(partnerTarget=>{
       if(serial===submitted&&query===catalogueSearch.value&& !hasShows&&partnerTarget)scroll(partnerTarget);
     }).catch(()=>{ /* The catalogue and its reset remain usable during a directory outage. */ });
   });

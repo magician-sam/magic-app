@@ -1182,6 +1182,7 @@ function renderPublic() {
     const exact=matches.some(item=>item.score===0);let found=0;
     for(const {card,score} of matches){card.hidden=score===null||(exact&&score!==0);if(!card.hidden)found++;}
     app.querySelectorAll<HTMLElement>("#shows .show-group").forEach(group=>{group.hidden=!group.querySelector('.show-card:not([hidden])');});
+    const offers=app.querySelector<HTMLElement>('#offers');if(offers)offers.hidden=!!query&&!offers.querySelector('.show-card:not([hidden])');
     const count=app.querySelector('#show-search-count');if(count)count.innerHTML=query?copy('Matches found')+': '+found:'';
     searchEmpty.hidden=!query||found>0;spellingHint.hidden=!query||exact||!found;
   });
