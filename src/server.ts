@@ -20,6 +20,7 @@ import { eventNotice, offerNotice } from "./notifications.js";
 import { storeFromEnvironment, applicationOrigin } from "./runtime.js";
 import { rateLimit } from "./rate-limit.js";
 import { followups, generateFollowups } from "./followups.js";
+import { birthdayCrm } from "./birthday-crm.js";
 import { writeRoutes } from "./write-routes.js";
 import { prepareBundle, validateBundleSelection } from "./bundles.js";
 import express, {
@@ -917,6 +918,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   messaging(app, store, origin);
   customerMerge(app, store);
   followups(app, store);
+  birthdayCrm(app, store);
   writes.put("/api/manage/bookings/:id/custom-answers", async (req, res) => {
     canManage(req);
     const booking = await owned<Booking>(
@@ -2808,6 +2810,9 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         "customerMerges",
         "followupSettings",
         "followupRuns",
+        "birthdaySettings",
+        "birthdayProfiles",
+        "birthdayDrafts",
         "customFields",
       ].map(async (kind) => {
         data[kind] = await store.all(req.business.id, kind);

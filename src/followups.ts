@@ -7,6 +7,7 @@ import { date, requireThat } from "./domain.js";
 import { writeRoutes } from "./write-routes.js";
 import type { Business, Booking, Customer, Reminder } from "./models.js";
 import type { ContactEntry } from "./contact-history.js";
+import { birthdaySettingsSchema, generateBirthdays } from "./birthday-crm.js";
 
 export const followupSchema = z.object({
   enabled: z.boolean().default(false),
@@ -211,6 +212,14 @@ export async function generateFollowups(
   today = DateTime.now().setZone(business.timezone).toISODate()!,
 ) {
   return store.transaction(async () => {
+    const birthdaySettings = birthdaySettingsSchema.parse(await store.get(business.id, "birthdaySettings", "settings") ?? {});
+    if (birthdaySettings.enabled) {
+      await generateBirthdays(store, business, today);
+      for (const reminder of await store.all<Reminder>(business.id, "reminders")) {
+        if (!reminder.done && reminder.id.startsWith("auto-") && reminder.title.startsWith("Birthday follow-up"))
+          await store.put(business.id, "reminders", { ...reminder, done: true, revision: (reminder.revision ?? 0) + 1, supersededByBirthdayCrm: true });
+      }
+    }
     const settings = followupSchema.parse(
       (await store.get(business.id, "followupSettings", "settings")) ?? {},
     );
@@ -219,7 +228,7 @@ export async function generateFollowups(
       business,
       await store.all<Customer>(business.id, "customers"),
       await store.all<Booking>(business.id, "bookings"),
-      settings,
+      birthdaySettings.enabled ? { ...settings, birthday: false } : settings,
       today,
     );
     let added = 0;

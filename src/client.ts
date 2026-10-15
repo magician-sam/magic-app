@@ -18,6 +18,7 @@ import { experienceFor, recommendationReasons, serviceArtwork } from "./visitor-
 import { siteMediaSlots, sitePhotoServices } from "./site-media.js";
 import type { ActPlan } from "./act-plans.js";
 import type { FollowupSettings } from "./followups.js";
+import { renderBirthdayCrm } from "./birthday-crm-client.js";
 import { reportPeriod } from "./reports.js";
 import type { ContactEntry } from "./contact-history.js";
 import { monthDays, shiftMonth } from "./calendar.js";
@@ -3425,6 +3426,13 @@ function renderReminders(root: Element) {
       .join("") || '<p class="muted">All caught up.</p>'
   }</section></div>`;
   const toolbar = root.querySelector(".toolbar")!;
+  if (userCanStaffAction(state!.user, "customers") && userCanStaffAction(state!.user, "followups")) {
+    const birthday = document.createElement("button");
+    birthday.className = "small";
+    birthday.textContent = "Birthday CRM";
+    birthday.addEventListener("click", () => void renderBirthdayCrm(root as HTMLElement, api, ["owner", "admin"].includes(state!.user.role), key => editRecord("customers", key)));
+    toolbar.prepend(birthday);
+  }
   if (["owner", "admin"].includes(state!.user.role)) {
     const settings = document.createElement("button");
     settings.className = "outline small";
