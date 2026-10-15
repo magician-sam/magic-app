@@ -12,7 +12,7 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
   const section = document.createElement('section');
   section.className = 'discovery-search';
   section.setAttribute('aria-label', 'Find a show or service');
-  section.innerHTML = h`<div class="discovery-intro"><span class="eyebrow">Follow that spark</span><h2>Have an act in mind?</h2><p>Find a favourite, or let an idea surprise you.</p></div><form role="search"><label for="discovery-query">Search shows & services</label><div class="discovery-search-controls"><input id="discovery-query" type="search" maxlength="100" placeholder="Try juggling, cake or DJ…" autocomplete="off" list="discovery-suggestions"><button type="submit">Show matches <span aria-hidden="true">↗</span></button></div><datalist id="discovery-suggestions"></datalist><p>Not sure where to begin? <button type="button" class="link" data-discovery-help>Help me choose</button></p></form>`;
+  section.innerHTML = h`<div class="discovery-intro"><h2>Find your favourites</h2></div><form role="search"><label for="discovery-query">Search shows & services</label><div class="discovery-search-controls"><input id="discovery-query" type="search" maxlength="100" placeholder="Try juggling, cake or DJ…" autocomplete="off" list="discovery-suggestions"><button type="submit">Show matches <span aria-hidden="true">↗</span></button></div><datalist id="discovery-suggestions"></datalist><p><button type="button" class="link" data-discovery-help>Help me choose</button></p></form>`;
   const input = section.querySelector<HTMLInputElement>('input')!;
   input.setAttribute('enterkeyhint','search');
   const results=document.createElement('div');results.className='discovery-results';results.hidden=true;
