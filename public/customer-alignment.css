@@ -52,3 +52,9 @@ body.customer-surface :where(*) {
 .customer-surface main :is(ul,ol) {list-style-position: inside;padding-inline: 0;}
 .customer-surface .guide-steps > li {padding-inline: 0;}
 .customer-surface footer nav {justify-content: center;}
+
+/* Center the block as well as its text when readable copy has a width limit. */
+.customer-surface :is(.event-faq,.show-questions,.sam-profile,.adult-magic-feature,.gift-card,.referral-promo) p,
+.customer-surface .catalog-reassurance {
+  margin-inline: auto;
+}
