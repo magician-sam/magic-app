@@ -12,9 +12,9 @@ function resolve(value: string) {
 }
 export function hasCustomerCopy(value: string) { return !!resolve(value.trim()); }
 export function translateCustomerCopy(value: string,language: CustomerLanguage): string {
-  if(language==='en')return value;
   const leading=value.match(/^\s*/)?.[0]??'',trailing=value.match(/\s*$/)?.[0]??'',resolved=resolve(value.trim());
-  return resolved?leading+customerTranslations[resolved.key][language].replace('{count}',resolved.count)+trailing:value;
+  const translated=resolved?customerTranslations[resolved.key][language]:undefined;
+  return translated!==undefined?leading+translated.replace('{count}',resolved!.count)+trailing:value;
 }
 export function localeForCustomer(language: CustomerLanguage) { return language==='ar'?'ar-LB':language==='fr'?'fr-FR':'en-GB'; }
 export function formatCustomerDateText(value: string,language: CustomerLanguage) {

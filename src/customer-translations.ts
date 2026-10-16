@@ -1,5 +1,7 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
-export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string}>>> = Object.freeze({
+export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
+  "Choose your services. Request a bundle discount.": {"fr":"Choisissez vos services. Demandez une remise sur la formule.","ar":"اختار خدماتك واطلب حسم عالباقة."},
+  "Request a bundle discount": {"fr":"Demander une remise sur la formule","ar":"اطلب حسم عالباقة"},
   "This offer is no longer available.": {"fr":"Cette offre n’est plus disponible.","ar":"هالعرض ما عاد متوفّر."},
   "Open details ↗": {"fr":"Voir les détails ↗","ar":"شوف التفاصيل ↗"},
   "Cake": {"fr":"Gâteau","ar":"كيك"},
@@ -190,8 +192,9 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
     "ar": "تزيين بالزهور"
   },
   "Photography": {
-    "fr": "Photographie",
-    "ar": "تصوير فوتوغرافي"
+    "en": "Photographer",
+    "fr": "Photographe",
+    "ar": "مصوّر"
   },
   "Videography": {
     "fr": "Vidéographie",

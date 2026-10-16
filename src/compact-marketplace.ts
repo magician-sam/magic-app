@@ -49,7 +49,7 @@ export function mountCompactMarketplace({
   root.querySelectorAll('a[href="#how"]').forEach((el) => el.remove());
   const hero = root.querySelector(".world-hero")!;
   hero.innerHTML = h(
-    '<div class="compact-welcome"><span aria-hidden="true">✦</span><div><h1>Your event. A little magic.</h1><p>Your choices. Our best offer.</p></div><button type="button" data-make-bundle>Make a bundle <span aria-hidden="true">↗</span></button></div>',
+    '<div class="compact-welcome"><span aria-hidden="true">✦</span><div><h1>Your event. A little magic.</h1><p>Choose your services. Request a bundle discount.</p></div><button type="button" data-make-bundle>Make a bundle <span aria-hidden="true">↗</span></button></div>',
   );
   hero.querySelector("button")!.addEventListener("click", bundle);
   const occasions = root.querySelector("#marketplace-occasions");
@@ -89,6 +89,8 @@ export function mountCompactMarketplace({
   const offers = root.querySelector<HTMLElement>("#offers");
   if (offers) {
     main.append(offers);
+    const invitation = offers.querySelector(".bundle-invite strong");
+    if (invitation) setCopy(invitation, "Request a bundle discount");
     offers.querySelectorAll(".bundle-invite button").forEach((button) => {
       setCopy(button, "Make a bundle");
     });

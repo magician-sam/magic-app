@@ -7,8 +7,8 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Bubble Show': ['bubbles','bubble','bulles','savon','فقاعات','صابون','بابل'],
   'Close-up Magic': ['close up','closeup','magie de proximite','سحر قريب'],
   'Animation': ['animateur','animation festive','تنشيط','انيميشن'],
-  'Balloon Twisting': ['balloon sculpture','sculpture ballons','تشكيل بالونات','نفخ بالونات'],
-  'Balloon Decoration': ['balloon decor','decoration ballons','birthday balloons','ballons anniversaire','ديكور بالونات','تزيين بالونات'],
+  'Balloon Twisting': ['balloon sculpture','sculpture ballons','تشكيل بالونات','نفخ بالونات','بالون','بالونز'],
+  'Balloon Decoration': ['balloon decor','decoration ballons','birthday balloons','ballons anniversaire','ديكور بالونات','تزيين بالونات','بالون','بالونز'],
   'Full Decoration': ['event styling','decoration complete','party decor','birthday decoration','decoration anniversaire','ديكور','تزيين','ديكور عيد ميلاد'],
   'Floral Decoration': ['flowers','fleurs','floral','floral decor','ديكور زهور','ديكور ورد','زهور','ورد','ازهار'],
   'Photography': ['photographer','photographe','photos','تصوير','مصور','فوتوغرافي','فوتوغراف'],
@@ -16,7 +16,7 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Favours & Keepsakes': ['favors','favours','keepsakes','souvenirs','cadeaux invites','هدايا','تذكارات','توزيعات'],
   'Food & Beverages': ['food','catering','traiteur','repas','boissons','طعام','مأكولات','مشروبات','ضيافة'],
   'Cakes': ['cake','gateau','gateaux','حلوى','كيك','كاتو'],
-  'DJ': ['disc jockey','دي جي','ديجي'],
+  'DJ': ['disc jockey','deejay','دي جي','ديجي'],
   'Sound System': ['audio','sonorisation','sono','صوت','سماعات'],
   'Face Painting': ['face paint','maquillage','grimage','رسم وجوه','رسم على الوجه'],
   'Characters': ['character','costumes','personnages','mascotte','شخصيات','ازياء','ماسكوت'],
@@ -58,7 +58,7 @@ export function normalizeSearch(value: string): string {
     .replace(/[أإآٱ]/g,'ا').replace(/[ىی]/g,'ي').replace(/ک/g,'ك').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ة/g,'ه').replace(/[œŒ]/g,'oe').replace(/[æÆ]/g,'ae')
     .toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
 }
-const translatedKeys = new Map(Object.entries(customerTranslations).flatMap(([key,value])=>[key,value.fr,value.ar].map(text=>[normalizeSearch(text),key] as const)));
+const translatedKeys = new Map(Object.entries(customerTranslations).flatMap(([key,value])=>[key,value.en??key,value.fr,value.ar].map(text=>[normalizeSearch(text),key] as const)));
 const aliasKeys = new Map(Object.keys(multilingualAliases).flatMap(key=>{
   const tr=Object.hasOwn(customerTranslations,key)?customerTranslations[key]:null;
   return [key,...(tr?[tr.fr,tr.ar]:[])].map(value=>[normalizeSearch(value),key] as const);
@@ -76,7 +76,7 @@ export function multilingualTerms(values: readonly string[]): string[] {
   return values.flatMap(value => {
     const aliasKey=aliasKeys.get(normalizeSearch(value)),copyKey=translatedKeys.get(normalizeSearch(value));
     const tr = copyKey ? customerTranslations[copyKey] : null;
-    return [value, ...(tr ? [copyKey!,tr.fr,tr.ar] : []), ...(aliasKey ? multilingualAliases[aliasKey] : [])];
+    return [value, ...(tr ? [copyKey!,...(tr.en?[tr.en]:[]),tr.fr,tr.ar] : []), ...(aliasKey ? multilingualAliases[aliasKey] : [])];
   });
 }
 const connectors = new Set(['the','a','an','de','des','du','la','le','les','un','une','et','في','و']);
@@ -99,6 +99,17 @@ function spellingDistance(a: string, b: string, limit: number): number {
   }
   return previous[b.length];
 }
+/** Pronunciation-like spelling, shared by names, translated terms and photo tags.
+ * Long Latin words only: short names, numbers and Arabic retain their existing
+ * stricter spelling rules. Equal consonant patterns must contain three letters. */
+function soundKey(word: string): string {
+  if (!/^[a-z]{5,}$/.test(word)) return '';
+  const key = word.replace(/ph/g, 'f').replace(/^sc(?=[ei])/, 's')
+    .replace(/tion|sion|shon|shun/g, 'shn').replace(/c(?=[ei])|z/g, 's')
+    .replace(/[cq]/g, 'k').replace(/([a-z])\1+/g, '$1')
+    .replace(/[aeiouy]/g, '');
+  return key.length >= 3 ? key : '';
+}
 /** Zero is a direct match; positive scores are spelling suggestions. Search
  * screens can prefer exact results without making typos look unavailable. */
 export function multilingualMatchScore(values: readonly string[], query: string, rawValues: readonly string[] = []): number | null {
@@ -111,7 +122,11 @@ export function multilingualMatchScore(values: readonly string[], query: string,
     if(term.length<4)return null;
     const limit=term.length>=7?2:1;
     const best=words.reduce((distance,word)=>Math.min(distance,word.length>=4?spellingDistance(term,word,limit):limit+1),limit+1);
-    if(best>limit)return null;score+=best;
+    if(best>limit) {
+      const sound=soundKey(term);
+      if(!sound||!words.some(word=>Math.abs(word.length-term.length)<=3&&soundKey(word)===sound))return null;
+      score+=limit+1;
+    } else score+=best;
   }
   return score;
 }

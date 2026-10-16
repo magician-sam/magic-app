@@ -18,18 +18,19 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
   const results=document.createElement('div');results.className='discovery-results';results.hidden=true;
   section.append(results);
   let partnerTargets:string[]=[],partnerQuery='',partnerLoading=false,showAllResults=false;
+  let partnerTimer: ReturnType<typeof setTimeout> | undefined;
   const paintResults=()=>{
     const query=catalogueSearch.value.trim();results.hidden=!query;
     if(!query){results.replaceChildren();return;}
     const shows=[...root.querySelectorAll<HTMLElement>('#shows .show-card:not([hidden]), #offers .show-card:not([hidden])')];
     const partners=partnerQuery===query?partnerTargets.flatMap(selector=>[...(root.querySelector(selector)?.querySelectorAll<HTMLElement>('.playtown-card,.mp-partner-card')??[])]):[];
     const matches=[...shows,...partners];
-    results.innerHTML=h`<p class="discovery-result-count" role="status">${copy('Matches found')}: ${matches.length}</p><div class="discovery-result-grid">${matches.slice(0,showAllResults?matches.length:8).map((card,index)=>{
+    results.innerHTML=h`<p class="discovery-result-count" role="status">${partnerLoading&&!matches.length?copy('Finding your next setting…'):copy('Matches found')+': '+matches.length}</p><div class="discovery-result-grid">${matches.slice(0,showAllResults?matches.length:8).map((card,index)=>{
       const heading=card.querySelector('h3')!;
       const name=heading.querySelector<HTMLElement>('[data-customer-copy]')?.dataset.customerCopy??heading.textContent?.trim()??'';
       const image=card.querySelector<HTMLImageElement>('img');
       return h`<button type="button" class="discovery-result" data-result-index="${index}">${image?h`<img src="${escape(image.getAttribute('src')??'')}" alt="" loading="lazy">`:h('<span class="discovery-result-spark" aria-hidden="true">✦</span>')}<span><strong>${copy(name)}</strong><small>${copy(card.classList.contains('show-card')?'Explore this service ↗':'Explore ↗')}</small></span></button>`;
-    }).join('')}</div>${partnerLoading?h('<p>Finding your next setting…</p>'):''}${matches.length>8&&!showAllResults?h('<button type="button" class="link" data-all-matches>See all matching services ↗</button>'):matches.length||partnerLoading?'':h('<p>No matching shows or services. Try a shorter name, another language or clear your search to explore everything.</p>')}<button type="button" class="link" data-clear-discovery>Clear search · see everything</button>`;
+    }).join('')}</div>${partnerLoading&&matches.length?h('<p>Finding your next setting…</p>'):''}${matches.length>8&&!showAllResults?h('<button type="button" class="link" data-all-matches>See all matching services ↗</button>'):matches.length||partnerLoading?'':h('<p>No matching shows or services. Try a shorter name, another language or clear your search to explore everything.</p>')}<button type="button" class="link" data-clear-discovery>Clear search · see everything</button>`;
     results.querySelectorAll<HTMLButtonElement>('[data-result-index]').forEach(button=>button.addEventListener('click',()=>{
       matches[Number(button.dataset.resultIndex)]?.querySelector<HTMLButtonElement>('[data-show-details], [data-enquiry-details], [data-playtown-open], [data-mp-profile]')?.click();
     }));
@@ -57,7 +58,7 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     clear.hidden = !catalogueSearch.value.trim();
     paintResults();
   };
-  catalogueSearch.addEventListener('input', update);
+  catalogueSearch.addEventListener('input', () => {update();findPartners();});
   clear.addEventListener('click', () => {
     submitted++;
     partnerTargets=[];partnerLoading=false;
@@ -67,6 +68,27 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     catalogueSearch.focus({ preventScroll: true });
   });
   let submitted = 0;
+  function findPartners(immediate = false) {
+    clearTimeout(partnerTimer);
+    const serial=++submitted, query=catalogueSearch!.value.trim();
+    partnerQuery=query;partnerTargets=[];
+    partnerLoading=!!searchPartners&&query.length>=2;
+    paintResults();
+    if(!partnerLoading)return;
+    const run=async()=>{
+      if(serial!==submitted||!section.isConnected)return;
+      try {
+        const targets=await searchPartners!(query);
+        if(serial!==submitted||!section.isConnected||query!==catalogueSearch!.value.trim())return;
+        partnerTargets=targets;partnerLoading=false;paintResults();
+      } catch {
+        if(serial===submitted&&section.isConnected){partnerLoading=false;paintResults();}
+      }
+    };
+    if(immediate)void run();
+    else partnerTimer=setTimeout(()=>void run(),300);
+  }
+  languageListener.signal.addEventListener('abort',()=>{clearTimeout(partnerTimer);submitted++;},{once:true});
   input.addEventListener('input', () => {
     submitted++;
     partnerTargets=[];partnerLoading=false;
@@ -77,20 +99,12 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     event.preventDefault();
     catalogueSearch.value = input.value.trim();
     catalogueSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    const serial=++submitted, query=catalogueSearch.value;
-    partnerTargets=[];partnerQuery=query;partnerLoading=!!searchPartners&&!!query;paintResults();
+    findPartners(true);
     input.blur(); catalogueSearch.blur();
     const scroll=(target:string)=>root.querySelector(target)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
     // Results sit beside the query. Mobile keyboard resizing cannot strand
     // customers above a distant catalogue card.
     scroll('.discovery-search');
-    if(query)void searchPartners?.(query).then(targets=>{
-      if(serial!==submitted||query!==catalogueSearch.value)return;
-      partnerTargets=targets;partnerLoading=false;paintResults();
-    }).catch(()=>{
-      if(serial===submitted){partnerLoading=false;paintResults();}
-      /* The catalogue and its reset remain usable during a directory outage. */
-    });
   });
   section.querySelector('[data-discovery-help]')!.addEventListener('click', helpChoose);
   document.addEventListener('customerlanguagechange',()=>{if(section.isConnected)paintResults();},{signal:languageListener.signal});
