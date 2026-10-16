@@ -1,0 +1,54 @@
+/* Shared customer presentation, including RTL. Staff screens have no customer-surface. */
+body.customer-surface,
+body.customer-surface :where(*) {
+  text-align: center !important;
+}
+
+/* Centre copy within its full card/section, rather than in a narrow text column. */
+.customer-surface :is(.mp-section-intro,.section-heading) {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.customer-surface :is(.mp-section-intro,.section-heading) > :is(div,h2,h3) {
+  flex: 1 1 100%;
+}
+.customer-surface :is(.mp-category,.mp-category-copy) {
+  justify-items: center;
+}
+.customer-surface .mp-category-copy {width: 100%;}
+.customer-surface :is(.mp-category-icon,.mp-partner-avatar,.mp-feature-symbol,.playtown-logo) {
+  margin-inline: auto;
+}
+.customer-surface .mp-category strong {margin-inline: auto;}
+.customer-surface .show-body .show-title {width: 100%;}
+.customer-surface :is(.mp-directory-feature,.mp-directory-empty,.compact-welcome) p {
+  margin-inline: auto;
+}
+.customer-surface .compact-welcome > div {flex: 1;min-width: 0;}
+.customer-surface .compact-welcome > button {justify-self: center;}
+.customer-surface .category-view-header {
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.customer-surface :is(.actions,.playtown-actions,.family-detail-links,.show-meta,.marketplace-help-links,.catalog-jumps,.chooser-option) {
+  justify-content: center;
+}
+.customer-surface .playtown-heading {justify-content: center;flex-wrap: wrap;}
+.customer-surface :is(.mobile-menu-group a,.mobile-menu-group button,.mobile-menu-branch > summary) {
+  justify-content: center;
+}
+
+/* Equal side tracks keep dialog titles centred while the close control stays reachable. */
+.customer-surface .dialog-heading {
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr) 44px;
+  gap: 10px;
+}
+.customer-surface .dialog-heading h2 {grid-column: 2;grid-row: 1;width: 100%;}
+.customer-surface .dialog-heading .close {grid-column: 3;grid-row: 1;justify-self: end;}
+
+.customer-surface .guide-steps,
+.customer-surface main :is(ul,ol) {list-style-position: inside;padding-inline: 0;}
+.customer-surface .guide-steps > li {padding-inline: 0;}
+.customer-surface footer nav {justify-content: center;}
