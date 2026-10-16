@@ -1,0 +1,56 @@
+.venue-browser {margin:16px 0 24px;}
+.venue-browser-toolbar {display:flex;align-items:end;justify-content:space-between;gap:18px;flex-wrap:wrap;}
+.venue-view-switch {display:flex;gap:4px;padding:5px;border:1px solid #d5dfed;background:#edf2fa;border-radius:16px;}
+.venue-view-switch button {min-width:86px;min-height:44px;border:0;border-radius:12px;background:transparent;color:#354663;padding:10px 20px;font-weight:700;}
+.venue-view-switch button[aria-pressed="true"] {background:#253d72;color:#fff;box-shadow:0 3px 10px #18325d1c;}
+.venue-map-filters {display:flex;gap:12px;flex-wrap:wrap;}
+.venue-map-filters label {display:grid;gap:6px;font-size:12px;font-weight:650;color:#46546d;}
+.venue-map-filters select {min-height:44px;padding:9px 32px 9px 12px;border:1px solid #d4dbe8;border-radius:12px;background:#fff;color:#263957;max-width:100%;}
+.venue-map-panel {margin-top:16px;padding:14px;background:#fff;border:1px solid #dce4ef;border-radius:24px;}
+.venue-map-actions {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;}
+.venue-map-actions button {min-height:44px;}
+.venue-map-panel [data-map-message] {font-size:13px;margin:8px 0 12px;color:#4c5b72;}
+.venue-map-canvas {height:440px;min-height:300px;border-radius:17px;background:#e6edf2;z-index:0;direction:ltr;}
+.venue-map-canvas:focus-visible {outline:3px solid #3477c6;outline-offset:3px;}
+.venue-map-canvas .leaflet-control-zoom a {width:42px;height:42px;line-height:42px;}
+.venue-map-canvas .leaflet-control-attribution {font-size:11px;line-height:1.5;background:#fffffff0;color:#25435f;padding:2px 6px;max-width:100%;}
+.venue-map-canvas .leaflet-control-attribution a {color:#174f99;}
+.venue-pin {background:transparent;border:0;}
+.venue-price-pin {display:flex;align-items:center;justify-content:center;min-width:56px;min-height:36px;padding:7px 10px;border:2px solid #fff;border-radius:20px;background:#2d2260;color:#fff;box-shadow:0 3px 12px #1a153852;font-size:14px;font-weight:750;white-space:nowrap;}
+.venue-pin:focus-visible {outline:3px solid #2477cf;outline-offset:3px;border-radius:20px;}
+.venue-map-popup {width:210px;color:#25203d;text-align:start;}
+.venue-map-popup img {display:block;width:100%;height:115px;object-fit:cover;border-radius:10px;margin:0 0 10px;}
+.venue-map-popup strong {display:block;font-size:18px;line-height:1.2;}
+.venue-map-popup p {margin:7px 0!important;font:13px/1.4 Outfit,sans-serif;}
+.venue-map-popup small {display:block;font-size:13px;margin-bottom:10px;}
+.venue-map-popup button {display:block;width:100%;min-height:44px;background:#d0ff91;border:0;border-radius:12px;color:#27203f;padding:9px;font-weight:700;}
+.venue-map-popup .leaflet-popup-close-button {min-height:30px;}
+.venue-map-error,.venue-map-unpinned,.venue-price-note,.venue-result-summary {font-size:13px;line-height:1.5;color:#526179;margin:12px 0 0;}
+.venue-map-error {padding:10px;background:#fff3db;border-radius:10px;color:#6d4b16;}
+.venue-map-mode > .mp-directory-layout {display:none;}
+.venue-map-mode .venue-result-summary {display:none;}
+.compact-marketplace .bundle-discount-label {display:block;margin:0 0 7px;color:#d0ff91;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;}
+.compact-marketplace .compact-welcome > .bundle-discount-badge {display:flex;align-items:center;justify-content:center;flex:0 0 66px;height:66px;border:1px solid #d0ff9180;border-radius:20px;background:#ffffff13;color:#d0ff91;font-size:36px;font-weight:800;transform:rotate(-7deg);}
+@media(max-width:600px) {
+  .venue-browser-toolbar {display:block;}
+  .venue-view-switch {width:max-content;margin-bottom:14px;}
+  .venue-map-filters {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .venue-map-filters label {min-width:0;font-size:11px;}
+  .venue-map-filters select {width:100%;padding-inline:8px;font-size:12px;}
+  .venue-map-panel {padding:10px;border-radius:18px;}
+  .venue-map-canvas {height:340px;border-radius:12px;}
+  .venue-map-popup {width:185px;}
+  .compact-marketplace .compact-welcome {display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px 14px;align-items:center;padding:22px;}
+  .compact-marketplace .compact-welcome > .bundle-discount-badge {flex-basis:42px;height:42px;font-size:27px;border-radius:13px;}
+  .compact-marketplace .compact-welcome > div {flex:1;min-width:0;}
+  .compact-marketplace .compact-welcome h1 {font-size:23px;}
+  .compact-marketplace .compact-welcome p {margin:7px 0 0;font-size:12px;line-height:1.5;}
+  .compact-marketplace .compact-welcome > button {grid-column:1/-1;justify-self:start;margin:0;min-height:44px;}
+  .compact-marketplace .bundle-discount-label {font-size:10px;letter-spacing:.035em;margin-bottom:5px;}
+}
+@media(prefers-reduced-motion:reduce) {.bundle-discount-badge {transform:none!important;}}
+@media(max-width:360px) {
+  .compact-marketplace .compact-welcome {padding:17px;grid-template-columns:32px minmax(0,1fr);gap:12px 10px;}
+  .compact-marketplace .compact-welcome > .bundle-discount-badge {height:34px;font-size:23px;}
+  .compact-marketplace .compact-welcome h1 {font-size:20px;}
+}

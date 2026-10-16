@@ -3,6 +3,8 @@ import { matchesMultilingual } from "./multilingual-search.js";
  * Kept separate from partner workspaces: no identity or approval grants. */
 export const playtown = {
   name: 'PLAYTOWN', address: 'Ain El Tineh, Beirut',
+  // Verified from the owner's supplied Google Maps location on 16 October 2026.
+  coordinates: { latitude:33.8856221, longitude:35.4778697 },
   map: 'https://maps.app.goo.gl/Rv5SUZC4oA91vGFB6?g_st=aw',
   logo: '/playgrounds/playtown/logo.png',
   passes: [

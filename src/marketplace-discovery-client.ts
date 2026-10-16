@@ -5,8 +5,12 @@ import { matchesMultilingual } from './multilingual-search.js';
 import { locationView, mediaView, partnerCardView } from "./venue-profile-view.js";
 import type { PublicPartner, PublicListing } from "./marketplace-public.js";
 import { appendMarketplaceHelp, mountDiscoverySearch } from "./discovery-search.js";
+import { mountVenueMap } from './venue-map-client.js';
+import { venueMapPlaces } from './venue-map-data.js';
 
 type Group = "venues" | "companies";
+let discoveryLifecycle:AbortController|undefined;
+const venueMaps=new WeakMap<HTMLElement,ReturnType<typeof mountVenueMap>>();
 type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; photoSearchTags?:Record<string,string[]>; design: (occasion?: string) => void;
   reserve: (kind:'visit'|'party') => void; account: () => void; open: (title: string, html: string) => void };
 const e = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
@@ -69,6 +73,7 @@ async function directory(group: Group, filters: DirectoryFilters) {
 export function mountMarketplaceDiscovery(options: MountOptions) {
   const { root, phone, businessSlug } = options;
   if (businessSlug !== "magic-by-sam") return;
+  discoveryLifecycle?.abort();discoveryLifecycle=new AbortController();
   document.body.classList.add("marketplace-mode");
   document.title = t("Magic App · Set the scene. Make it yours.");
   document.body.classList.add("marketplace-world");
@@ -118,11 +123,12 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const shows = root.querySelector("#shows"); shows?.before(places, agencies);
   for (const link of categorySection.querySelectorAll<HTMLAnchorElement>("a")) if (!root.querySelector(link.hash)) link.href = "#shows";
   const search = places.querySelector<HTMLFormElement>(".mp-venue-search")!;
+  venueMaps.set(places,mountVenueMap(places,id=>{if(id==='playtown')openPlaytown(options);else if(id.startsWith('partner:'))void openProfile(id.slice(8),options);},discoveryLifecycle.signal));
   search.addEventListener("submit", event => {
     event.preventDefault(); const data = new FormData(search);
     void populate(places, "venues", options, { area: String(data.get("area") || "").trim(), q: String(data.get("q") || "").trim() });
   });
-  search.querySelector('[data-clear-venues]')!.addEventListener("click", () => { search.reset(); void populate(places, "venues", options); });
+  search.querySelector('[data-clear-venues]')!.addEventListener("click", () => { search.reset();venueMaps.get(places)?.resetFilters();void populate(places, "venues", options); });
   void populate(places, "venues", options); void populate(agencies, "companies", options);
   const footer = document.createElement("section"); footer.className = "mp-partner-invite";
   const join = whatsapp(phone, `Hello, I would like to join Magic App as an artist, playground or entertainment company. ${location.origin}${location.pathname}#marketplace-agencies`);
@@ -162,10 +168,12 @@ async function populate(section: HTMLElement, group: Group, options: MountOption
   results.setAttribute("aria-busy", "true");
   const playTags=Object.entries(options.photoSearchTags??{}).filter(([url])=>url.startsWith('/playgrounds/playtown/')).flatMap(([,tags])=>tags);
   const pilot=group==='venues'&&playtownMatches(filters.area,'')&&(playtownMatches('',filters.q)||matchesMultilingual(playTags,filters.q))?playtownCard():'';
+  let publicPartners:PublicPartner[]=[];
   results.innerHTML = pilot+h('<p class="muted">Finding your next setting…</p>');
   try {
     const { partners, total, ready } = await directory(group, filters);
     if (!current()) return;
+    publicPartners=partners;
     const filtered = Boolean(filters.area || filters.q);
     if (!partners.length) {
       const noMatches = (ready || group === "venues") && filtered;
@@ -178,7 +186,7 @@ async function populate(section: HTMLElement, group: Group, options: MountOption
     if (!current()) return;
     results.innerHTML = h('<div class="mp-directory-empty"><h3>The directory couldn’t load.</h3><p>Your show catalogue is still here. Try opening the partner directory again.</p><button type="button" class="outline">Try again</button></div>');
     results.querySelector("button")!.addEventListener("click", () => void populate(section, group, options, filters));
-  } finally { if (current()) { if(pilot) {results.insertAdjacentHTML('afterbegin',pilot);const empty=results.querySelector('.mp-directory-empty');if(empty)empty.remove();} results.setAttribute('aria-busy','false'); } }
+  } finally { if (current()) { if(pilot) {results.insertAdjacentHTML('afterbegin',pilot);const empty=results.querySelector('.mp-directory-empty');if(empty)empty.remove();} results.setAttribute('aria-busy','false');if(group==='venues')venueMaps.get(section)?.setPlaces(venueMapPlaces(publicPartners,!!pilot)); } }
 }
 async function openProfile(slug: string, options: MountOptions) {
   try {

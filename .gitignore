@@ -7,6 +7,8 @@ dist/
 public/client.js
 public/calendar.js
 public/reports.js
+public/venue-map.js
+public/vendor/leaflet/
 data/
 backups/
 test-results/
