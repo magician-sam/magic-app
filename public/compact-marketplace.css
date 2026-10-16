@@ -10,6 +10,7 @@
   max-width: 1380px;
 }
 .compact-marketplace .world-hero {
+  display: block;
   padding: 24px 28px;
   min-height: 0;
   margin: 16px 0;
@@ -25,7 +26,7 @@
   font-size: 48px;
   color: #cf9;
 }
-.compact-welcome h1 {
+.compact-marketplace .compact-welcome h1 {
   font-size: clamp(24px, 3vw, 38px);
   line-height: 1.08;
   margin: 0;
@@ -367,7 +368,7 @@
   .compact-welcome > span {
     display: none;
   }
-  .compact-welcome h1 {
+  .compact-marketplace .compact-welcome h1 {
     font-size: 25px;
   }
   .compact-welcome p {
@@ -626,4 +627,162 @@
 }
 @media(min-width:1000px){
   .compact-marketplace .site-nav a[href="#offers"]{display:inline-flex}
+}
+
+/* An invitation for every occasion, with centred labels in all three languages. */
+.compact-marketplace .mp-occasions {
+  display: block;
+  scroll-margin-top: 96px;
+  padding: 22px 0 8px;
+  background: transparent;
+  border: 0;
+  text-align: center;
+}
+.compact-marketplace .mp-occasions h2 {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: clamp(23px, 3vw, 30px);
+}
+.compact-marketplace .mp-occasion-options {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.compact-marketplace .mp-occasion-options button {
+  --occasion-bg: #f4e7ff;
+  --occasion-ink: #61397c;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 110px;
+  padding: 14px 8px;
+  border: 1px solid transparent;
+  border-radius: 28px 28px 14px 28px;
+  background: var(--occasion-bg);
+  color: var(--occasion-ink);
+  box-shadow: none;
+  text-align: center;
+  white-space: normal;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(2) {
+  --occasion-bg: #dff3ec;
+  --occasion-ink: #275e50;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(3) {
+  --occasion-bg: #ffecd1;
+  --occasion-ink: #865016;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(4) {
+  --occasion-bg: #e1edff;
+  --occasion-ink: #375580;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(5) {
+  --occasion-bg: #fbe3ea;
+  --occasion-ink: #8a435d;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(6) {
+  --occasion-bg: #e8efd9;
+  --occasion-ink: #4b6331;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(7) {
+  --occasion-bg: #e0f3f5;
+  --occasion-ink: #31636c;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(8) {
+  --occasion-bg: #f8edda;
+  --occasion-ink: #7b5a2a;
+}
+.compact-marketplace .mp-occasion-options button:nth-child(even) {
+  border-radius: 28px 28px 28px 14px;
+}
+.compact-marketplace .mp-occasion-options .occasion-art {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  transition: transform 180ms ease;
+}
+.compact-marketplace .mp-occasion-options button > span {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+}
+.compact-marketplace .mp-occasion-options button > span[aria-hidden] {
+  display: none;
+}
+.compact-marketplace .mp-occasion-options button:focus-visible {
+  outline: 3px solid #6d469c;
+  outline-offset: 4px;
+}
+@media (hover: hover) {
+  .compact-marketplace .mp-occasion-options button:hover {
+    transform: translateY(-4px);
+    border-color: currentColor;
+    box-shadow: 0 8px 16px #30204412;
+  }
+  .compact-marketplace .mp-occasion-options button:hover .occasion-art {
+    transform: rotate(-8deg);
+  }
+}
+.compact-marketplace .mp-occasion-options button:active {
+  transform: scale(.96);
+}
+@media (max-width: 1000px) {
+  .compact-marketplace .mp-occasion-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .compact-marketplace .mp-occasions {
+    padding: 10px 0 0;
+    margin: 18px 0;
+  }
+  .compact-marketplace .mp-occasion-options {
+    gap: 8px;
+  }
+  .compact-marketplace .mp-occasion-options button {
+    min-height: 100px;
+    padding: 12px 5px;
+    gap: 8px;
+    border-radius: 22px 22px 10px 22px;
+  }
+  .compact-marketplace .mp-occasion-options button:nth-child(even) {
+    border-radius: 22px 22px 22px 10px;
+  }
+  .compact-marketplace .mp-occasion-options button > span {
+    font-size: 12px;
+  }
+  html[lang="fr"] .compact-marketplace .mp-occasion-options button > span {
+    font-size: 11px;
+  }
+  .compact-marketplace .mp-occasion-options .occasion-art {
+    width: 27px;
+    height: 27px;
+  }
+}
+@media (max-width: 359px) {
+  .compact-marketplace .mp-occasion-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .compact-marketplace .mp-occasion-options button {
+    min-height: 88px;
+  }
+}
+@media (max-width: 379px) {
+  html[lang="fr"] .compact-marketplace .mp-occasion-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compact-marketplace .mp-occasion-options button,
+  .compact-marketplace .mp-occasion-options .occasion-art {
+    transition: none;
+    transform: none !important;
+  }
 }
