@@ -624,3 +624,6 @@
 .compact-marketplace.customer-surface .show-card .show-art.science .show-cover {
   object-position: center 55%;
 }
+@media(min-width:1000px){
+  .compact-marketplace .site-nav a[href="#offers"]{display:inline-flex}
+}

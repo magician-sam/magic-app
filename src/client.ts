@@ -1242,7 +1242,7 @@ function renderPublic() {
   app.querySelector(".hero-copy .actions a")!.innerHTML = 'Book your event <span aria-hidden="true">↗</span>';
   on(app, "[data-start-occasion]", "click", (event) => { const occasion = (event.currentTarget as HTMLElement).dataset.startOccasion!; trackInterest("occasion", occasion); helpChoose(occasion); });
   on(app, "#help-choose", "click", () => helpChoose());
-  on(app, "[data-custom-bundle]", "click", () => helpChoose());
+  on(app, "[data-custom-bundle]", "click", () => { requestBundleDiscount=true;saveEventBox();helpChoose(); });
   on(app, "#privacy", "click", () =>
     openDialog(
       "Your details, handled with care",

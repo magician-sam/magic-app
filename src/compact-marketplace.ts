@@ -150,6 +150,15 @@ export function mountCompactMarketplace({
       active = focused.has(hash) || !!offerId,
       collection = collections[hash];
     if (active && !wasFocused) returnY = window.scrollY;
+    // A chosen category replaces a previous text search rather than combining
+    // with an invisible stale query and leaving its results empty.
+    if (active) {
+      const search = root.querySelector<HTMLInputElement>('#find-show');
+      if (search?.value) {
+        search.value = '';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
     document.body.classList.toggle("category-focused", active);
     document.body.classList.toggle("offer-focused", !!offerId);
     for (const section of [...main.children] as HTMLElement[]) {
