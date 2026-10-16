@@ -1,5 +1,16 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string}>>> = Object.freeze({
+  "This offer is no longer available.": {"fr":"Cette offre n’est plus disponible.","ar":"هالعرض ما عاد متوفّر."},
+  "Open details ↗": {"fr":"Voir les détails ↗","ar":"شوف التفاصيل ↗"},
+  "Cake": {"fr":"Gâteau","ar":"كيك"},
+  "Your event. A little magic.": {"fr":"Votre événement. Un peu de magie.","ar":"مناسبتك. ولمسة سحر."},
+  "Your choices. Our best offer.": {"fr":"Vos envies. Notre meilleure offre.","ar":"اختياراتك. وأحلى عرض منّا."},
+  "Make a bundle": {"fr":"Créer une formule","ar":"ركّب باقتك"},
+  "5 tokens = a free magic show": {"fr":"5 jetons = un spectacle de magie offert","ar":"٥ نقاط = عرض سحر مجاني"},
+  "Invite ↗": {"fr":"Inviter ↗","ar":"ادعُ أصحابك ↗"},
+  "How to earn": {"fr":"Comment gagner","ar":"كيف بتجمع النقاط"},
+  "Artist Gallery": {"fr":"Galerie des artistes","ar":"معرض الفنانين"},
+  "← Explore all": {"fr":"← Tout explorer","ar":"تصفّح الكل ←"},
   "Examples only. Personalisation and delivery agreed in your quote.": {"fr":"Exemples uniquement. Personnalisation et livraison convenues au devis.","ar":"أمثلة فقط. التخصيص والتسليم بيتحدّدوا بعرض السعر."},
   "Portfolio examples. Coverage, delivery and sharing permissions agreed separately.": {"fr":"Exemples de réalisations. Couverture, livraison et droits de diffusion à convenir.","ar":"أمثلة أعمال. منتّفق على التغطية، التسليم وإذن النشر."},
   "Activity ideas. Your final programme is agreed together.": {"fr":"Idées d’activités. Le programme final est défini ensemble.","ar":"أفكار أنشطة. منتّفق سوا على البرنامج النهائي."},

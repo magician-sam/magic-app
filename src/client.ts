@@ -1,3 +1,4 @@
+import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
 import { installMediaPlayback, stopMediaWithin } from "./media-playback.js";
 import { mountPhotoTagEditor } from './photo-tags-client.js';
@@ -369,7 +370,7 @@ function bundleDetails(p: Package) {
     ? parts.reduce((sum, show) => sum + show!.price, 0)
     : 0;
   const names = (p.bundleSnapshot ?? parts.filter((show): show is Package => !!show))
-    .map((show) => show.name);
+    .map((show) => {const current=catalog.packages.find(item=>item.id===show.id);return current?publicShowName(current):show.name;});
   return h`<div class="bundle-summary"><span class="eyebrow">In this bundle</span><div class="bundle-parts">${names.map((name) => h`<span>${e(name)}</span>`).join("")}</div>${separate > p.price ? h`<p class="bundle-saving"><strong>Save ${money(separate - p.price)}</strong><small>Instead of ${money(separate)} separately</small></p>` : ""}</div>`;
 }
 const demoShowPhotos: Record<string, { url: string; caption: string; approved: true }[]> = {};
@@ -614,6 +615,12 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
     catch { openDialog("Share this show", field({ key: "show-link", label: "Copy this link", value: detailPageLink(kind, key), wide: true })); }
   });
   detail.querySelector(".show-detail-footer")?.before(share);
+  const firstMedia=detail.querySelector('.performance-preview')||detail.querySelector('.show-detail-gallery')?.closest('section');
+  if(firstMedia)detail.prepend(firstMedia);
+  if(kind==='show'){
+    const compare=document.createElement('button');compare.type='button';compare.className='outline small';setCopy(compare,'Compare this show');
+    compare.addEventListener('click',()=>{if(!comparisonIds.includes(key)&&comparisonIds.length<3)comparisonIds.push(key);modal.close();openDialog('Compare shows',comparisonIds.map(id=>{const show=catalog.packages.find(p=>p.id===id)!;return h`<article><h3>${copy(publicShowName(show))}</h3><p>${copy(show.description)}</p><strong>${copy(price(show))}</strong></article>`;}).join(''));});share.append(compare);
+  }
 }
 function setupPhotoZoom() {
   const lightbox = document.createElement("dialog");
@@ -719,7 +726,7 @@ function videoTile(link: string, showName: string, index: number, poster?: strin
 }
 function showCard(p: Package) {
   const photos = showPhotos(p);
-  const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0];
+  const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0] ?? (p.bundleIds?.length ? p.bundleIds.flatMap(id=>{const part=catalog.packages.find(item=>item.id===id);return part?showPhotos(part):[];})[0] : undefined);
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
   return h`<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(t(publicShowName(p)))}">${cover ? h`<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : h`<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? copy("Bundle offer") : copy(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${copy(publicShowName(p))}</button></h3><small class="show-subtitle">${copy(publicShowTagline(p))}</small>${bundleDetails(p)}<p class="show-media-note">${photoCount ? copy(`${photoCount} ${isDemo ? "demo " : ""}${photoCount === 1 ? "photo" : "photos"}`) : copy("Photos coming soon")}${showVideos(p).length ? " · " + copy("Video") : ""}</p><div class="show-meta">${copy(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? copy("✓ Selected to compare") : copy("Compare this show")}</button></div></article>`;
@@ -821,7 +828,7 @@ function renderBox() {
     app.append(bar);
   }
   on(node, '[data-remove-guest]', 'click', (ev) => toggleGuest((ev.currentTarget as HTMLElement).dataset.removeGuest!));
-  if (chosen.length >= 2 || chosen.some((item) => item.bundleIds?.length)) {
+  if (chosen.length + guestBasket.length >= 2 || chosen.some((item) => item.bundleIds?.length)) {
     const label = document.createElement("label");
     label.className = "bundle-discount-request";
     label.innerHTML = h`<input type="checkbox" id="ask-bundle-discount" ${requestBundleDiscount ? "checked" : ""}><span><strong>Ask for a bundle discount</strong><small>We’ll review your mix of shows and send the best offer.</small></span>`;
@@ -1187,7 +1194,7 @@ function renderPublic() {
   searchEmpty.querySelector('button')!.addEventListener('click',()=>{const input=app.querySelector<HTMLInputElement>('#find-show')!;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));});
   on(app, "#find-show", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim();
-    const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card")];
+    const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card, #offers .show-card")];
     const matches=cards.map(card=>{
       const id=card.querySelector<HTMLElement>('[data-show-details]')?.dataset.showDetails;
       const show=id?catalog.packages.find(item=>item.id===id&&item.active):undefined;
@@ -1244,6 +1251,17 @@ function renderPublic() {
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, phone: contactPhone,
     reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
+  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,
+    account:()=>{void customerAccount();},
+    bundle:()=>{requestBundleDiscount=true;saveEventBox();helpChoose();},
+    rewards:()=>{openDialog('Invite friends. Earn magic.',referralPromo().replace('id="rewards"',''));modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},
+    artists:catalog.performers.length?catalog.performers.map(p=>({id:p.id,name:p.name,photo:p.photo,speciality:p.categories.join(' · ')})):[{id:'sam-profile',name:'Sam',photo:'/portfolio/sam-magic-live-1.jpg',speciality:'Magic, science & bubbles'}],
+    artist:key=>{
+      const p=catalog.performers.find(p=>p.id===key);
+      const shows=catalog.packages.filter(show=>!show.bundleIds?.length&&(p?p.categories.some(category=>category.toLowerCase()===show.category.toLowerCase()):['magic','science','bubbles'].includes(show.category.toLowerCase())));
+      openDialog(p?.name??'Sam',h`<img class="artist-bio-photo" src="${e(p?.photo||'/portfolio/sam-magic-live-1.jpg')}" alt="${e(p?.name??'Sam')}"><p>${p?e(p.bio):copy('Magician and International Magicians Society member. Magic, science & bubbles, performed by Sam.')}</p>${p?.areas?h`<p>${e(p.areas)}</p>`:''}${p?.membershipVerified?h('<span class="badge">Verified membership</span>'):''}${photoGallery(p?.gallery)}${p?.video?h`<section class="show-video-gallery">${videoTile(p.video,p.name,0)}</section>`:''}<div class="artist-show-links">${shows.map(show=>h`<a class="button outline small" href="${e(detailPageLink('show',show.id))}">${copy(publicShowName(show))} ↗</a>`).join('')}</div>`);
+    }
+  });
 }
 function enquiryLinks(name: string) {
   const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
@@ -2056,12 +2074,13 @@ function tokenLadder() {
       h`<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? copy("Free magic show") : `${percent}% off`}</strong></div>`
     ).join("") + h('</div>');
 }
+function offerLink(key:string){const show=catalog.packages.find(p=>p.id===key);return show?.bundleIds?.length?'#offer/'+encodeURIComponent(key):detailPageLink('show',key);}
 function referralPromo() {
   return h`<section id="rewards" class="section referral-promo"><div><span class="eyebrow">Your friends bring the magic</span><h2>Invite friends.<br><em>Get a free magic show.</em></h2><p>Share your link. When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.</p><button type="button" id="referral-account">Get my invitation link ↗</button><small>One token per referred friend. Use tokens one by one or save five for a free magic show.</small></div>${tokenLadder()}</section>`;
 }
 async function offerNotification() {
   try {
-    const account = await api<{ username: string; announcements: { id: string; title: string }[] }>(
+    const account = await api<{ username: string; announcements: { id: string; title: string; packageId:string }[] }>(
       `/customer/${catalog.business.slug}/me`,
     );
     const latest = account.announcements[0];
@@ -2074,7 +2093,7 @@ async function offerNotification() {
     const text = document.createElement("span");
     text.innerHTML = `${copy("✦ New offer:")} ${e(latest.title)}`;
     const link = document.createElement("a");
-    link.href = "#shows";
+    link.href = offerLink(latest.packageId);
     setCopy(link, "See offer ↗");
     link.addEventListener("click", () => {
       localStorage.setItem(key, latest.id);
@@ -2104,7 +2123,7 @@ async function customerAccount() {
       }[];
     };
     announcements: { id: string; packageId: string; title: string; description: string; at: string }[];
-    notifications: { id: string; title: string; body: string; kind: string; at: string }[];
+    notifications: { id: string; title: string; body: string; kind: string; at: string; url?:string }[];
     pushEnabled: boolean;
     profile: {
       name: string;
@@ -2170,7 +2189,7 @@ async function customerAccount() {
       h('</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>') +
       formBody(fields) +
       (account.pushEnabled && "serviceWorker" in navigator && "PushManager" in window ? h('<div class="account-push"><h3>Phone alerts</h3><p>Get a popup when your event changes. New shows and offers use your choice above.</p><button type="button" class="outline small" id="enable-phone-alerts">Enable phone notifications</button> <button type="button" class="link" id="disable-phone-alerts">Turn off</button><p id="phone-alert-status" role="status"></p></div>') : '') +
-      (account.notifications.length ? h('<section class="account-announcements"><h3>Your updates</h3>') + account.notifications.map((item) => h`<div class="announcement"><strong>${noticeTitleView(item.title)}</strong><span>${noticeBodyView(item.body,item.kind)}</span></div>`).join('') + h('</section>') : '') +
+      (account.notifications.length ? h('<section class="account-announcements"><h3>Your updates</h3>') + account.notifications.map((item) => h`<div class="announcement"><strong>${noticeTitleView(item.title)}</strong><span>${noticeBodyView(item.body,item.kind)}</span>${item.url?.startsWith('/b/')?h`<a href="${e(item.url)}" data-notice-link>Open details ↗</a>`:""}</div>`).join('') + h('</section>') : '') +
       h('<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>') +
       account.rewards.tokens.balance +
       ' token' + (account.rewards.tokens.balance === 1 ? '' : 's') +
@@ -2178,7 +2197,7 @@ async function customerAccount() {
       tokenLadder() +
       h('<p class="hint">Choose how many to use on one magic show. Spend 2 from a balance of 3 and keep 1. Ask us to apply your choice to your proposal. Extra tokens can be added by our team.</p></section>') +
       (account.announcements.length ? h('<section class="account-announcements"><h3>New offers for you</h3>') +
-        account.announcements.map((item) => h('<a class="announcement" href="#shows" data-announcement="') + e(item.id) + '"><strong>✦ ' + e(item.title) + h('</strong><span>') + e(item.description) + h('</span></a>')).join('') + h('</section>') : '') +
+        account.announcements.map((item) => h('<a class="announcement" href="') + e(offerLink(item.packageId)) + h('" data-announcement="') + e(item.id) + '"><strong>✦ ' + e(item.title) + h('</strong><span>') + e(item.description) + h('</span></a>')).join('') + h('</section>') : '') +
       h("<h3>My issued rewards</h3>") +
       (account.rewards.awards
         .map(
@@ -2268,6 +2287,7 @@ async function customerAccount() {
     await navigator.clipboard.writeText(account.referralCode);
     notify("Short referral code copied.");
   });
+  on(modal,"[data-notice-link]","click",()=>modal.close());
   on(modal, "[data-announcement]", "click", (event) => {
     const entry = event.currentTarget as HTMLElement;
     localStorage.setItem(`magic-offer-seen:${catalog.business.slug}:${account.username}`,
@@ -2310,6 +2330,12 @@ async function customerAccount() {
     modal.close();
     notify("You are signed out.");
   });
+  if(location.hash.startsWith('#booking/')){
+    const key=decodeURIComponent(location.hash.slice(9));
+    if(account.bookings.some(b=>b.id===key)){
+      const result=await api<{path:string}>(`/customer/${catalog.business.slug}/bookings/${encodeURIComponent(key)}/open`,'POST',{});location.href=result.path;return;
+    }
+  }
   on(modal, "[data-customer-event]", "click", async (ev) => {
     const key = (ev.currentTarget as HTMLElement).dataset.customerEvent;
     const result = await api<{ path: string }>(
@@ -3274,7 +3300,7 @@ function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
       .filter((v) => kind !== "packages" || (offers ? !!(v as Package).bundleIds?.length : !(v as Package).bundleIds?.length))
       .map(
         (v) =>
-          `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">Category: ${e(v.category)} · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button>${v.active ? `<button class="small danger" data-delete="${kind}:${v.id}">Remove from website</button>` : kind === "packages" ? `<button class="small outline" data-restore-show="${e(v.id)}">Put back on website</button>` : ""}</div></article>`,
+          `<article class="panel"><span class="badge">${v.active ? "Public" : "Archived"}</span><h3>${e(v.name)}</h3><p>${e("description" in v ? v.description : v.bio)}</p>${"duration" in v ? `<p class="muted">Category: ${e(v.category)} · ${e(price(v))}</p>` : ""}<div class="actions"><button class="small outline" data-edit="${kind}:${v.id}">Edit details</button><button class="small outline" data-duplicate="${kind}:${v.id}">Duplicate</button>${kind === "packages" && v.active && ["owner","admin"].includes(state!.user.role) ? `<button class="small outline" data-publish-offer="${e(v.id)}">Publish & notify</button>` : ""}${v.active ? `<button class="small danger" data-delete="${kind}:${v.id}">Remove from website</button>` : kind === "packages" ? `<button class="small outline" data-restore-show="${e(v.id)}">Put back on website</button>` : ""}</div></article>`,
       )
       .join("") ||
     empty(
@@ -3286,6 +3312,16 @@ function renderCatalogAdmin(root: Element, kind: "packages" | "performers") {
           : "Add a performer profile to introduce the people behind the happy memories.",
     )
   }</div>`;
+  on(root,'[data-publish-offer]','click',event=>{
+    const show=state!.packages.find(p=>p.id===(event.currentTarget as HTMLElement).dataset.publishOffer)!;
+    openDialog('Publish & notify',h`<p><strong>${e(show.name)}</strong></p><p>Announce this public offer to customers who allow offers. Customers marked do not contact are excluded. Private proposals are never announced here.</p><form><div class="form-error" role="alert"></div><button type="submit">Publish & notify</button></form>`);
+    submit(modal.querySelector('form')!,async()=>{
+      const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([show.id,show.name,show.description,show.priceMode,show.price,show.bundleIds??[]])));
+      const fingerprint=[...new Uint8Array(bytes)].map(n=>n.toString(16).padStart(2,'0')).join('');
+      const result=await api<{published:boolean}>('/manage/packages/'+encodeURIComponent(show.id)+'/publish','POST',{fingerprint});
+      modal.close();notify(result.published?'Offer published. Customer updates recorded.':'This version was already announced.');
+    });
+  });
   on(root, "[data-duplicate]", "click", (ev) => {
     const [kind, key] = (
       ev.currentTarget as HTMLElement
@@ -5256,7 +5292,7 @@ function quoteForm(b: Booking) {
   function render() {
     openDialog(
       "Give them a few happy possibilities",
-      `<p class="muted">Prepare one to three options. Editing restores amounts before rewards and releases any attached reward; reapply it after saving. The customer accepts one; you confirm after availability and deposit checks.</p><form><div id="quote-rows">${drafts.map((q, i) => `<fieldset><legend>Option ${i + 1}</legend><div class="forms-grid">${field({ key: `name-${i}`, label: "Option name", value: q.name, required: true })}${field({ key: `amount-${i}`, label: "Total (USD)", type: "number", value: Number(q.amount ?? 0) / 100, min: 0, step: "0.01", required: true })}${field({ key: `deposit-${i}`, label: "Required deposit (USD)", type: "number", value: Number(q.deposit ?? 0) / 100, min: 0, step: "0.01", required: true })}${field({ key: `notes-${i}`, label: "What’s included / terms", type: "textarea", value: q.notes, wide: true })}</div>${choices(`packages-${i}`, state!.packages, q.packageIds ?? [], "Included shows")}<button type="button" class="small danger" data-remove-option="${i}">Remove option</button></fieldset>`).join("")}</div><button type="button" id="add-option" class="outline small" ${drafts.length >= 3 ? "disabled" : ""}>＋ Add option</button><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">Save proposal for customer</button></div></form>`,
+      `<p class="muted">Prepare one to three options. Editing restores amounts before rewards and releases any attached reward; reapply it after saving. The customer accepts one; you confirm after availability and deposit checks.</p><form><div id="quote-rows">${drafts.map((q, i) => `<fieldset><legend>Option ${i + 1}</legend><div class="forms-grid">${field({ key: `name-${i}`, label: "Option name", value: q.name, required: true })}${field({ key: `amount-${i}`, label: "Total (USD)", type: "number", value: Number(q.amount ?? 0) / 100, min: 0, step: "0.01", required: true })}${field({ key: `deposit-${i}`, label: "Required deposit (USD)", type: "number", value: Number(q.deposit ?? 0) / 100, min: 0, step: "0.01", required: true })}${field({ key: `notes-${i}`, label: "What’s included / terms (include any agreed discount)", type: "textarea", value: q.notes, wide: true })}</div>${choices(`packages-${i}`, state!.packages, q.packageIds ?? [], "Included shows")}<button type="button" class="small danger" data-remove-option="${i}">Remove option</button></fieldset>`).join("")}</div><button type="button" id="add-option" class="outline small" ${drafts.length >= 3 ? "disabled" : ""}>＋ Add option</button><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">Send private proposal</button></div></form>`,
     );
     const read = () => {
       const data = new FormData(modal.querySelector("form")!);
@@ -5297,7 +5333,7 @@ function quoteForm(b: Booking) {
       });
       await loadDashboard();
       await openBooking(b.id);
-      notify("Proposal saved. Share the private event link for acceptance.");
+      notify("Private proposal saved. The customer update is available in their account.");
     });
   }
   render();

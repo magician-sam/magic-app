@@ -177,7 +177,7 @@ export function customerAccounts(
       announcements: (await store.all<{
         id: string; packageId: string; title: string; description: string; at: string;
       }>(b.id, "bundleAnnouncements"))
-        .filter(() => c.offersConsent)
+        .filter(() => c.offersConsent && !c.doNotContact)
         .filter((item) => item.at >= new Date(Date.now() - 30 * 86400_000).toISOString())
         .slice(-8).reverse(),
       notifications: (await store.all<CustomerNotice>(b.id, "customerNotifications"))

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
 import { whatsappHistory } from "./whatsapp-history.js";
@@ -1666,7 +1667,6 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       next();
       return;
     }
-    const previousPackage = kind === "packages" && key !== "new" ? await owned<Package>(req.business.id, kind, key) : undefined;
     const recordId = key === "new" ? id() : key;
     if (key !== "new") await owned(req.business.id, kind, key);
     if (["packages", "performers", "referrals"].includes(kind)) canManage(req);
@@ -1763,18 +1763,25 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       value = v;
     }
     const saved = await writeRecord(req, kind, { ...value, id: recordId });
-    if (kind === "packages") {
-      const show = saved as Package;
-      const priceDrop = !!previousPackage && show.priceMode === "fixed" && previousPackage.priceMode === "fixed" && show.price < previousPackage.price;
-      const publicChange = !previousPackage || !previousPackage.active || show.name !== previousPackage.name || show.description !== previousPackage.description || priceDrop;
-      if (show.active && publicChange) {
-        const title = priceDrop ? `New discount · ${show.name}` : !previousPackage || !previousPackage.active ? `${show.bundleIds?.length ? "New bundle" : "New show"} · ${show.name}` : `Show update · ${show.name}`;
-        const description = show.description.slice(0, 180);
-        await store.put(req.business.id, "bundleAnnouncements", { id: id(), packageId: show.id, title, description, at: new Date().toISOString() });
-        await offerNotice(store, req.business, title, description, origin);
-      }
-    }
     res.json(saved);
+  });
+  app.post('/api/manage/packages/:id/publish',async(request,res)=>{
+    const req=request as Authed;canManage(req);
+    const input=z.object({fingerprint:z.string().regex(/^[a-f0-9]{64}$/)}).parse(req.body);
+    const publication=await store.transaction(async()=>{
+      const show=await owned<Package>(req.business.id,'packages',String(req.params.id));
+      requireThat(show.active,'Only public active offers can be announced.');
+      const fingerprint=createHash('sha256').update(JSON.stringify([show.id,show.name,show.description,show.priceMode,show.price,show.bundleIds??[]])).digest('hex');
+      requireThat(input.fingerprint===fingerprint,'The offer changed. Refresh before announcing.',409);
+      const publicationId='offer-'+fingerprint;
+      if(await store.get(req.business.id,'bundleAnnouncements',publicationId))return null;
+      const title=(show.bundleIds?.length?'New bundle':'New show')+' · '+show.name;
+      const url='/b/'+encodeURIComponent(req.business.slug)+(show.bundleIds?.length?'#offer/':'/show/')+encodeURIComponent(show.id);
+      const item={id:publicationId,packageId:show.id,title,description:show.description.slice(0,180),at:new Date().toISOString(),url};
+      await writeRecord(req,'bundleAnnouncements',item,'published');return item;
+    });
+    if(publication)await offerNotice(store,req.business,publication.title,publication.description,origin,publication.url,publication.id);
+    res.json({published:!!publication});
   });
   writes.delete("/api/manage/:kind/:id", async (request, res) => {
     const req = request as Authed;
@@ -2308,7 +2315,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       return b;
     }, "artist.job-completed"));
   });
-  writes.post("/api/manage/bookings/:id/quotes", async (request, res) => {
+  app.post("/api/manage/bookings/:id/quotes", async (request, res) => {
     const req = request as Authed;
     canManage(req);
     const options = z
@@ -2316,7 +2323,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         z
           .object({
             name: short.min(2),
-            packageIds: z.array(short).min(1).max(12),
+            packageIds: z.array(short).max(12),
             amount: cents,
             deposit: cents,
             notes: z.string().max(3000),
@@ -2329,13 +2336,15 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       .min(1)
       .max(3)
       .parse(req.body.options);
+    const saved=await store.transaction(async()=>{
+    const current=await owned<Booking>(req.business.id,'bookings',String(req.params.id));
+    requireThat(options.every(q=>q.packageIds.length>0||!!current.requestedServices?.length),'Choose shows or include the requested guest services.');
     await Promise.all(
       options.map(
         async (q) => await validateSelection(req.business.id, q.packageIds, []),
       ),
     );
-    res.json(
-      await editBooking(
+    return await editBooking(
         req,
         async (b) => {
           requireThat(
@@ -2371,8 +2380,10 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
           return b;
         },
         "quotes.replaced",
-      ),
-    );
+      );
+    });
+    await eventNotice(store,req.business,saved,"updated",origin);
+    res.json(saved);
   });
   writes.post("/api/manage/bookings/:id/status", async (request, res) => {
     const req = request as Authed;

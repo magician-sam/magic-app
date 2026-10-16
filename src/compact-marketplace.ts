@@ -1,0 +1,267 @@
+import { h, copy, setCopy } from "./customer-i18n.js";
+
+type Options = {
+  root: HTMLElement;
+  bundle: () => void;
+  rewards: () => void;
+  account: () => void;
+  artists: { id: string; name: string; photo: string; speciality: string }[];
+  artist: (id: string) => void;
+};
+let controller: AbortController | undefined;
+let returnY = 0;
+const decodeKey = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+};
+const focused = new Set([
+  "#offers",
+  "#marketplace-agencies",
+  "#marketplace-playgrounds",
+  "#family-celebrations",
+  "#browse-music",
+  "#browse-food",
+  "#browse-science",
+]);
+
+/** A single catalogue on the homepage, with addressable focused category views. */
+export function mountCompactMarketplace({
+  root,
+  bundle,
+  rewards,
+  account,
+  artists,
+  artist,
+}: Options) {
+  controller?.abort();
+  controller = new AbortController();
+  const { signal } = controller;
+  document.body.classList.add("compact-marketplace");
+  const main = root.querySelector("main")!;
+  root
+    .querySelectorAll(
+      ".world-inspiration,#how,.show-proof,.marketplace-context,#shows > .section-heading,.show-jump",
+    )
+    .forEach((el) => el.remove());
+  root.querySelectorAll('a[href="#how"]').forEach((el) => el.remove());
+  const hero = root.querySelector(".world-hero")!;
+  hero.innerHTML = h(
+    '<div class="compact-welcome"><span aria-hidden="true">✦</span><div><h1>Your event. A little magic.</h1><p>Your choices. Our best offer.</p></div><button type="button" data-make-bundle>Make a bundle <span aria-hidden="true">↗</span></button></div>',
+  );
+  hero.querySelector("button")!.addEventListener("click", bundle);
+  root.querySelector(".discovery-search")?.after(hero);
+  const reward = root.querySelector<HTMLElement>("#rewards");
+  if (reward) {
+    reward.className = "compact-rewards";
+    reward.innerHTML = h(
+      '<span class="reward-gift" aria-hidden="true">✧</span><span><strong>Invite friends. Earn magic.</strong><small>5 tokens = a free magic show</small></span><button type="button" class="outline small">Invite ↗</button><button type="button" class="link small" data-reward-rules>How to earn</button>',
+    );
+    reward.querySelector("button")!.addEventListener("click", rewards);
+    reward
+      .querySelector("[data-reward-rules]")!
+      .addEventListener("click", rewards);
+    hero.after(reward);
+  }
+  const offers = root.querySelector<HTMLElement>("#offers");
+  if (offers) {
+    main.append(offers);
+    offers.querySelectorAll(".bundle-invite button").forEach((button) => {
+      setCopy(button, "Make a bundle");
+    });
+  }
+  const family = root.querySelector<HTMLElement>("#family-celebrations");
+  if (family) main.append(family);
+  const agencies = root.querySelector<HTMLElement>("#marketplace-agencies");
+  if (agencies) main.append(agencies);
+  const places = root.querySelector<HTMLElement>("#marketplace-playgrounds");
+  if (places) main.append(places);
+  root
+    .querySelectorAll<HTMLAnchorElement>(".mp-category,.mobile-site-menu a")
+    .forEach((link) => {
+      if (link.classList.contains("mp-music")) link.href = "#browse-music";
+      if (link.classList.contains("mp-food")) link.href = "#browse-food";
+      if (link.classList.contains("mp-science")) link.href = "#browse-science";
+    });
+  const artistSection = root.querySelector<HTMLElement>("#performers");
+  if (artistSection) {
+    artistSection.innerHTML =
+      h(
+        '<div class="section-heading"><h2>Artist Gallery</h2></div><div class="compact-artists">',
+      ) +
+      artists
+        .map(
+          (p) =>
+            h`<button type="button" class="artist-card" data-artist-profile="${p.id}">${p.photo ? h`<img src="${p.photo}" alt="" loading="lazy">` : h('<span class="artist-placeholder" aria-hidden="true">✦</span>')}<span><strong>${p.name}</strong><small>${copy(p.speciality)}</small></span><b aria-hidden="true">↗</b></button>`,
+        )
+        .join("") +
+      h("</div>");
+    artistSection
+      .querySelectorAll<HTMLButtonElement>("[data-artist-profile]")
+      .forEach((button) =>
+        button.addEventListener("click", () =>
+          artist(button.dataset.artistProfile!),
+        ),
+      );
+  }
+  root.querySelectorAll('a[href="#performers"]').forEach((link) => {
+    const label = link.querySelector("strong") || link;
+    setCopy(label, "Artist Gallery");
+  });
+  const nav = root.querySelector(".site-nav");
+  if (nav && !nav.querySelector('a[href="#offers"]'))
+    nav.insertAdjacentHTML(
+      "afterbegin",
+      h('<a href="#offers">Offers & bundles</a>'),
+    );
+  const routeHeader = document.createElement("div");
+  routeHeader.className = "category-view-header";
+  routeHeader.hidden = true;
+  routeHeader.innerHTML = h(
+    '<button type="button" class="outline small">← Explore all</button><h2></h2>',
+  );
+  main.prepend(routeHeader);
+  routeHeader.querySelector("button")!.addEventListener("click", () => {
+    history.pushState(
+      null,
+      "",
+      location.pathname + location.search + "#marketplace-categories",
+    );
+    paint(true);
+  });
+  const allCards = [...root.querySelectorAll<HTMLElement>("#shows .show-card")];
+  const collections: Record<string, { title: string; match: RegExp }> = {
+    "#browse-music": {
+      title: "Music & sound",
+      match: /\bDJ\b|Sound System|Live Music|Parades/i,
+    },
+    "#browse-food": { title: "Food & cakes", match: /Food|Beverage|Cake/i },
+    "#browse-science": {
+      title: "Science & workshops",
+      match: /Science|Workshop/i,
+    },
+  };
+  let wasFocused = document.body.classList.contains("category-focused");
+  function paint(restore = false) {
+    const hash = location.hash,
+      offerId = hash.startsWith("#offer/") ? decodeKey(hash.slice(7)) : "",
+      active = focused.has(hash) || !!offerId,
+      collection = collections[hash];
+    if (active && !wasFocused) returnY = window.scrollY;
+    document.body.classList.toggle("category-focused", active);
+    document.body.classList.toggle("offer-focused", !!offerId);
+    for (const section of [...main.children] as HTMLElement[]) {
+      if (section === routeHeader) continue;
+      section.classList.toggle(
+        "route-hidden",
+        active
+          ? section.id !==
+              (collection ? "shows" : offerId ? "offers" : hash.slice(1))
+          : [
+              "offers",
+              "family-celebrations",
+              "marketplace-agencies",
+              "marketplace-playgrounds",
+            ].includes(section.id),
+      );
+    }
+    root
+      .querySelectorAll(
+        ".show-card.category-excluded,.show-group.category-excluded",
+      )
+      .forEach((el) => el.classList.remove("category-excluded"));
+    if (collection) {
+      allCards.forEach((card) => {
+        const title =
+          card.dataset.guestName ||
+          card.querySelector<HTMLElement>("[data-show-details]")?.dataset
+            .showDetails ||
+          "";
+        card.classList.toggle(
+          "category-excluded",
+          !collection.match.test(title),
+        );
+      });
+      root
+        .querySelectorAll("#shows .show-group")
+        .forEach((group) =>
+          group.classList.toggle(
+            "category-excluded",
+            !group.querySelector(".show-card:not(.category-excluded)"),
+          ),
+        );
+    }
+    offers?.querySelector(".offer-unavailable")?.remove();
+    if (offers && (hash === "#offers" || offerId)) {
+      offers.hidden = false;
+      offers
+        .querySelectorAll<HTMLElement>(".show-card")
+        .forEach((card) =>
+          card.classList.toggle(
+            "category-excluded",
+            !!offerId &&
+              card.querySelector<HTMLElement>("[data-show-details]")?.dataset
+                .showDetails !== offerId,
+          ),
+        );
+      offers
+        .querySelectorAll<HTMLElement>(".bundle-ideas,.bundle-invite")
+        .forEach((el) => (el.hidden = !!offerId));
+      if (
+        offerId &&
+        !offers.querySelector(".show-card:not(.category-excluded)")
+      )
+        offers.insertAdjacentHTML(
+          "beforeend",
+          h(
+            '<p class="offer-unavailable">This offer is no longer available. <a href="#offers">Offers & bundles ↗</a></p>',
+          ),
+        );
+    }
+    routeHeader.hidden = !active;
+    setCopy(
+      routeHeader.querySelector("h2")!,
+      offerId
+        ? "Offers & bundles"
+        : collection?.title ||
+            {
+              "#offers": "Offers & bundles",
+              "#family-celebrations": "Baptism & First Communion",
+              "#marketplace-agencies": "Entertainment agencies",
+              "#marketplace-playgrounds": "Playgrounds & venues",
+            }[hash] ||
+            "",
+    );
+    if (active) {
+      root
+        .querySelector("#mobile-site-menu")
+        ?.setAttribute("aria-hidden", "true");
+      routeHeader.scrollIntoView({ block: "start" });
+    } else if (wasFocused || restore) window.scrollTo({ top: returnY });
+    wasFocused = active;
+  }
+  window.addEventListener("hashchange", () => paint(), { signal });
+  window.addEventListener("popstate", () => paint(), { signal });
+  window.addEventListener(
+    "hashchange",
+    () => {
+      if (location.hash.startsWith("#booking/")) account();
+    },
+    { signal },
+  );
+  root.addEventListener(
+    "click",
+    (event) => {
+      const link = (event.target as Element).closest<HTMLAnchorElement>(
+        'a[href^="#"]',
+      );
+      if (link && focused.has(link.hash) && link.hash === location.hash)
+        paint();
+    },
+    { signal },
+  );
+  paint();
+  if (location.hash.startsWith("#booking/")) account();
+}

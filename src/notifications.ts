@@ -13,6 +13,7 @@ export interface CustomerNotice {
   kind: "accepted" | "confirmed" | "declined" | "cancelled" | "updated" | "offer";
   at: string;
   readAt: string;
+  url?: string;
 }
 export interface PushDevice {
   id: string;
@@ -24,6 +25,7 @@ export const deviceId = (endpoint: string) => createHash("sha256").update(endpoi
 export const pushPublicKey = () => process.env.WEB_PUSH_PUBLIC_KEY ?? "";
 
 async function deliver(store: Store, business: Business, customer: Customer, notice: CustomerNotice, origin: string) {
+  const target=notice.url?.startsWith('/')&&!notice.url.startsWith('//')?notice.url:'/b/'+encodeURIComponent(business.slug);
   let email: "sent" | "not_configured" | "no_address" | "failed" = "not_configured";
   const sender = process.env.GMAIL_SENDER_EMAIL;
   const appPassword = process.env.GMAIL_APP_PASSWORD;
@@ -41,7 +43,7 @@ async function deliver(store: Store, business: Business, customer: Customer, not
         from: `Magic by Sam <${sender}>`,
         to: customer.email,
         subject: notice.title,
-        text: `${notice.body}\n\nOpen Magic by Sam to see your event: ${origin}/b/${encodeURIComponent(business.slug)}\n\nMagic by Sam`,
+        text: `${notice.body}\n\nOpen Magic by Sam to see your event: ${origin}${target}\n\nMagic by Sam`,
       });
       email = "sent";
     } catch {
@@ -60,7 +62,7 @@ async function deliver(store: Store, business: Business, customer: Customer, not
       if (devices.length) {
         const results = await Promise.allSettled(devices.map(async (device) => {
           try {
-            await webpush.sendNotification({ endpoint: device.endpoint, keys: device.keys }, JSON.stringify({ title: notice.title, body: notice.body, url: `/b/${business.slug}` }));
+            await webpush.sendNotification({ endpoint: device.endpoint, keys: device.keys }, JSON.stringify({ title: notice.title, body: notice.body, url: target }));
             return true;
           } catch (error) {
             if (typeof error === "object" && error && "statusCode" in error && [404, 410].includes(Number(error.statusCode)))
@@ -90,16 +92,16 @@ export async function eventNotice(store: Store, business: Business, booking: Boo
     offer: ["A new offer from Magic by Sam", "See the latest offer in your account."],
   }[kind];
   const confirmation = `Sam has confirmed ${booking.name} for ${booking.date} at ${booking.time}. ${booking.paymentTerms ? `Payment agreement: ${booking.paymentTerms}. ` : ""}Open your private event page for the agreed plan and recorded payments.`;
-  const notice: CustomerNotice = { id: id(), customerId: customer.id, bookingId: booking.id, kind, title: `${language[0]} · ${booking.name}`, body: kind === "confirmed" ? confirmation : language[1], at: new Date().toISOString(), readAt: "" };
+  const notice: CustomerNotice = { id: id(), customerId: customer.id, bookingId: booking.id, kind, title: `${language[0]} · ${booking.name}`, body: kind === "confirmed" ? confirmation : language[1], at: new Date().toISOString(), readAt: "", url: `/b/${encodeURIComponent(business.slug)}#booking/${encodeURIComponent(booking.id)}` };
   await store.put(business.id, "customerNotifications", notice);
   return await deliver(store, business, customer, notice, origin);
 }
 
-export async function offerNotice(store: Store, business: Business, title: string, description: string, origin: string) {
-  const customers = (await store.all<Customer>(business.id, "customers")).filter((customer) => customer.offersConsent);
-  for (const customer of customers) {
-    const notice: CustomerNotice = { id: id(), customerId: customer.id, bookingId: "", kind: "offer", title: `New offer · ${title}`, body: description, at: new Date().toISOString(), readAt: "" };
-    await store.put(business.id, "customerNotifications", notice);
-    await deliver(store, business, customer, notice, origin);
+export async function offerNotice(store: Store, business: Business, title: string, description: string, origin: string, url?:string, publicationId?:string) {
+  const customers=(await store.all<Customer>(business.id,'customers')).filter(customer=>customer.offersConsent&&!customer.doNotContact);
+  for(const customer of customers){
+    const notice:CustomerNotice={id:publicationId?publicationId+'-'+customer.id:id(),customerId:customer.id,bookingId:'',kind:'offer',title:'New offer · '+title,body:description,at:new Date().toISOString(),readAt:'',url};
+    const created=await store.transaction(async()=>{if(await store.get(business.id,'customerNotifications',notice.id))return false;await store.put(business.id,'customerNotifications',notice);return true;});
+    if(created)await deliver(store,business,customer,notice,origin);
   }
 }

@@ -21,7 +21,7 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
   const paintResults=()=>{
     const query=catalogueSearch.value.trim();results.hidden=!query;
     if(!query){results.replaceChildren();return;}
-    const shows=[...root.querySelectorAll<HTMLElement>('#shows .show-card:not([hidden])')];
+    const shows=[...root.querySelectorAll<HTMLElement>('#shows .show-card:not([hidden]), #offers .show-card:not([hidden])')];
     const partners=partnerQuery===query?partnerTargets.flatMap(selector=>[...(root.querySelector(selector)?.querySelectorAll<HTMLElement>('.playtown-card,.mp-partner-card')??[])]):[];
     const matches=[...shows,...partners];
     results.innerHTML=h`<p class="discovery-result-count" role="status">${copy('Matches found')}: ${matches.length}</p><div class="discovery-result-grid">${matches.slice(0,showAllResults?matches.length:8).map((card,index)=>{
@@ -40,7 +40,7 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     });
   };
   const list = section.querySelector('datalist')!;
-  for (const name of new Set([...root.querySelectorAll('#shows .show-card h3')].map(heading => heading.querySelector<HTMLElement>('[data-customer-copy]')?.dataset.customerCopy ?? heading.textContent?.trim()).filter(Boolean))) {
+  for (const name of new Set([...root.querySelectorAll('#shows .show-card h3, #offers .show-card h3')].map(heading => heading.querySelector<HTMLElement>('[data-customer-copy]')?.dataset.customerCopy ?? heading.textContent?.trim()).filter(Boolean))) {
     const option = document.createElement('option');
     option.value = t(name!); option.dataset.customerValue = name!;
     list.append(option);

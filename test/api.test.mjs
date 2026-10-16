@@ -452,8 +452,7 @@ test("bundles retain booking snapshots and reject overlapping shows in requests 
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
   const id = saved.data.id;
   const alerts = await store.all(business.id, "bundleAnnouncements");
-  assert.equal(alerts.length, 1);
-  assert.equal(alerts[0].packageId, id);
+  assert.equal(alerts.length, 0, "Saving an offer does not announce it; publication is explicit.");
   const accountAlerts = await request("/customer/test/me", "GET", undefined, customerCookie);
   assert.equal(accountAlerts.status, 200);
   assert.deepEqual(accountAlerts.data.announcements, []);
