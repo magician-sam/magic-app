@@ -14,6 +14,8 @@ export function createVenueMap(element:HTMLElement,open:(id:string)=>void,moved:
   const layer=L.layerGroup().addTo(map);
   map.setView([33.8856221,35.4778697],13);
   map.on('moveend',moved);
+  // An open popup can otherwise be clipped after a phone rotates.
+  map.on('resize',()=>map.closePopup());
   let current:VenueMapPlace[]=[];
   function fit() {
     const points=current.filter(place=>place.coordinates).map(place=>L.latLng(place.coordinates!.latitude,place.coordinates!.longitude));
