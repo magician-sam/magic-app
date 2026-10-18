@@ -1,3 +1,4 @@
+import { mountBackstageWorkspace } from './backstage-workspace.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
 import { installMediaPlayback, stopMediaWithin } from "./media-playback.js";
@@ -2415,6 +2416,38 @@ function bookingRow(b: Booking) {
   return `<div class="row"><div class="date-tile">${e(new Date(`${b.date}T12:00:00`).toLocaleDateString("en", { month: "short" }))}<b>${e(b.date.slice(8))}</b></div><div class="row-main"><h3>${e(b.name)}</h3><p>${e(b.time)} · ${e(b.location)}</p></div>${badge(b.status)}<button class="small outline" data-booking="${b.id}">Open event ↗</button>${b.status === "cancelled" && ["owner", "admin"].includes(state!.user.role) ? `<button class="small danger" data-permanent-event="${e(b.id)}">Delete permanently</button>` : ""}</div>`;
 }
 function staffCan(action: StaffAction) { return !!state && userCanStaffAction(state.user, action); }
+function wireStudio() {
+  const visible = new Set([...app.querySelectorAll<HTMLElement>('[data-nav]')].map(el=>el.dataset.nav));
+  const go = (view: string) => { if(visible.has(view)){currentView=view;renderDashboard();} };
+  on(app,'#studio-create','click',()=>{
+    const actions = [
+      ...(staffCan('events')?[['request','New event request']]:[]),
+      ...(staffCan('customers')?[['customers','Add customer']]:[]),
+      ...(staffCan('followups')?[['reminders','Add follow-up']]:[]),
+    ];
+    openDialog('Create', '<div class="actions">'+actions.map(([key,label])=>'<button type="button" data-studio-new="'+key+'">'+label+'</button>').join('')+(visible.has('money')?'<button type="button" id="studio-payment">Payments & costs</button>':'')+'</div>');
+    on(modal,'[data-studio-new]','click',ev=>{const key=(ev.currentTarget as HTMLElement).dataset.studioNew!;modal.close();if(key==='request')location.href='/b/'+encodeURIComponent(state!.business.slug);else void editRecord(key,'new');});
+    on(modal,'#studio-payment','click',()=>{modal.close();go('money');});
+  });
+  on(app,'#studio-search','click',()=>{
+    openDialog('Search workspace','<label for="studio-query">Customer, event, artist or section</label><input id="studio-query" type="search" autocomplete="off"><div id="studio-results" aria-live="polite"></div>');
+    const input=modal.querySelector<HTMLInputElement>('#studio-query')!;
+    const rows: {label:string;detail:string;open:()=>void}[] = navItems.filter(([key])=>visible.has(key)).map(([key,,label])=>({label,detail:'Section',open:()=>go(key)}));
+    if(visible.has('bookings'))rows.push(...state!.bookings.map(b=>({label:b.name,detail:b.date+' · '+b.location,open:()=>void openBooking(b.id)})));
+    if(visible.has('customers')&&staffCan('customers'))rows.push(...state!.customers.map(c=>({label:c.name,detail:'Customer · '+c.phone,open:()=>void editRecord('customers',c.id)})));
+    if(visible.has('performers')&&staffCan('catalog'))rows.push(...state!.performers.map(p=>({label:p.name,detail:'Artist',open:()=>void editRecord('performers',p.id)})));
+    const paint=()=>{const q=input.value.trim().toLocaleLowerCase();const matches=rows.filter(row=>!q||(row.label+' '+row.detail).toLocaleLowerCase().includes(q)).slice(0,20);const results=modal.querySelector('#studio-results')!;results.innerHTML=matches.map((row,i)=>'<button type="button" class="studio-search-result outline" data-studio-result="'+i+'"><strong>'+e(row.label)+'</strong><small>'+e(row.detail)+'</small></button>').join('')||'<p>No matches. Try a shorter name.</p>';on(results,'[data-studio-result]','click',ev=>{const index=Number((ev.currentTarget as HTMLElement).dataset.studioResult);modal.close();matches[index].open();});};
+    input.addEventListener('input',paint);paint();input.focus();
+  });
+  if(currentView==='today') {
+    const items: [string,string,number][] = [
+      ['bookings','Requests to review',state!.bookings.filter(b=>['requested','availability_pending'].includes(b.status)).length],
+      ['enquiries','New enquiries',state!.enquiries.filter(item=>item.status==='new'&&!item.archivedAt).length],
+      ['reminders','Overdue follow-ups',state!.reminders.filter(r=>!r.done&&r.date<localToday()).length],
+    ];
+    const section=document.createElement('section');section.className='studio-attention';section.setAttribute('aria-label','Needs your attention');section.innerHTML=items.filter(([key])=>visible.has(key)).map(([key,label,count])=>'<button type="button" data-studio-go="'+key+'"><small>'+label+'</small><strong>'+count+'</strong><small>Review →</small></button>').join('');app.querySelector('#dash-content')!.prepend(section);on(section,'[data-studio-go]','click',ev=>go((ev.currentTarget as HTMLElement).dataset.studioGo!));
+  }
+}
 function renderDashboard() {
   if (!state) return;
   if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
@@ -2434,7 +2467,7 @@ function renderDashboard() {
     )
     .join(
       "",
-    )}</nav><div class="sidebar-bottom"><b>${e(state.business.name)}</b><p>${e(state.user.name)} · ${e(state.user.role)}</p><button id="logout" class="link">Sign out</button></div></aside><main class="dash-main" id="main"><header class="dash-top"><div><span class="eyebrow">Your little corner of backstage</span><h1>${currentView === "today" ? "Let’s make good days happen." : e(title)}</h1></div><a href="/b/${e(state.business.slug)}" class="button outline small" target="_blank" rel="noopener">View website ↗</a></header><div id="dash-content"></div><button id="mobile-logout" class="link mobile-only">Sign out</button></main></div>`;
+    )}</nav><div class="sidebar-bottom"><b>${e(state.business.name)}</b><p>${e(state.user.name)} · ${e(state.user.role)}</p><button id="logout" class="link">Sign out</button></div></aside><main class="dash-main" id="main"><header class="dash-top"><div><span class="eyebrow">Backstage · Event studio</span><h1>${currentView === "today" ? "Today" : e(title)}</h1></div><a href="/b/${e(state.business.slug)}" class="button outline small" target="_blank" rel="noopener">View website ↗</a></header><div class="studio-actions"><button type="button" class="outline small" id="studio-search">⌕ Search workspace</button><button type="button" class="outline small" id="studio-create">＋ Create</button></div><div id="dash-content"></div><button id="mobile-logout" class="link mobile-only">Sign out</button></main></div>`;
   on(app, "[data-nav]", "click", (ev) => {
     currentView = (ev.currentTarget as HTMLElement).dataset.nav!;
     renderDashboard();
@@ -2450,7 +2483,7 @@ function renderDashboard() {
       .filter((b) => b.status !== "cancelled" && b.status !== "completed" && b.date >= localToday())
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
       .slice(0, 6);
-    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${["owner", "admin", "manager", "accountant", "assistant"].includes(state.user.role) ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new" && !item.archivedAt) ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new" && !item.archivedAt).length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>A little nudge</h3>${
+    content.innerHTML = `<div class="welcome"><div><h2>A little planning. A lot of magic.</h2><p>${day(localToday())} · ${e(state.business.timezone)} · Your next happy moments start here.</p></div><span class="spark" aria-hidden="true">✦</span></div>${["owner", "admin", "manager", "accountant", "assistant"].includes(state.user.role) ? stats() : ""}${state.user.role !== "performer" && state.enquiries.some((item) => item.status === "new" && !item.archivedAt) ? `<section class="panel"><div class="section-heading"><h3>${state.enquiries.filter((item) => item.status === "new" && !item.archivedAt).length} new service enquiries</h3><button class="outline small" data-go="enquiries">View enquiries ↗</button></div><p>Customers are asking about characters, decoration and other services.</p></section>` : ""}<div class="two-col"><section class="panel"><div class="section-heading"><h3>Coming up next</h3><button class="link" data-go="calendar">View calendar →</button></div>${upcoming.map(bookingRow).join("") || empty("Your next big day starts here", "Share your website link to receive your first event request.")}</section><section class="panel"><h3>Follow-ups</h3>${
       state.reminders
         .filter((r) => !r.done)
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -2461,7 +2494,7 @@ function renderDashboard() {
         )
         .join("") ||
       '<p class="muted">No follow-ups waiting. Enjoy the breathing room.</p>'
-    }<button class="outline small" data-go="reminders">Plan a follow-up</button><hr><h3>Before the curtain goes up</h3><p class="muted">${state.bookings.filter((b) => (!b.performerIds.length || b.performerIds.some((p) => b.availability[p] !== "available")) && !["cancelled", "completed"].includes(b.status)).length} events still need performer availability.</p></section></div>`;
+    }<button class="outline small" data-go="reminders">Plan a follow-up</button><hr><h3>Artist availability</h3><p class="muted">${state.bookings.filter((b) => (!b.performerIds.length || b.performerIds.some((p) => b.availability[p] !== "available")) && !["cancelled", "completed"].includes(b.status)).length} events still need performer availability.</p></section></div>`;
     if (state.user.role === "performer") {
       content.querySelector(".two-col .panel:last-child")?.remove();
       const weekEnd = new Date(`${localToday()}T12:00:00Z`);
@@ -2476,6 +2509,8 @@ function renderDashboard() {
   } else if (currentView === "notices") renderNotifications(content);
   else if (currentView === "calendar") {
     renderCalendar(content);
+    mountBackstageWorkspace(app, currentView);
+    wireStudio();
     return;
   } else if (currentView === "bookings") renderBookings(content);
   else if (currentView === "guest-photos") renderGuestPhotosAdmin(content);
@@ -2492,6 +2527,8 @@ function renderDashboard() {
   else if (currentView === "reviews") renderReviews(content);
   else renderSettings(content);
   wireDashboard(content);
+  mountBackstageWorkspace(app, currentView);
+  wireStudio();
 }
 function renderEnquiries(root: Element, showArchived = false) {
   const enquiries = [...state!.enquiries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -2572,7 +2609,7 @@ function wireDashboard(root: ParentNode) {
   });
 }
 function renderBookings(root: Element) {
-  root.innerHTML = `<div class="toolbar"><input class="search" id="booking-search" aria-label="Search events" placeholder="Find a happy day…"><div class="actions">${currentView === "calendar" ? '<button class="outline small" data-edit="blocks:new">＋ Block availability</button>' : ""}<a class="button small" href="/b/${state!.business.slug}" target="_blank" rel="noopener">＋ Create a request ↗</a></div></div><div class="filter-chips">${["all", "requested", "availability_pending", "quoted", "accepted", "confirmed", "completed", "cancelled"].map((s) => `<button data-filter="${s}" class="secondary ${s === "all" ? "active" : ""}">${pretty(s)}</button>`).join("")}</div><section class="panel" id="booking-list"></section>${currentView === "calendar" ? `<section class="panel"><h3>Unavailable times</h3>${state!.blocks.map((b) => `<div class="row"><div><h3>${e(state!.performers.find((p) => p.id === b.performerId)?.name)}</h3><p>${day(b.date)} · ${b.start}–${b.end} · ${e(b.note)}</p></div><button class="small outline" data-edit="blocks:${b.id}">Edit</button><button class="small danger" data-delete="blocks:${b.id}">Remove</button></div>`).join("") || '<p class="muted">No unavailable times recorded.</p>'}</section>` : ""}`;
+  root.innerHTML = `<div class="toolbar"><input class="search" id="booking-search" aria-label="Search events" placeholder="Search customer, location or date…"><div class="actions">${currentView === "calendar" ? '<button class="outline small" data-edit="blocks:new">＋ Block availability</button>' : ""}<a class="button small" href="/b/${state!.business.slug}" target="_blank" rel="noopener">＋ Create a request ↗</a></div></div><div class="filter-chips">${["all", "requested", "availability_pending", "quoted", "accepted", "confirmed", "completed", "cancelled"].map((s) => `<button data-filter="${s}" class="secondary ${s === "all" ? "active" : ""}">${pretty(s)}</button>`).join("")}</div><section class="panel" id="booking-list"></section>${currentView === "calendar" ? `<section class="panel"><h3>Unavailable times</h3>${state!.blocks.map((b) => `<div class="row"><div><h3>${e(state!.performers.find((p) => p.id === b.performerId)?.name)}</h3><p>${day(b.date)} · ${b.start}–${b.end} · ${e(b.note)}</p></div><button class="small outline" data-edit="blocks:${b.id}">Edit</button><button class="small danger" data-delete="blocks:${b.id}">Remove</button></div>`).join("") || '<p class="muted">No unavailable times recorded.</p>'}</section>` : ""}`;
   let filter = "all";
   let search = "";
   const list = () => {
