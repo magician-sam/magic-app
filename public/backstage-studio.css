@@ -29,6 +29,7 @@
 .studio .studio-attention button {display:grid;text-align:left;padding:15px;background:#fff;border:1px solid #e4d9bd;color:#44371e;gap:6px;}
 .studio .studio-attention strong {font-size:24px;}.studio .studio-attention small {font-size:11px;}
 .studio .studio-actions {display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.studio .studio-phone-nav button {min-width:0;padding-inline:6px;}
 .studio-search-result {display:grid;width:100%;text-align:left;margin-top:8px;padding:12px;gap:4px;}.studio-search-result small {color:#70667f;font-size:11px;}
 .studio .studio-library-search {display:block;max-width:540px;margin-bottom:20px;}
 .studio [hidden] {display:none!important;}
