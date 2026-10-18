@@ -138,11 +138,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   phoneNav.innerHTML = h`<a href="#main">${icon("sparkle")}<span>Explore</span></a><a href="#marketplace-categories">${icon("places")}<span>Categories</span></a><a href="#event-box">${icon("event")}<span>My event</span></a><a href="#marketplace-playgrounds">${icon("heart")}<span>Places</span></a><button type="button">${icon("teams")}<span>Account</span></button>`;
   phoneNav.querySelector("button")!.addEventListener("click", options.account); root.append(phoneNav);
   if (location.pathname.startsWith("/providers/")) void openProfile(location.pathname.split("/")[2], options);
-  mountDiscoverySearch(root, () => options.design(), async query => {
-    search.reset(); (search.elements.namedItem("q") as HTMLInputElement).value=query;
-    await Promise.all([populate(places,"venues",options,{area:"",q:query}),populate(agencies,"companies",options,{area:"",q:query})]);
-    return [places,agencies].filter(section=>section.querySelector('.playtown-card, .mp-partner-card')).map(section=>'#'+section.id);
-  });
+  mountDiscoverySearch(root, () => options.design(), query => searchPartnerCards(query, options));
   appendMarketplaceHelp(root, businessSlug);
   if(location.hash==='#playtown') openPlaytown(options);
   root.addEventListener('click',event=>{const target=event.target as Element; if(target.closest('[data-playtown-open]'))openPlaytown(options);});
@@ -160,14 +156,33 @@ function directorySection(group: Group, id: string, title: string, phone: string
   if (group === "venues") section.querySelector(".mp-directory-layout")!.insertAdjacentHTML("beforebegin", h`<form class="mp-venue-search" aria-label="Find a venue"><div class="mp-venue-search-intro"><h3>Find a place</h3></div><div class="mp-venue-search-fields"><label>Area or city<input type="search" name="area" maxlength="100" placeholder="Beirut, Jounieh, بيروت…"></label><label>Venue name or activity<input type="search" name="q" maxlength="200" placeholder="Optional: playground, birthday…"></label><div class="actions"><button type="submit">Find a place ↗</button><button type="button" class="link" data-clear-venues>Show all places</button></div></div></form>`);
   return section;
 }
+function pilotCard(options: MountOptions, filters: DirectoryFilters) {
+  const tags=Object.entries(options.photoSearchTags??{}).filter(([url])=>url.startsWith('/playgrounds/playtown/')).flatMap(([,values])=>values);
+  return playtownMatches(filters.area,'')&&(playtownMatches('',filters.q)||matchesMultilingual(tags,filters.q))?playtownCard():'';
+}
+
+/** Global search owns its cards. It must never change category fields, lists or
+ * map pins, including when a request finishes after the customer navigates. */
+async function searchPartnerCards(query: string, options: MountOptions): Promise<HTMLElement[]> {
+  const filters={area:'',q:query};
+  const groups:Group[]=['venues','companies'];
+  const matches=await Promise.allSettled(groups.map(group=>directory(group,filters)));
+  const cards=document.createElement('div');
+  cards.innerHTML=pilotCard(options,filters)+matches.map((result,index)=>
+    result.status==='fulfilled'?result.value.partners.map(partner=>partnerCardView(partner,groups[index]==='venues')).join(''):''
+  ).join('');
+  cards.querySelectorAll<HTMLButtonElement>('[data-playtown-open]').forEach(button=>button.addEventListener('click',()=>openPlaytown(options)));
+  cards.querySelectorAll<HTMLButtonElement>('[data-mp-profile]').forEach(button=>button.addEventListener('click',()=>void openProfile(button.dataset.mpProfile!,options)));
+  return [...cards.querySelectorAll<HTMLElement>('.playtown-card,.mp-partner-card')];
+}
+
 const directoryLoads = new WeakMap<HTMLElement, number>();
 async function populate(section: HTMLElement, group: Group, options: MountOptions, filters: DirectoryFilters = { area: "", q: "" }) {
   const results = section.querySelector<HTMLElement>(".mp-directory-results")!;
   const load = (directoryLoads.get(section) || 0) + 1; directoryLoads.set(section, load);
   const current = () => section.isConnected && directoryLoads.get(section) === load;
   results.setAttribute("aria-busy", "true");
-  const playTags=Object.entries(options.photoSearchTags??{}).filter(([url])=>url.startsWith('/playgrounds/playtown/')).flatMap(([,tags])=>tags);
-  const pilot=group==='venues'&&playtownMatches(filters.area,'')&&(playtownMatches('',filters.q)||matchesMultilingual(playTags,filters.q))?playtownCard():'';
+  const pilot=group==='venues'?pilotCard(options,filters):'';
   let publicPartners:PublicPartner[]=[];
   results.innerHTML = pilot+h('<p class="muted">Finding your next setting…</p>');
   try {

@@ -3,7 +3,7 @@ const escape = (value: string) => value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 let languageListener=new AbortController();
 /** The shared catalogue matcher stays the source of show/service results.
  * Approved partner discovery can join the same customer search submission. */
-export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, searchPartners?: (query: string) => Promise<string[]>) {
+export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, searchPartners?: (query: string) => Promise<HTMLElement[]>) {
   languageListener.abort();languageListener=new AbortController();
   const hero = root.querySelector('.world-hero');
   const catalogueSearch = root.querySelector<HTMLInputElement>('#find-show');
@@ -17,13 +17,13 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
   input.setAttribute('enterkeyhint','search');
   const results=document.createElement('div');results.className='discovery-results';results.hidden=true;
   section.append(results);
-  let partnerTargets:string[]=[],partnerQuery='',partnerLoading=false,showAllResults=false;
+  let partnerTargets:HTMLElement[]=[],partnerQuery='',partnerLoading=false,showAllResults=false;
   let partnerTimer: ReturnType<typeof setTimeout> | undefined;
   const paintResults=()=>{
     const query=catalogueSearch.value.trim();results.hidden=!query;
     if(!query){results.replaceChildren();return;}
     const shows=[...root.querySelectorAll<HTMLElement>('#shows .show-card:not([hidden]), #offers .show-card:not([hidden])')];
-    const partners=partnerQuery===query?partnerTargets.flatMap(selector=>[...(root.querySelector(selector)?.querySelectorAll<HTMLElement>('.playtown-card,.mp-partner-card')??[])]):[];
+    const partners=partnerQuery===query?partnerTargets:[];
     const matches=[...shows,...partners];
     results.innerHTML=h`<p class="discovery-result-count" role="status">${partnerLoading&&!matches.length?copy('Finding your next setting…'):copy('Matches found')+': '+matches.length}</p><div class="discovery-result-grid">${matches.slice(0,showAllResults?matches.length:8).map((card,index)=>{
       const heading=card.querySelector('h3')!;
@@ -37,7 +37,6 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     results.querySelector('[data-all-matches]')?.addEventListener('click',()=>{showAllResults=true;paintResults();});
     results.querySelector('[data-clear-discovery]')!.addEventListener('click',()=>{
       submitted++;catalogueSearch.value='';catalogueSearch.dispatchEvent(new Event('input',{bubbles:true}));
-      void searchPartners?.('').catch(()=>{});
     });
   };
   const list = section.querySelector('datalist')!;
@@ -64,7 +63,6 @@ export function mountDiscoverySearch(root: HTMLElement, helpChoose: () => void, 
     partnerTargets=[];partnerLoading=false;
     catalogueSearch.value = '';
     catalogueSearch.dispatchEvent(new Event('input', { bubbles: true }));
-    void searchPartners?.('');
     catalogueSearch.focus({ preventScroll: true });
   });
   let submitted = 0;
