@@ -1,5 +1,6 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
+  "VAT included": {"fr":"TVA incluse","ar":"شامل الضريبة على القيمة المضافة"},
   "See more": {"fr":"Voir plus","ar":"شوف المزيد"},
   "See less": {"fr":"Voir moins","ar":"شوف أقل"},
   "Bundle discount": {"fr":"Remise sur votre formule","ar":"حسم عالباقة"},

@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { financeRoutes, publicFinancePrices } from './finance-routes.js';
+import { FinanceValidationError } from './finance-math.js';
 import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
 import { whatsappHistory } from "./whatsapp-history.js";
@@ -355,6 +357,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     res.clearCookie("magic_session", { path: "/" }).json({ ok: true });
   });
   app.get("/api/public/:slug", async (req, res) => {
+    res.set('Cache-Control','no-store');
     const business = await businessBySlug(String(req.params.slug));
     const reviews = (await store.all<Review>(business.id, "reviews"))
       .filter((r) => r.published && r.publishConsent)
@@ -372,6 +375,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       }));
     res.json({
       business,
+      publicPrices: await publicFinancePrices(store,business.id),
       guestGalleries: await store.all(business.id, "guestGalleries"),
       packages: (await store.all<Package>(business.id, "packages")).filter(
         (p) => p.active,
@@ -910,6 +914,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   });
   staffNotices(app, store);
   officeTasks(app, store);
+  financeRoutes(app, store);
   customerRecovery(app, store, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);
@@ -1683,6 +1688,9 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         await store.all<Package>(req.business.id, "packages"),
         recordId,
       );
+      const publishedPrice=(await store.all<import('./finance-model.js').FinanceRecord>(req.business.id,'finance')).find(r=>r.data.type==='price'&&r.data.serviceId===recordId&&r.publishedAt&&!r.archived);
+      const currentPackage=await store.get<Package>(req.business.id,'packages',recordId);
+      if(publishedPrice&&currentPackage){const input=value as Package;requireThat(input.price===currentPackage.price&&input.priceMode===currentPackage.priceMode,'This service has a versioned Accounting price. Publish a replacement in Accounting > Prices & artist costs.',409);}
       // Each event/proposal keeps a package snapshot. Catalog edits apply to future requests.
     } else if (kind === "performers") value = performerSchema.parse(req.body);
     else if (kind === "customers") value = customerSchema.parse(req.body);
@@ -1881,6 +1889,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       const records = await store.all<{ bookingId?: string; sourceEventIds?: string[] }>(req.business.id, kind);
       requireThat(!records.some((record) => record.bookingId === booking.id || record.sourceEventIds?.includes(booking.id)), "This event has payment, referral or reward history. It cannot be permanently deleted from Backstage.", 409);
     }
+    requireThat(!(await store.all<import('./finance-model.js').FinanceRecord>(req.business.id,'finance')).some(r=>'bookingId'in r.data&&r.data.bookingId===booking.id),'This event has Accounting records. Preserve it and correct/archive the linked records instead of permanent deletion.',409);
     requireThat(!booking.quotes.some((quote) => quote.reward), "This event has reward history. It cannot be permanently deleted from Backstage.", 409);
     await store.transaction(async () => {
       const linked = ["reviews", "reminders", "contactHistory", "customerNotifications", "staffNoticeStates"];
@@ -2686,6 +2695,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       "money",
       String(req.params.id),
     );
+    requireThat(!(await store.all<{status:string;legacyMoneyId?:string}>(req.business.id,'finance')).some(record=>record.status==='posted'&&record.legacyMoneyId===old.id),'This transaction is posted in Accounting. Correct it there by reversal.',409);
     const booking = await owned<Booking>(
       req.business.id,
       "bookings",
@@ -2894,6 +2904,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         res.status(error.status).json({ error: error.message });
         return;
       }
+      if(error instanceof FinanceValidationError){res.status(400).json({error:error.message});return;}
       if (error instanceof SyntaxError) {
         res.status(400).json({ error: "Invalid JSON request." });
         return;

@@ -1,4 +1,5 @@
 import { mountAccounting } from './accounting-workspace.js';
+import { mountFinanceDesk } from './finance-client.js';
 import { mountBackstageWorkspace } from './backstage-workspace.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
@@ -332,9 +333,10 @@ const categoryIcon: Record<string, string> = {
   other: "★",
 };
 function price(p: Package) {
+  const published=catalog?.publicPrices?.find(row=>row.serviceId===p.id);
   return p.priceMode === "quote"
     ? "Quote required"
-    : `${p.priceMode === "from" ? "From " : ""}${money(p.price)}`;
+    : `${p.priceMode === "from" ? "From " : ""}${money(p.price)}${published?.taxApplied?' · '+t('VAT included'):''}`;
 }
 function photoGallery(
   photos?: { url: string; caption: string; approved: boolean }[],
@@ -1031,6 +1033,7 @@ function polishVisitorCatalog() {
     const id = card.querySelector<HTMLElement>("[data-show-details]")?.dataset.showDetails;
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
+    if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.textContent=(published.priceMode==='from'?t('From')+' ':'')+money(published.price)+(published.taxApplied?' · '+t('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
   const groups = [
@@ -1331,11 +1334,13 @@ function enquiryDetails(name: string, inline = false) {
     : photos.length
       ? h`<section><h3>${isGift ? copy("Gift ideas") : isCapture ? copy("Portfolio") : isActivity ? copy("Activity ideas") : isDecoration ? copy("Decoration portfolio") : copy("Past event photos")}</h3><p class="show-demo-note">${isGift ? copy("Examples only. Personalisation and delivery agreed in your quote.") : isCapture ? copy("Portfolio examples. Coverage, delivery and sharing permissions agreed separately.") : isActivity ? copy("Activity ideas. Your final programme is agreed together.") : isDecoration ? copy("Past setups. Your design and materials are agreed in your quote.") : copy("Past performances. Your performer and setup may vary.")}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : h('<p class="show-media-empty">Tell us your ideas.</p>');
+  const publicPrice=catalog.publicPrices?.find(p=>p.serviceId===name);
+  const servicePrice=publicPrice&&publicPrice.priceMode!=='quote'?`<p class="published-service-price">${publicPrice.priceMode==='from'?copy('From')+' ':''}${money(publicPrice.price)}${publicPrice.taxApplied?' · '+copy('VAT included'):''}</p>`:'';
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     name,
-    h`<div class="show-detail"><p class="eyebrow">${isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p><div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -3457,6 +3462,7 @@ function renderMoney(root: Element) {
     renderDashboard();
   });
   if (!staffCan("money")) root.querySelectorAll("#record-money,[data-correct]").forEach(node=>node.remove());
+  if(staffCan('money')) mountFinanceDesk(root,state!,api,loadDashboard,staffDeviceHeaders);
   mountAccounting(root,state!,report,money,id=>void openBooking(id));
   on(root, "#record-money", "click", () => moneyForm());
   on(root, "[data-correct]", "click", (ev) =>
@@ -4683,6 +4689,7 @@ function editUser(key: string) {
     { key: "viewCompanyCalendar", label: "Let this artist see the company calendar (dates and status only)", type: "checkbox", value: u.viewCompanyCalendar, wide: true },
   ];
   const permissionLabels: Record<StaffAction, string> = {
+    payroll: "View and manage private employees, salaries and payroll",
     events: "Edit event details",
     quotes: "Create and replace proposals",
     status: "Accept, refuse, cancel and complete events",

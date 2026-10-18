@@ -2,11 +2,11 @@ import { accountingBalances } from './accounting.js';
 import type { Dashboard } from './models.js';
 import type { reportPeriod } from './reports.js';
 
-let selected = 'overview';
+let selected = 'desk';
 let selectedUser = '';
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function mountAccounting(root: Element, state: Dashboard, report: ReturnType<typeof reportPeriod>, format: (value:number)=>string, open: (id:string)=>void) {
-  if (selectedUser !== state.user.id) { selected = 'overview'; selectedUser = state.user.id; }
+  if (selectedUser !== state.user.id) { selected = 'desk'; selectedUser = state.user.id; }
   const balances=accountingBalances(report.events,state.money,state.actPlans);
   const event=(id:string,name:string)=>`<button class="link" data-accounting-event="${escape(id)}">${escape(name)}</button>`;
   const table=(heads:string[],rows:string[])=>`<div class="table-wrap"><table><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>${rows.length?'':'<p class="muted">No records in this selection.</p>'}</div>`;
@@ -26,11 +26,13 @@ export function mountAccounting(root: Element, state: Dashboard, report: ReturnT
   artistBalances.innerHTML=`<h2>Artist balances by event</h2><p>Confirmed/completed events only. Negative balances indicate an advance or overpayment to review. Cancelled/unconfirmed commitments require separate agreement review.</p>${table(['Artist / event','Agreed','Paid','Balance'],balances.artistPay.map(row=>`<tr><td>${escape(state.performers.find(p=>p.id===row.performerId)?.name??'Artist')}<br>${event(row.booking.id,row.booking.name)}</td><td>${format(row.agreed)}</td><td>${format(row.paid)}</td><td>${format(row.balance)}</td></tr>`))}`;
   root.append(summary,customers,costs,artistBalances);
   const tabs=document.createElement('nav');tabs.className='accounting-tabs';tabs.setAttribute('aria-label','Accounting sections');
+  const reports=document.createElement('details');reports.className='accounting-legacy';reports.innerHTML='<summary>Event reports & history</summary><div class="accounting-legacy-options"></div>';
   const panels=[...root.querySelectorAll<HTMLElement>('[data-accounting]')];
-  const choices=[['overview','Overview'],['customers','Customer balances'],['artists','Artist pay'],['transactions','Transactions'],['costs','Cost categories'],['margins','Event margins'],['insights','Marketing insights']];
+  const choices=[['desk','Finance desk'],['overview','Event balances'],['customers','Customer balances'],['artists','Artist pay'],['transactions','Event cash history'],['costs','Cost categories'],['margins','Event margins'],['insights','Marketing insights']];
   const available=choices.filter(([key])=>panels.some(panel=>panel.dataset.accounting===key));
-  const select=(key:string)=>{selected=key;panels.forEach(panel=>panel.hidden=panel.dataset.accounting!==key);tabs.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.section===key)));};
-  for(const [key,label]of available){const button=document.createElement('button');button.type='button';button.dataset.section=key;button.textContent=label;button.addEventListener('click',()=>select(key));tabs.append(button);}
+  const select=(key:string)=>{selected=key;reports.open=key!=='desk';const period=root.querySelector<HTMLElement>('[data-report-period]');if(period)period.hidden=key==='desk';panels.forEach(panel=>panel.hidden=panel.dataset.accounting!==key);tabs.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.section===key)));};
+  for(const [key,label]of available){const button=document.createElement('button');button.type='button';button.dataset.section=key;button.textContent=label;button.addEventListener('click',()=>select(key));if(key==='desk')tabs.append(button);else reports.querySelector('div')!.append(button);}
+  tabs.append(reports);
   root.querySelector('[data-report-period]')?.after(tabs);
   root.querySelectorAll<HTMLButtonElement>('[data-accounting-go]').forEach(button=>button.addEventListener('click',()=>select(button.dataset.accountingGo!)));
   root.querySelectorAll<HTMLButtonElement>('[data-accounting-event]').forEach(button=>button.addEventListener('click',()=>open(button.dataset.accountingEvent!)));

@@ -1,13 +1,13 @@
 import type { Role, User } from "./models.js";
 
-export type StaffAction = "events" | "quotes" | "status" | "staffing" | "money" | "catalog" | "customers" | "followups" | "availability" | "checklist" | "history" | "links" | "referrals" | "reviews" | "extraAnswers" | "officeTasks" | "businessExport";
-export const configurableStaffActions = ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"] as const;
+export type StaffAction = "payroll" | "events" | "quotes" | "status" | "staffing" | "money" | "catalog" | "customers" | "followups" | "availability" | "checklist" | "history" | "links" | "referrals" | "reviews" | "extraAnswers" | "officeTasks" | "businessExport";
+export const configurableStaffActions = ["payroll", "events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"] as const;
 const actions: Record<Role, readonly StaffAction[]> = {
-  owner: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
-  admin: ["events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
+  owner: ["payroll", "events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
+  admin: ["payroll", "events", "quotes", "status", "staffing", "money", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "referrals", "reviews", "extraAnswers", "officeTasks", "businessExport"],
   manager: ["events", "quotes", "status", "staffing", "catalog", "customers", "followups", "availability", "checklist", "history", "links", "reviews", "extraAnswers", "officeTasks"],
   sales: ["events", "quotes", "customers", "followups", "history", "links", "extraAnswers"],
-  accountant: ["money", "officeTasks"],
+  accountant: ["payroll", "money", "officeTasks"],
   assistant: ["events", "customers", "followups", "availability", "checklist", "history", "links"],
   performer: ["availability", "checklist"],
 };
@@ -65,6 +65,7 @@ export function staffRouteAllowed(userOrRole: User | Role, method: string, fullP
   if (!limitedStaff(role)) return true;
   const allowed = (action: StaffAction) => userCanStaffAction(user, action);
   const path = fullPath.split("?")[0].replace(/^\/api\/manage/, "");
+  if ((method==='GET'&&(path==='/finance'||/^\/finance\/[^/]+\/print$/.test(path)||/^\/finance-attachment\/[^/]+$/.test(path)))||(method==='PUT'&&/^\/finance\/[^/]+$/.test(path))||(method==='POST'&&/^\/finance\/[^/]+\/(archive|publish|post|reverse|recognize|attachment)$/.test(path))) return allowed('money');
   if (method === "GET") {
     if (path === "/birthdays") return allowed("followups") && allowed("customers");
     if (path === "/office-tasks") return allowed("officeTasks");
