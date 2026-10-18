@@ -29,8 +29,8 @@
 .venue-map-error {padding:10px;background:#fff3db;border-radius:10px;color:#6d4b16;}
 .venue-map-mode > .mp-directory-layout {display:none;}
 .venue-map-mode .venue-result-summary {display:none;}
-.compact-marketplace .bundle-discount-label {display:block;margin:0 0 7px;color:#d0ff91;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;}
-.compact-marketplace .compact-welcome > .bundle-discount-badge {display:flex;align-items:center;justify-content:center;flex:0 0 66px;height:66px;border:1px solid #d0ff9180;border-radius:20px;background:#ffffff13;color:#d0ff91;font-size:36px;font-weight:800;transform:rotate(-7deg);}
+.compact-marketplace .bundle-discount-label {display:table;margin:0 auto 7px;padding:5px 10px;border-radius:7px;background:#fff0f0;color:#b71932;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;}
+.compact-marketplace .compact-welcome > .bundle-discount-badge {display:flex;align-items:center;justify-content:center;flex:0 0 66px;height:66px;border:1px solid #ff8292;border-radius:20px;background:#c5213c;color:#fff;font-size:36px;font-weight:800;transform:rotate(-7deg);}
 @media(max-width:600px) {
   .venue-browser-toolbar {display:block;}
   .venue-view-switch {width:max-content;margin-bottom:14px;}

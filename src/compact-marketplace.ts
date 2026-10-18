@@ -79,13 +79,13 @@ export function mountCompactMarketplace({
   if (reward) {
     reward.className = "compact-rewards";
     reward.innerHTML = h(
-      '<span class="reward-gift" aria-hidden="true">✧</span><span><strong>Invite friends. Earn magic.</strong><small>5 tokens = a free magic show</small></span><button type="button" class="outline small">Invite ↗</button><button type="button" class="link small" data-reward-rules>How to earn</button>',
+      '<div class="reward-copy"><span class="reward-eyebrow">Invite friends.</span><h2>Free magic show</h2><p>5 tokens = a free magic show</p></div><div class="reward-ticket"><div class="reward-coins" aria-hidden="true"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div><div class="reward-actions"><button type="button" class="small">Invite ↗</button><button type="button" class="link small" data-reward-rules>How to earn</button></div></div>',
     );
     reward.querySelector("button")!.addEventListener("click", rewards);
     reward
       .querySelector("[data-reward-rules]")!
       .addEventListener("click", rewards);
-    root.querySelector(".discovery-search")?.after(reward);
+    root.querySelector("#shows")?.before(reward);
   }
   const offers = root.querySelector<HTMLElement>("#offers");
   if (offers) {

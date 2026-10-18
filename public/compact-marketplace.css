@@ -77,34 +77,31 @@
   font-size: 23px;
 }
 .compact-rewards {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
-  gap: 14px;
-  background: linear-gradient(110deg, #fff1d4, #efe6ff);
-  border: 1px solid #e5d7eb;
-  padding: 12px 18px;
-  border-radius: 18px;
-  margin: 12px 0 22px;
+  gap: 20px;
+  background: radial-gradient(ellipse at 10% 0%, #ffe7af 0%, transparent 55%), linear-gradient(110deg, #fff9ed, #f3eaff);
+  border: 1px solid #e4cee8;
+  padding: 22px 28px;
+  border-radius: 24px;
+  margin: 24px 0;
+  box-shadow: 0 8px 24px #38265e08;
+  scroll-margin-top: 100px;
 }
-.compact-rewards strong,
-.compact-rewards small {
-  display: block;
-}
-.compact-rewards small {
-  font-size: 12px;
-  color: #625776;
-  margin-top: 3px;
-}
-.compact-rewards .reward-gift {
-  font-size: 28px;
-  color: #7950a4;
-}
-.compact-rewards button:first-of-type {
-  margin-inline-start: auto;
-}
+.compact-rewards .reward-eyebrow {font-size:11px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:#765219;}
+.compact-marketplace .compact-rewards h2 {font-size:clamp(22px,2.5vw,29px);line-height:1.2;margin:7px 0;color:#38265e;}
+.compact-rewards p {font-size:13px;margin:0;color:#5f4e71;}
+.compact-rewards .reward-ticket {border-inline-start:1px dashed #cdb5d0;padding-inline-start:20px;min-width:0;}
+.compact-rewards .reward-coins {display:flex;justify-content:center;gap:9px;margin:0 0 14px;}
+.compact-rewards .reward-coins > span {display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:linear-gradient(140deg,#fff4c9,#efbe55);border:1px solid #c79633;box-shadow:inset 0 0 0 3px #ffe8a7,0 3px 0 #ba8536;color:#775014;font-size:20px;transition:transform .2s;}
+.compact-rewards .reward-coins > span:last-child {background:linear-gradient(140deg,#68438e,#38265e);border-color:#38265e;box-shadow:inset 0 0 0 3px #8966ad,0 3px 0 #291943;color:#ffe7a1;}
+.compact-rewards .reward-actions {display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;}
 .compact-rewards button {
-  white-space: nowrap;
+  min-height:44px;
+  font-size:12px;
 }
+@media(hover:hover) and (prefers-reduced-motion:no-preference) {.compact-rewards:hover .reward-coins > span {transform:translateY(-3px) rotate(-8deg);}.compact-rewards:hover .reward-coins > span:nth-child(even) {transform:translateY(-3px) rotate(8deg);}}
 .compact-marketplace #shows {
   margin-top: 24px;
 }
@@ -407,27 +404,18 @@
     font-size: 20px;
   }
   .compact-rewards {
-    padding: 10px;
-    gap: 9px;
-    flex-wrap: wrap;
-    margin: 10px 0 16px;
+    padding: 18px 14px;
+    grid-template-columns:1fr;
+    gap:14px;
+    margin:20px 0;
   }
-  .compact-rewards strong {
-    font-size: 12px;
-  }
-  .compact-rewards small {
-    font-size: 10px;
-  }
-  .compact-rewards .reward-gift {
-    font-size: 22px;
-  }
+  .compact-rewards .reward-ticket {border:0;padding:0;}
+  .compact-rewards .reward-coins {margin-bottom:12px;}
+  .compact-rewards .reward-actions {gap:8px;}
   .compact-rewards button {
-    padding: 8px;
+    padding: 9px 12px;
     min-height: 44px;
-    font-size: 11px;
-  }
-  .compact-rewards [data-reward-rules] {
-    display: none;
+    font-size: 12px;
   }
   .compact-marketplace #shows .cards,
   .compact-marketplace #offers > .cards {
