@@ -42,6 +42,57 @@ export function mountCompactMarketplace({
   const { signal } = controller;
   document.body.classList.add("compact-marketplace");
   const main = root.querySelector("main")!;
+  const searchPanel = root.querySelector<HTMLElement>('.discovery-search');
+  const searchInput = searchPanel?.querySelector<HTMLInputElement>('#discovery-query');
+  const catalogueInput = root.querySelector<HTMLInputElement>('#find-show');
+  const originalSearch = catalogueInput?.closest<HTMLElement>('.show-search');
+  if (searchPanel && searchInput && catalogueInput && originalSearch) {
+    originalSearch.hidden = true;
+    searchPanel.id = 'marketplace-search';
+    searchPanel.hidden = true;
+    const searchToggle = document.createElement('button');
+    searchToggle.type = 'button';
+    searchToggle.className = 'header-search-toggle';
+    searchToggle.setAttribute('aria-controls', searchPanel.id);
+    searchToggle.setAttribute('aria-expanded', 'false');
+    searchToggle.innerHTML = h('<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="search-toggle-label">Search shows & services</span>');
+    const menuToggle = root.querySelector('#mobile-menu-toggle');
+    if (menuToggle) menuToggle.after(searchToggle);
+    else root.querySelector('.site-header')?.append(searchToggle);
+    const closeSearch = document.createElement('button');
+    closeSearch.type = 'button';
+    closeSearch.className = 'close-search';
+    closeSearch.innerHTML = h('<span aria-hidden="true">×</span><span class="search-toggle-label">Close dialog</span>');
+    searchPanel.prepend(closeSearch);
+    const close = () => {
+      catalogueInput.value = '';
+      catalogueInput.dispatchEvent(new Event('input', { bubbles: true }));
+      searchPanel.hidden = true;
+      searchToggle.setAttribute('aria-expanded', 'false');
+      searchToggle.focus({ preventScroll: true });
+    };
+    searchToggle.addEventListener('click', () => {
+      if (!searchPanel.hidden) { close(); return; }
+      if (document.body.classList.contains('category-focused')) {
+        history.pushState(null, '', location.pathname + location.search + '#main');
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+      searchPanel.hidden = false;
+      searchToggle.setAttribute('aria-expanded', 'true');
+      searchPanel.scrollIntoView({ block: 'start' });
+      searchInput.focus({ preventScroll: true });
+    }, { signal });
+    closeSearch.addEventListener('click', close, { signal });
+    searchPanel.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+    }, { signal });
+    window.addEventListener('hashchange', () => {
+      if (focused.has(location.hash) || location.hash.startsWith('#offer/')) {
+        searchPanel.hidden = true;
+        searchToggle.setAttribute('aria-expanded', 'false');
+      }
+    }, { signal });
+  }
   root
     .querySelectorAll(
       ".world-inspiration,#how,.show-proof,.marketplace-context,#shows > .section-heading,.show-jump",

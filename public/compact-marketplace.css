@@ -1,4 +1,12 @@
 /* Customer marketplace density; Backstage deliberately excluded. */
+.compact-marketplace .header-search-toggle {display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid #ded8ed;border-radius:12px;background:#fff;color:#38265e;}
+.compact-marketplace .header-search-toggle:hover,.compact-marketplace .header-search-toggle[aria-expanded="true"] {background:#eee6fb;border-color:#a88bcc;}
+.compact-marketplace .search-toggle-label {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+.compact-marketplace .discovery-search {position:relative;scroll-margin-top:100px;}
+.compact-marketplace .discovery-search .close-search {position:absolute;inset-inline-end:8px;top:8px;width:44px;height:44px;padding:0;border:0;background:transparent;color:#38265e;font-size:27px;}
+.compact-marketplace .discovery-search form {padding-top:32px;}
+.compact-marketplace .discovery-intro {padding-inline:40px;}
+@media(max-width:360px) {.compact-marketplace .site-header {gap:5px;}.compact-marketplace .mobile-menu-toggle {padding-inline:8px;gap:6px;font-size:12px;}.compact-marketplace .site-header .brand img {width:36px;height:36px;}.compact-marketplace .brand {gap:5px;}}
 .compact-marketplace [hidden] {
   display: none !important;
 }
