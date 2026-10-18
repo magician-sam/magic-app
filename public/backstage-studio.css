@@ -29,6 +29,15 @@
 .studio .studio-attention button {display:grid;text-align:left;padding:15px;background:#fff;border:1px solid #e4d9bd;color:#44371e;gap:6px;}
 .studio .studio-attention strong {font-size:24px;}.studio .studio-attention small {font-size:11px;}
 .studio .studio-actions {display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.studio .accounting-tabs {display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 24px;}
+.studio .accounting-tabs button {background:#fff;color:#514862;border:1px solid #ded8e8;padding:9px 13px;font-size:12px;}
+.studio .accounting-tabs button[aria-pressed=true] {background:#432d70;color:#fff;border-color:#432d70;}
+.studio .accounting-heading {padding:8px 0 12px;}.studio .accounting-heading h2 {font-size:26px;margin:8px 0;}
+.studio .accounting-cards {display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:20px;}
+.studio .accounting-card {display:grid;gap:12px;text-align:left;padding:20px;background:#fff;color:#302942;border:1px solid #ded8e8;position:relative;}
+.studio .accounting-card:first-child {background:#f0ebfc;border-color:#cdbce9;}.studio .accounting-card strong {font-size:28px;font-variant-numeric:tabular-nums;}.studio .accounting-card small {font-size:11px;line-height:1.5;color:#6b6278;}.studio .accounting-card b {position:absolute;right:16px;top:16px;color:#8067a6;}
+.studio .accounting-customer {display:block;color:#776b85;margin-top:5px;}.studio .accounting-columns .panel {margin-bottom:20px;}
+.studio .accounting-period summary {cursor:pointer;font-size:14px;font-weight:700;}.studio .accounting-period summary small {font-weight:400;font-size:11px;margin-left:10px;color:#70667f;}.studio .accounting-period form {margin-top:18px;}
 .studio .studio-phone-nav button {min-width:0;padding-inline:6px;}
 .studio-search-result {display:grid;width:100%;text-align:left;margin-top:8px;padding:12px;gap:4px;}.studio-search-result small {color:#70667f;font-size:11px;}
 .studio .studio-library-search {display:block;max-width:540px;margin-bottom:20px;}

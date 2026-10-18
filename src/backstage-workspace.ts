@@ -43,18 +43,4 @@ export function mountBackstageWorkspace(root: HTMLElement, view: string) {
     const input=document.createElement('input');input.type='search';input.placeholder='Search magic, homepage, characters…';label.append(input);content.prepend(label);
     input.addEventListener('input',()=>{const query=input.value.trim().toLocaleLowerCase();content.querySelectorAll<HTMLElement>('.profile-grid > article').forEach(card=>{card.hidden=!!query&&!card.textContent?.toLocaleLowerCase().includes(query);});},{signal});
   }
-  if(view==='money') {
-    const content=dashboard.querySelector('#dash-content')!;
-    const insights=content.querySelector<HTMLElement>('.visitor-interests');
-    if(insights) {
-      const finance=document.createElement('div');
-      finance.append(...[...content.childNodes].filter(node=>node!==insights));
-      const tabs=document.createElement('div');tabs.className='studio-actions';
-      const financeButton=document.createElement('button');financeButton.type='button';financeButton.textContent='Financial reports';
-      const insightButton=document.createElement('button');insightButton.type='button';insightButton.textContent='Visitor interests';
-      const select=(isFinance:boolean)=>{finance.hidden=!isFinance;insights.hidden=isFinance;financeButton.setAttribute('aria-pressed',String(isFinance));insightButton.setAttribute('aria-pressed',String(!isFinance));};
-      financeButton.addEventListener('click',()=>select(true),{signal});insightButton.addEventListener('click',()=>select(false),{signal});
-      tabs.append(financeButton,insightButton);content.append(tabs,finance,insights);select(true);
-    }
-  }
 }

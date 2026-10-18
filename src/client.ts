@@ -1,3 +1,4 @@
+import { mountAccounting } from './accounting-workspace.js';
 import { mountBackstageWorkspace } from './backstage-workspace.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
@@ -2381,7 +2382,7 @@ const navItems = [
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
   ["performers", "☆", "Performers"],
-  ["money", "$", "Money & reports"],
+  ["money", "$", "Accounting"],
   ["reminders", "◷", "Follow-ups"],
   ["reviews", "★", "Reviews"],
   ["settings", "⚙", "Settings & history"],
@@ -3385,7 +3386,7 @@ function renderMoney(root: Element) {
     reportFrom,
     reportTo,
   );
-  root.innerHTML = `<section class="panel"><h2>Your reporting period</h2><form id="report-period"><div class="calendar-controls"><label>From date<input type="date" name="from" value="${e(reportFrom)}"></label><label>To date<input type="date" name="to" value="${e(reportTo)}"></label><button type="submit" class="small">Apply dates</button><button type="button" class="outline small" id="report-all">All dates</button></div><p class="form-error" role="alert"></p></form><p class="muted">Inclusive dates in ${e(state!.business.timezone)}. Blank dates leave that end open. Current recorded values, not a historical snapshot.</p></section><h2>Cash recorded in this period</h2><p class="muted">Selected by payment, refund or expense date, even when the event falls outside this period. Cash after expenses is not accounting profit.</p><div class="stats">${[
+  root.innerHTML = `<details class="panel accounting-period" data-report-period><summary>Reporting period <small>${e(reportFrom || "Start")} → ${e(reportTo || "Any end date")}${!reportFrom && !reportTo ? " · All dates" : ""}</small></summary><form id="report-period"><div class="calendar-controls"><label>From date<input type="date" name="from" value="${e(reportFrom)}"></label><label>To date<input type="date" name="to" value="${e(reportTo)}"></label><button type="submit" class="small">Apply dates</button><button type="button" class="outline small" id="report-all">All dates</button></div><p class="form-error" role="alert"></p></form><p class="muted">Inclusive dates in ${e(state!.business.timezone)}. Blank dates leave that end open. Current recorded values, not a historical snapshot.</p></details><div data-accounting="transactions"><h2>Cash recorded in this period</h2><p class="muted">Selected by payment, refund or expense date, even when the event falls outside this period. Cash after expenses is not accounting profit.</p><div class="stats">${[
     ["Payments", report.payments],
     ["Refunds", report.refunds],
     ["Expenses", report.expenses],
@@ -3397,14 +3398,14 @@ function renderMoney(root: Element) {
     )
     .join(
       "",
-    )}</div><div class="toolbar"><p class="muted">Amounts are recorded manually in ${e(state!.business.currency)}. No money is charged online.</p><button id="record-money" class="small">＋ Record payment / cost</button></div><section class="panel table-wrap"><h3>Event performance · by event date</h3><p class="muted">All payments and expenses for each selected event are included, even outside this period. Estimates use the accepted quote and recorded costs; status is shown separately.</p><table><thead><tr><th>Event</th><th>Agreed</th><th>Collected</th><th>Balance</th><th>Expenses</th><th>Estimated profit</th></tr></thead><tbody>${report.events
+    )}</div><div class="toolbar"><p class="muted">Amounts are recorded manually in ${e(state!.business.currency)}. No money is charged online.</p><button id="record-money" class="small">＋ Record payment / cost</button></div></div><section class="panel table-wrap" data-accounting="margins"><h3>Event performance · by event date</h3><p class="muted">All payments and expenses for each selected event are included, even outside this period. Estimates use the accepted quote and recorded costs; status is shown separately.</p><table><thead><tr><th>Event</th><th>Agreed</th><th>Collected</th><th>Balance</th><th>Expenses</th><th>Estimated profit</th></tr></thead><tbody>${report.events
     .map((b) => {
       const m = bookingMoney(b);
       return `<tr><td><button class="link" data-booking="${b.id}">${e(b.name)}</button>${badge(b.status)}</td><td>${money(m.agreed)}</td><td>${money(m.paid)}</td><td>${money(m.balance)}</td><td>${money(m.expense)}</td><td>${money(m.profit)}</td></tr>`;
     })
     .join(
       "",
-    )}</tbody></table>${report.events.length ? "" : '<p class="muted">No events in this period.</p>'}</section><div class="two-col"><section class="panel"><h3>Payments & expenses · by transaction date</h3>${
+    )}</tbody></table>${report.events.length ? "" : '<p class="muted">No events in this period.</p>'}</section><div class="accounting-columns"><section class="panel" data-accounting="transactions"><h3>Payments & expenses · by transaction date</h3>${
     report.transactions
       .slice()
       .reverse()
@@ -3413,7 +3414,7 @@ function renderMoney(root: Element) {
           `<div class="row"><div><h3>${e(pretty(m.kind))} · ${money(m.amount)}</h3><p>${day(m.date)} · ${e(m.category)} · ${e(m.note)}</p></div><button class="small outline" data-correct="${m.id}">Correct</button></div>`,
       )
       .join("") || '<p class="muted">No transactions recorded.</p>'
-  }</section><section class="panel"><h3>Where the happy begins</h3><p class="muted">All-time page views (not filtered by these dates), not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Requested shows · by event date</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${report.events.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources · by event date</h3>${[...new Set(report.events.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${report.events.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => report.events.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events dated within this period.</p></section></div>`;
+  }</section><section class="panel" data-accounting="insights"><h3>Visitor sources</h3><p class="muted">All-time page views (not filtered by these dates), not unique people. Anonymous visitors stay anonymous.</p>${state!.visits.map((v) => `<div class="row"><span>${e(pretty(v.source))}</span><b>${v.count} views</b></div>`).join("")}<h3>Requested shows · by event date</h3>${state!.packages.map((p) => `<div class="row"><span>${e(p.name)}</span><b>${report.events.filter((b) => b.packageIds.includes(p.id)).length}</b></div>`).join("")}<h3>Request sources · by event date</h3>${[...new Set(report.events.map((b) => b.source))].map((source) => `<div class="row"><span>${e(pretty(source))}</span><b>${report.events.filter((b) => b.source === source).length} requests</b></div>`).join("")}<h3>Repeat customers</h3><p>${state!.customers.filter((c) => report.events.filter((b) => b.customerId === c.id && b.status === "completed").length > 1).length} customers with multiple completed events dated within this period.</p></section></div>`;
   if (["owner", "admin"].includes(state!.user.role)) {
     const interest = state!.interest ?? [];
     const groups = [
@@ -3423,7 +3424,7 @@ function renderMoney(root: Element) {
       ["service_add", "Guest services added"],
       ["occasion", "Event types chosen"],
     ];
-    root.insertAdjacentHTML("afterbegin", `<section class="panel visitor-interests"><span class="eyebrow">Customer interests</span><h2>What visitors explore</h2><p class="muted">Clicks in the last 30 days. These are actions, not unique people or confirmed bookings. No visitor identity is collected for this report.</p><div class="interest-groups">${groups.map(([kind, title]) => {
+    root.insertAdjacentHTML("afterbegin", `<section class="panel visitor-interests" data-accounting="insights"><span class="eyebrow">Customer interests</span><h2>What visitors explore</h2><p class="muted">Clicks in the last 30 days. These are actions, not unique people or confirmed bookings. No visitor identity is collected for this report.</p><div class="interest-groups">${groups.map(([kind, title]) => {
       const rows = interest.filter((item) => item.kind === kind).sort((a, b) => b.count - a.count).slice(0, 6);
       const max = rows[0]?.count ?? 1;
       return `<div class="interest-group"><h3>${title}</h3>${rows.map((item) => {
@@ -3435,10 +3436,10 @@ function renderMoney(root: Element) {
   const artistRows = state!.performers.map((artist) => {
     const jobs = report.events.filter((b) => b.performerIds.includes(artist.id));
     const agreed = jobs.reduce((sum, b) => sum + (state!.actPlans?.find((plan) => plan.id === b.id)?.rows.filter((row) => row.performerId === artist.id).reduce((n, row) => n + row.agreedPay, 0) ?? 0), 0);
-    const paid = state!.money.filter((entry) => entry.performerId === artist.id && jobs.some((job) => job.id === entry.bookingId)).reduce((sum, entry) => sum + entry.amount, 0);
+    const paid = state!.money.filter((entry) => entry.kind === "expense" && entry.performerId === artist.id && jobs.some((job) => job.id === entry.bookingId)).reduce((sum, entry) => sum + entry.amount, 0);
     return { artist, jobs, agreed, paid };
   }).filter((row) => row.jobs.length);
-  root.insertAdjacentHTML("beforeend", `<section class="panel table-wrap"><h3>Artist work & pay · by event date</h3><p class="muted">Agreed fees come from each event’s staffing plan. Paid amounts are recorded artist expenses for those events, regardless of payment date.</p><table><thead><tr><th>Artist</th><th>Jobs</th><th>Confirmed</th><th>Completed</th><th>Cancelled</th><th>Agreed</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${artistRows.map(({ artist, jobs, agreed, paid }) => `<tr><td>${e(artist.name)}</td><td>${jobs.length}</td><td>${jobs.filter((b) => b.availability[artist.id] === "available").length}</td><td>${jobs.filter((b) => !!b.artistCompletion?.[artist.id]).length}</td><td>${jobs.filter((b) => b.status === "cancelled").length}</td><td>${money(agreed)}</td><td>${money(paid)}</td><td>${money(Math.max(0, agreed - paid))}</td></tr>`).join("")}</tbody></table>${artistRows.length ? "" : '<p class="muted">No assigned artists in this period.</p>'}</section>`);
+  root.insertAdjacentHTML("beforeend", `<section class="panel table-wrap" data-accounting="artists"><h3>Artist work & pay · by event date</h3><p class="muted">Agreed fees come from each event’s staffing plan. Paid amounts are recorded artist expenses for those events, regardless of payment date.</p><table><thead><tr><th>Artist</th><th>Jobs</th><th>Confirmed</th><th>Completed</th><th>Cancelled</th><th>Agreed</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${artistRows.map(({ artist, jobs, agreed, paid }) => `<tr><td>${e(artist.name)}</td><td>${jobs.length}</td><td>${jobs.filter((b) => b.availability[artist.id] === "available").length}</td><td>${jobs.filter((b) => !!b.artistCompletion?.[artist.id]).length}</td><td>${jobs.filter((b) => b.status === "cancelled").length}</td><td>${money(agreed)}</td><td>${money(paid)}</td><td>${money(Math.max(0, agreed - paid))}</td></tr>`).join("")}</tbody></table>${artistRows.length ? "" : '<p class="muted">No assigned artists in this period.</p>'}</section>`);
   submit(
     root.querySelector<HTMLFormElement>("#report-period")!,
     async (data) => {
@@ -3455,6 +3456,8 @@ function renderMoney(root: Element) {
     reportTo = "";
     renderDashboard();
   });
+  if (!staffCan("money")) root.querySelectorAll("#record-money,[data-correct]").forEach(node=>node.remove());
+  mountAccounting(root,state!,report,money,id=>void openBooking(id));
   on(root, "#record-money", "click", () => moneyForm());
   on(root, "[data-correct]", "click", (ev) =>
     moneyCorrection((ev.currentTarget as HTMLElement).dataset.correct!),
@@ -5467,7 +5470,7 @@ function moneyForm(bookingId = "") {
     },
     {
       key: "amount",
-      label: "Amount (USD)",
+      label: `Amount (${state!.business.currency})`,
       type: "number",
       min: 0.01,
       step: "0.01",
@@ -5490,6 +5493,9 @@ function moneyForm(bookingId = "") {
         "performer payment",
         "assistant",
         "transport",
+        "fuel",
+        "equipment rental",
+        "decoration",
         "supplies",
         "referral fee",
         "other",
@@ -5499,7 +5505,7 @@ function moneyForm(bookingId = "") {
     { key: "note", label: "Reference / note", wide: true },
   ];
   openDialog(
-    "Keep the numbers in tune",
+    "Record payment / cost",
     formBody(
       fields,
       '<p class="privacy">Records money already paid or a cost incurred. This does not charge a card or send a payment.</p>',
