@@ -17,6 +17,10 @@ function visibleContext(player: Element) {
   return (!dialog || dialog.open) && ![...document.querySelectorAll('dialog[open]')].some(open => open !== dialog && open.classList.contains('photo-lightbox'));
 }
 export function installMediaPlayback() {
+  if (!document.body) {
+    document.addEventListener('DOMContentLoaded', installMediaPlayback, { once: true });
+    return;
+  }
   const tracked = new Set<Element>();
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {

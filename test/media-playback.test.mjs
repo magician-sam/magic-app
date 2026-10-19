@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {installMediaPlayback,stopMediaWithin} from '../dist/media-playback.js';
+test('early media setup waits for a document body instead of observing a missing node',()=>{
+  const names=['IntersectionObserver','MutationObserver','document','window'];
+  const old=Object.fromEntries(names.map(key=>[key,globalThis[key]]));
+  const doc=new EventTarget();doc.body=null;doc.querySelectorAll=()=>[];
+  let observed=0;
+  Object.assign(globalThis,{document:doc,window:new EventTarget(),IntersectionObserver:class{observe(){}},MutationObserver:class{observe(node){assert.equal(node,doc.body);assert.ok(node);observed++;}}});
+  try {
+    installMediaPlayback();assert.equal(observed,0);
+    doc.body={};doc.dispatchEvent(new Event('DOMContentLoaded'));assert.equal(observed,1);
+    doc.dispatchEvent(new Event('DOMContentLoaded'));assert.equal(observed,1);
+  }finally{for(const key of names){if(old[key]===undefined)delete globalThis[key];else globalThis[key]=old[key];}}
+});
 test('gallery media stops on close, replacement, moving off-screen and backgrounding',()=>{
   const names=['HTMLMediaElement','HTMLIFrameElement','HTMLDialogElement','IntersectionObserver','MutationObserver','document','window'];
   const old=Object.fromEntries(names.map(key=>[key,globalThis[key]]));
