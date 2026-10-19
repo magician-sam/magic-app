@@ -13,6 +13,168 @@ import {
   eventCostForecast,
 } from "../dist/finance-math.js";
 import { snapshot, restoreSnapshot } from "../dist/snapshots.js";
+import {
+  catalogueName,
+  catalogueSearchTerms,
+} from "../dist/catalogue-settings.js";
+import { matchesMultilingual } from "../dist/multilingual-search.js";
+
+test("catalogue display edits retain service identities, gallery history, prices and multilingual discovery", async () => {
+  const f = await fixture();
+  try {
+    const original = await f.store.get(f.business.id, "packages", "magic");
+    const input = {
+      revision: 0,
+      name: "Circus artists",
+      nameFr: "Artistes de cirque",
+      nameAr: "فنانون السيرك",
+      description: "Shows for your celebration",
+      descriptionAr: "التلاعب بالكرات",
+      cover: "https://example.test/juggler.jpg",
+    };
+    const path =
+      "/manage/catalogue-appearance/" + encodeURIComponent("service:Juggling");
+    assert.equal((await f.request(path, "PUT", input, "sales")).status, 403);
+    const saved = await f.ok(path, "PUT", input);
+    assert.equal(saved.revision, 1);
+    assert.equal((await f.request(path, "PUT", input)).status, 409);
+    await f.ok(
+      "/manage/catalogue-appearance/" + encodeURIComponent("category:shows"),
+      "PUT",
+      {
+        revision: 0,
+        name: "Entertainment",
+        cover: "/portfolio/sam-magic-live-2.jpg",
+      },
+    );
+    await f.ok(
+      "/manage/catalogue-appearance/" + encodeURIComponent("show:magic"),
+      "PUT",
+      {
+        revision: 0,
+        name: "Sam’s wonder show",
+        cover: "/portfolio/sam-magic-live-1.jpg",
+      },
+    );
+    const pub = await f.ok("/public/synthetic-finance");
+    assert.equal(
+      catalogueName(pub.business, "service:Juggling", "Juggling", "fr"),
+      "Artistes de cirque",
+    );
+    assert.equal(
+      catalogueName(pub.business, "service:Juggling", "Juggling", "ar"),
+      "فنانون السيرك",
+    );
+    assert.equal(
+      matchesMultilingual(
+        ["Juggling", ...catalogueSearchTerms(pub.business, "service:Juggling")],
+        "سيرك",
+      ),
+      true,
+    );
+    assert.deepEqual(
+      pub.packages.find((p) => p.id === "magic"),
+      original,
+    );
+    assert.equal(
+      matchesMultilingual(
+        catalogueSearchTerms(pub.business, "service:Juggling"),
+        "كرات",
+      ),
+      true,
+    );
+    const price = await f.save({
+      type: "price",
+      name: "Juggling price",
+      notes: "Private artist agreement",
+      serviceId: "Juggling",
+      priceMode: "from",
+      salePrice: 20000,
+      cost: 10000,
+      taxId: "",
+      inclusive: false,
+    });
+    await f.ok("/manage/finance/" + price.id + "/publish", "POST", {
+      revision: price.revision,
+    });
+    const updated = await f.ok("/public/synthetic-finance");
+    assert.equal(
+      updated.publicPrices.find((p) => p.serviceId === "Juggling").price,
+      20000,
+    );
+    assert.equal(
+      JSON.stringify(updated).includes("Private artist agreement"),
+      false,
+    );
+    const snap = await snapshot(f.store),
+      restored = new Store(":memory:");
+    try {
+      await restoreSnapshot(restored, snap);
+      assert.deepEqual(
+        (await restored.business(f.business.id)).catalogueAppearance,
+        pub.business.catalogueAppearance,
+      );
+    } finally {
+      await restored.db.close();
+    }
+  } finally {
+    await f.close();
+  }
+});
+
+test("catalogue editor rejects unsafe photos, foreign IDs and price bypass; resetting restores fallback labels", async () => {
+  const f = await fixture();
+  try {
+    const path =
+      "/manage/catalogue-appearance/" + encodeURIComponent("category:places");
+    for (const cover of [
+      "javascript:alert(1)",
+      "http://example.test/photo.jpg",
+      "https://user:secret@example.test/photo.jpg",
+      "//example.test/photo.jpg",
+      "/api/manage/finance",
+    ])
+      assert.equal(
+        (await f.request(path, "PUT", { revision: 0, name: "Places", cover }))
+          .status,
+        400,
+      );
+    assert.equal(
+      (
+        await f.request(path, "PUT", {
+          revision: 0,
+          name: "Places",
+          cover: "",
+          salePrice: 123,
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await f.request(
+          "/manage/catalogue-appearance/" + encodeURIComponent("show:foreign"),
+          "PUT",
+          { revision: 0, name: "Bad ID", cover: "" },
+        )
+      ).status,
+      404,
+    );
+    const edited = await f.ok(path, "PUT", {
+      revision: 0,
+      name: "Play & celebrate",
+      cover: "",
+    });
+    await f.ok(path, "PUT", { revision: edited.revision, name: "", cover: "" });
+    const business = (await f.ok("/public/synthetic-finance")).business;
+    assert.equal(
+      catalogueName(business, "category:places", "Playgrounds & venues"),
+      "Playgrounds & venues",
+    );
+  } finally {
+    await f.close();
+  }
+});
 
 const line = (changes = {}) => ({
   description: "Synthetic service",

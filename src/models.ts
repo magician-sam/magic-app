@@ -26,6 +26,7 @@ export interface Business {
   hiddenGuestServices?: string[];
   showCategories?: string[];
   siteMedia?: Record<string, string>;
+  catalogueAppearance?: Record<string, import("./catalogue-settings.js").CatalogueAppearance>;
   photoSearchTags?: Record<string, string[]>;
   intro: string;
 }

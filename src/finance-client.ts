@@ -15,6 +15,7 @@ import {
   type eventCostForecast,
 } from "./finance-math.js";
 import { guestServiceNames } from "./guest-services.js";
+import { catalogueName } from "./catalogue-settings.js";
 
 type Api = <T = Record<string, unknown>>(
   path: string,
@@ -89,12 +90,25 @@ const titles: Record<FinanceType, string> = {
   close: "Period lock",
 };
 const postingTypes = ["document", "payroll", "stock", "journal", "payment"];
+export function openCatalogueSellingPrice(
+  state: Dashboard,
+  api: Api,
+  reload: () => Promise<void>,
+  headers: () => Record<string, string>,
+  serviceId: string,
+) {
+  const host = document.createElement("div");
+  host.hidden = true;
+  document.body.append(host);
+  mountFinanceDesk(host, state, api, reload, headers, serviceId);
+}
 export function mountFinanceDesk(
   root: Element,
   state: Dashboard,
   api: Api,
   reload: () => Promise<void>,
   headers: () => Record<string, string>,
+  initialServiceId?: string,
 ) {
   if (userId !== state.user.id) {
     section = "home";
@@ -152,7 +166,7 @@ export function mountFinanceDesk(
       ...guestServiceNames(
         state.business.otherShowNames ?? [],
         state.business.hiddenGuestServices ?? [],
-      ).map((n) => [n, n]),
+      ).map((n) => [n, catalogueName(state.business, "service:" + n, n)]),
     ] as [string, string][];
   const error = (err: unknown) => {
     const target = dialog?.open
@@ -758,6 +772,17 @@ export function mountFinanceDesk(
     dialog = document.createElement("dialog");
     dialog.className = "finance-dialog";
     dialog.setAttribute("aria-labelledby", "finance-dialog-title");
+    if (initialServiceId) {
+      const opened = dialog;
+      opened.addEventListener(
+        "close",
+        () => {
+          opened.remove();
+          root.remove();
+        },
+        { once: true },
+      );
+    }
     document.body.append(dialog);
     const original = record?.data as unknown as
       Record<string, unknown> | undefined;
@@ -958,6 +983,17 @@ export function mountFinanceDesk(
     dialog?.remove();
     dialog = document.createElement("dialog");
     dialog.className = "finance-dialog";
+    if (initialServiceId) {
+      const opened = dialog;
+      opened.addEventListener(
+        "close",
+        () => {
+          opened.remove();
+          root.remove();
+        },
+        { once: true },
+      );
+    }
     document.body.append(dialog);
     const canEdit = r.status === "draft" && !r.publishedAt;
     const recordFields = fields(r.data.type);
@@ -1518,8 +1554,47 @@ export function mountFinanceDesk(
       });
   }
   panel.innerHTML = "<p>Loading your finance desk…</p>";
-  void load().catch((err) => {
-    panel.textContent =
-      err instanceof Error ? err.message : "Unable to load Accounting.";
-  });
+  void load()
+    .then(() => {
+      if (!initialServiceId) return;
+      const current = view.records
+        .filter(
+          (r) =>
+            !r.archived &&
+            r.data.type === "price" &&
+            r.data.serviceId === initialServiceId,
+        )
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      if (current) edit("price", current, !!current.publishedAt);
+      else {
+        const pack = state.packages.find((p) => p.id === initialServiceId);
+        edit("price", undefined, false, {
+          serviceId: initialServiceId,
+          name:
+            serviceOpts().find(([id]) => id === initialServiceId)?.[1] ??
+            initialServiceId,
+          priceMode: pack?.priceMode ?? "quote",
+          salePrice: pack?.price ?? 0,
+          cost: null,
+          taxId: "",
+          inclusive: false,
+        });
+      }
+    })
+    .catch((err) => {
+      panel.textContent =
+        err instanceof Error ? err.message : "Unable to load Accounting.";
+      if (initialServiceId) {
+        root.remove();
+        const notice = document.createElement("dialog");
+        notice.className = "finance-dialog";
+        notice.innerHTML = `<h2>Unable to open price</h2><p>${e(panel.textContent)}</p><button type="button">Close</button>`;
+        document.body.append(notice);
+        notice
+          .querySelector("button")!
+          .addEventListener("click", () => notice.close());
+        notice.addEventListener("close", () => notice.remove(), { once: true });
+        notice.showModal();
+      }
+    });
 }

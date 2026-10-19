@@ -3,6 +3,7 @@ import { financeRoutes, publicFinancePrices } from './finance-routes.js';
 import { FinanceValidationError } from './finance-math.js';
 import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
+import { catalogueRoutes } from "./catalogue-routes.js";
 import { whatsappHistory } from "./whatsapp-history.js";
 import { whatsappCustomers } from "./whatsapp-customers.js";
 import { databasePages } from "./database-pages.js";
@@ -915,6 +916,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   staffNotices(app, store);
   officeTasks(app, store);
   financeRoutes(app, store);
+  catalogueRoutes(app, store);
   customerRecovery(app, store, canManage);
   rewardLedger(app, store, canManage);
   contactHistory(app, store);

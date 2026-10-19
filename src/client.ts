@@ -1,5 +1,6 @@
+import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
 import { mountAccounting } from './accounting-workspace.js';
-import { mountFinanceDesk } from './finance-client.js';
+import { mountFinanceDesk, openCatalogueSellingPrice } from './finance-client.js';
 import { mountBackstageWorkspace } from './backstage-workspace.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
@@ -14,6 +15,8 @@ import { renderMessaging } from "./messaging-client.js";
 import type { OfficeTask } from "./office-tasks.js";
 import { planLink, readPlanLink } from "./event-plan.js";
 import { guestServiceNames } from "./guest-services.js";
+import { catalogueName, catalogueSearchTerms } from "./catalogue-settings.js";
+import { mountCatalogueEditing } from "./catalogue-editing-client.js";
 import { appendMarketplaceHelp } from "./discovery-search.js";
 import { playtown } from './playtown.js';
 import { mountMarketplaceDiscovery } from "./marketplace-discovery-client.js";
@@ -107,10 +110,9 @@ function savedPlanExists() {
   } catch { /* Storage may be disabled or contain an invalid old value. */ }
   return false;
 }
-function publicShowName(p: Package) {
-  if (p.bundleIds?.length) return p.name;
-  return ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[p.category.toLowerCase()] ?? p.name;
-}
+function publicShowDefaultName(p: Package) {return p.bundleIds?.length?p.name:({magic:"Magic Show",science:"Science Show",bubbles:"Bubble Show"} as Record<string,string>)[p.category.toLowerCase()]??p.name;}
+function publicShowName(p: Package) {return catalogueName(catalog?.business??{},"show:"+p.id,publicShowDefaultName(p),customerLanguage());}
+function publicShowCopy(p: Package) {return catalogueNameCopy(catalog.business,"show:"+p.id,publicShowDefaultName(p));}
 function publicShowTagline(p: Package) {
   return p.id === "magic" ? "The magic starts here" : p.name;
 }
@@ -444,7 +446,9 @@ function guestPhotos(name: string) {
   const saved = (catalog?.guestGalleries ?? []).find((entry) => entry.id === name.toLocaleLowerCase("en"));
   const hidden = new Set(saved?.hiddenPhotoUrls ?? []);
   const builtIn = guestBuiltInPhotos(name).filter((photo) => !hidden.has(photo.url));
-  return [...builtIn, ...(saved?.gallery ?? []).filter((photo) => !builtIn.some((item) => item.url === photo.url))].slice(0, 30);
+  const cover = catalog?.business.catalogueAppearance?.["service:"+name]?.cover;
+  const all = [...builtIn, ...(saved?.gallery ?? []).filter((photo) => !builtIn.some((item) => item.url === photo.url))];
+  return (cover ? [{url:cover,caption:publicGuestName(name)},...all.filter(p=>p.url!==cover)] : all).slice(0,30);
 }
 function guestBuiltInVideos(name: string) {
   return /football|soccer/i.test(name) ? ["/portfolio/guest/football-show-live.mp4"] : [];
@@ -693,6 +697,10 @@ function setupPhotoZoom() {
   lightbox.addEventListener("click", (event) => { if (event.target === lightbox) lightbox.close(); });
 }
 function showPhotos(p: Package) {
+  const photos=originalShowPhotos(p),cover=catalog?.business.catalogueAppearance?.["show:"+p.id]?.cover;
+  return cover?[{url:cover,caption:publicShowName(p)},...photos.filter(photo=>photo.url!==cover)]:photos;
+}
+function originalShowPhotos(p: Package) {
   const approved = (p.gallery ?? []).filter((photo) => photo.approved);
   const hidden = new Set(p.hiddenPhotoUrls ?? []);
   const portfolio = (portfolioShowPhotos[p.id] ?? []).filter((photo) => !hidden.has(photo.url));
@@ -733,7 +741,7 @@ function showCard(p: Package) {
   const cover = photos[(p.coverPhotoNumber ?? 1) - 1] ?? photos[0] ?? (p.bundleIds?.length ? p.bundleIds.flatMap(id=>{const part=catalog.packages.find(item=>item.id===id);return part?showPhotos(part):[];})[0] : undefined);
   const photoCount = photos.length;
   const isDemo = !(p.gallery ?? []).some((photo) => photo.approved) && !!demoShowPhotos[p.id];
-  return h`<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(t(publicShowName(p)))}">${cover ? h`<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : h`<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? copy("Bundle offer") : copy(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${copy(publicShowName(p))}</button></h3><small class="show-subtitle">${copy(publicShowTagline(p))}</small>${bundleDetails(p)}<p class="show-media-note">${photoCount ? copy(`${photoCount} ${isDemo ? "demo " : ""}${photoCount === 1 ? "photo" : "photos"}`) : copy("Photos coming soon")}${showVideos(p).length ? " · " + copy("Video") : ""}</p><div class="show-meta">${copy(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? copy("✓ Selected to compare") : copy("Compare this show")}</button></div></article>`;
+  return h`<article class="show-card${p.bundleIds?.length ? " bundle-card" : ""}"><button type="button" class="show-art ${e(p.category)}${cover ? " has-cover" : ""}" data-show-details="${e(p.id)}" aria-label="Explore ${e(t(publicShowName(p)))}">${cover ? h`<img class="show-cover" src="${e(cover.url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : h`<span class="art-icon" aria-hidden="true">${categoryIcon[p.category] ?? "★"}</span>`}<span class="show-art-label">Explore the show ↗</span></button><div class="show-body"><span class="eyebrow">${p.bundleIds?.length ? copy("Bundle offer") : copy(p.category)}</span><h3><button type="button" class="show-title" data-show-details="${e(p.id)}">${publicShowCopy(p)}</button></h3><small class="show-subtitle">${copy(publicShowTagline(p))}</small>${bundleDetails(p)}<p class="show-media-note">${photoCount ? copy(`${photoCount} ${isDemo ? "demo " : ""}${photoCount === 1 ? "photo" : "photos"}`) : copy("Photos coming soon")}${showVideos(p).length ? " · " + copy("Video") : ""}</p><div class="show-meta">${copy(price(p))}</div><button type="button" class="outline" data-show-details="${e(p.id)}">See photos & videos</button><button data-add="${e(p.id)}" class="${basket.includes(p.id) ? "secondary" : "outline"}">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button><button type="button" class="link small compare-toggle" data-compare="${e(p.id)}" aria-pressed="${comparisonIds.includes(p.id)}">${comparisonIds.includes(p.id) ? copy("✓ Selected to compare") : copy("Compare this show")}</button></div></article>`;
 }
 function renderComparisonTray() {
   const tray = document.querySelector<HTMLElement>("#compare-tray");
@@ -761,15 +769,17 @@ function showDetails(p: Package, inline = false) {
   const videos = showVideos(p);
   presentShowDetail(
     publicShowName(p),
-    h`<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${copy(p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? copy("All ages") : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? h("<li>Electricity needed</li>") : ""}</ul>${bundleDetails(p)}${photos.length ? h`<section><h3>Photos</h3>${isDemo ? h('<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>') : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : h('<p class="show-media-empty">Photos will appear here when they are ready.</p>')}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${copy(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${e(publicShowName(p) === p.name ? p.category : publicShowTagline(p))}</p><p>${catalogueDescriptionCopy(catalog.business,"show:"+p.id,p.description)}</p><ul class="show-facts"><li>${p.minAge === 0 && p.maxAge === 99 ? copy("All ages") : `Ages ${p.minAge}–${p.maxAge}`}</li>${p.needsPower ? h("<li>Electricity needed</li>") : ""}</ul>${bundleDetails(p)}${photos.length ? h`<section><h3>Photos</h3>${isDemo ? h('<p class="show-demo-note">Sample illustrations for testing. Real show photos will replace these.</p>') : ""}<div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>` : h('<p class="show-media-empty">Photos will appear here when they are ready.</p>')}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery${p.id === "science" ? " science-videos" : ""}">${videos.map((link, index) => videoTile(link, p.name, index, p.id === "science" ? `/portfolio/sam-science-live-${index + 1}.jpg` : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer"><strong>${copy(price(p))}</strong><button type="button" id="detail-add">${basket.includes(p.id) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></div>`,
     inline,
   );
   const root = inline ? app : modal;
+  const titleNode=root.querySelector(inline?"h1":"#dialog-title");if(titleNode)titleNode.innerHTML=publicShowCopy(p);
   on(root, "#detail-add", "click", () => {
     if (togglePackage(p.id)) modal.close();
   });
   enhanceShowDetail(root, publicShowName(p), "show", p.id);
 }
+function publicGuestName(name: string) { return catalogueName(catalog.business,"service:"+name,name,customerLanguage()); }
 function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices); }
 function siteMediaUrl(key: string) {
   return catalog.business.siteMedia?.[key] ?? siteMediaSlots.find((slot) => slot.key === key)?.defaultUrl ?? "";
@@ -801,7 +811,7 @@ function renderBox() {
   const chosen = catalog.packages.filter((p) => basket.includes(p.id));
   const node = document.querySelector("#event-box")!;
   const count = chosen.length + guestBasket.length;
-  node.innerHTML = h`<h3>Your event box <span aria-hidden="true">✧</span></h3>${count ? chosen.map((p) => h`<div class="box-item"><span>${copy(publicShowName(p))}<br><small>${copy(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(t(publicShowName(p)))}">×</button></div>`).join("") + guestBasket.map((name) => h`<div class="box-item"><span>${copy(name)}<br><small>${name === "Characters" && characterPreference ? `Ask for ${e(characterPreference)} · subject to confirmation` : copy("Availability & price to confirm")}</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : h`<div class="box-empty"><span>✦</span><small>Add a show or service to start.</small></div>`}${selectedPerformers.length ? h`<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? h`<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? copy("Your price") : copy("Package estimate")}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? copy("Personal quote") : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. Availability, setup and travel to confirm.</p>`;
+  node.innerHTML = h`<h3>Your event box <span aria-hidden="true">✧</span></h3>${count ? chosen.map((p) => h`<div class="box-item"><span>${publicShowCopy(p)}<br><small>${copy(price(p))}</small></span><button class="link" data-remove="${e(p.id)}" aria-label="Remove ${e(t(publicShowName(p)))}">×</button></div>`).join("") + guestBasket.map((name) => h`<div class="box-item"><span>${catalogueNameCopy(catalog.business,"service:"+name,name)}<br><small>${name === "Characters" && characterPreference ? `Ask for ${e(characterPreference)} · subject to confirmation` : copy("Availability & price to confirm")}</small></span><button class="link" data-remove-guest="${e(name)}" aria-label="Remove ${e(name)}">×</button></div>`).join("") : h`<div class="box-empty"><span>✦</span><small>Add a show or service to start.</small></div>`}${selectedPerformers.length ? h`<p>${selectedPerformers.length} performer preference(s) added</p>` : ""}${chosen.length ? h`<div class="box-total"><span>${chosen.some((p) => p.priceMode === "quote") ? copy("Your price") : copy("Package estimate")}</span><strong>${chosen.some((p) => p.priceMode === "quote") ? copy("Personal quote") : money(chosen.reduce((n, p) => n + p.price, 0))}</strong></div>` : ""}<button id="request" ${count ? "" : "disabled"}>Request my event <span aria-hidden="true">→</span></button><p class="box-note">No payment now. Availability, setup and travel to confirm.</p>`;
   const planActions = document.createElement("div");
   planActions.className = "plan-actions";
   const phone = (catalog.business.whatsapp || (catalog.business.slug === "magic-by-sam" ? "96171299716" : "")).replace(/\D/g, "").replace(/^00/, "");
@@ -927,7 +937,7 @@ function mobileMenuMarkup() {
   const gifts = services.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
   const special = services.filter((name) => !partyNames.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name));
   const showButtons = (items: Package[]) => items.map((show) => h`<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${copy(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
-  const serviceButtons = (items: string[]) => items.map((name) => h`<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${copy(name)}</span><b aria-hidden="true">↗</b></button>`).join("");
+  const serviceButtons = (items: string[]) => items.map((name) => h`<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${catalogueNameCopy(catalog.business,"service:"+name,name)}</span><b aria-hidden="true">↗</b></button>`).join("");
   const branch = (title: string, children: string, nested = false) => h`<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${copy(title)}</strong></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
   const allShows = [
     shows.length ? branch("Sam’s shows", showButtons(shows), true) : "",
@@ -1033,7 +1043,7 @@ function polishVisitorCatalog() {
     const id = card.querySelector<HTMLElement>("[data-show-details]")?.dataset.showDetails;
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
-    if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.textContent=(published.priceMode==='from'?t('From')+' ':'')+money(published.price)+(published.taxApplied?' · '+t('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
+    if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
   const groups = [
@@ -1211,7 +1221,7 @@ function renderPublic() {
       for(const [slot,label] of Object.entries(sitePhotoServices))if(name&&matchesMultilingual([label],name)){
         const url=siteMediaUrl(slot);if(url)photoTerms.push(...(catalog.business.photoSearchTags?.[url]??[]));
       }
-      return {card,score:values.length?multilingualMatchScore([...values,...photoTerms],query):null};
+      return {card,score:values.length?multilingualMatchScore([...values,...photoTerms,...catalogueSearchTerms(catalog.business,show?"show:"+show.id:"service:"+service)],query):null};
     });
     const exact=matches.some(item=>item.score===0);let found=0;
     for(const {card,score} of matches){card.hidden=score===null||(exact&&score!==0);if(!card.hidden)found++;}
@@ -1254,7 +1264,7 @@ function renderPublic() {
       h`<p>We use the contact and event details you submit to prepare and manage your celebration. Marketing permission is optional. Public customer reviews have separate text and photo permission choices. Contact the business if any published media needs attention.</p><p>Your private event link gives access to your proposal and event details. Keep it private. Business staff and authorized platform support can access records to help manage your event; platform support access is logged.</p><p>We count page views by source and clicks on shows, services and event types without identifying anonymous visitors. Contact the business to request a correction or discuss retention and deletion of your records.</p>`,
     ),
   );
-  mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, phone: contactPhone,
+  mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, business: catalog.business, phone: contactPhone,
     reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
   if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,
     account:()=>{void customerAccount();},
@@ -1289,7 +1299,7 @@ function enquiryCard(name: string) {
           : /cake/i.test(name) ? "Celebration cakes · by request"
             : /\bdj\b|sound system|audio equipment/i.test(name) ? "Music & sound · by request"
               : "Guest entertainment · by request";
-  const specialDescription = experienceFor(name).experience;
+  const specialDescription = catalogueDescriptionCopy(catalog.business,"service:"+name,experienceFor(name).experience);
   const icon = ([
     [/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i, "🎁"],
     [/photograph/i, "📷"],
@@ -1317,7 +1327,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${copy(name)}</button></h3><p>${copy(specialDescription)}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
+  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${catalogueNameCopy(catalog.business,"service:"+name,name)}</button></h3><p>${specialDescription}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
 }
 function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
@@ -1328,7 +1338,7 @@ function enquiryDetails(name: string, inline = false) {
   const isCapture = /photograph|videograph|video coverage|event film/i.test(name);
   const isGift = /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name);
   const isEventExtra = /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name);
-  const intro = copy(experienceFor(name).experience);
+  const intro = catalogueDescriptionCopy(catalog.business,"service:"+name,experienceFor(name).experience);
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
@@ -1339,11 +1349,12 @@ function enquiryDetails(name: string, inline = false) {
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
-    name,
+    publicGuestName(name),
     h`<div class="show-detail"><p class="eyebrow">${isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
+  const titleNode=root.querySelector(inline?"h1":"#dialog-title");if(titleNode)titleNode.innerHTML=catalogueNameCopy(catalog.business,"service:"+name,name);
   on(root, "[data-service-enquiry]", "click", () => serviceEnquiry(name));
   if (characterChoice) on(root, "#choose-character", "click", () => chooseCharacter());
   if (/character/i.test(name)) wireCharacterGallery(root);
@@ -1682,7 +1693,7 @@ function helpChoose(initialOccasion = "", continueWithPlan?: () => void) {
       h`<div class="chooser"><p class="chooser-context">${designerSummary(answers).split(" · ").map(copy).join(" · ")}</p><p class="chooser-intro">${answers.occasion === "Playground visit" ? copy("These shows are optional additions. Ask us about a playground or play visit separately; adding a show doesn’t reserve playground entry.") : copy("Here’s a first sketch of your celebration. Mix your favourites, swap an idea or explore every show.")}</p><div class="chooser-results">${featured.map((p) => {
         const photo = showPhotos(p)[0];
         const alternatives = ranked;
-        return h`<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? h`<img src="${e(photo.url)}" alt="" loading="eager">` : h`<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${copy(p.category)}</span><h3>${copy(publicShowName(p))}</h3><small>${copy(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => h`<li>${copy(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? h`<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => h`<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${copy(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
+        return h`<article class="chooser-result" data-experience-theme="${experienceFor(publicShowName(p)).theme}">${photo ? h`<img src="${e(photo.url)}" alt="" loading="eager">` : h`<span class="chooser-result-icon" aria-hidden="true">${categoryIcon[p.category] ?? "✦"}</span>`}<div><span class="eyebrow">${copy(p.category)}</span><h3>${publicShowCopy(p)}</h3><small>${copy(price(p))}</small><ul class="recommendation-reasons">${recommendationReasons(p, answers).map((reason) => h`<li>${copy(reason)}</li>`).join("")}</ul><button type="button" data-recommend="${e(p.id)}">Add to my event ↗</button>${alternatives.length > 1 ? h`<label class="recommendation-swap">Swap this suggestion<select data-swap-show="${e(p.id)}">${alternatives.map((show) => h`<option value="${e(show.id)}" ${show.id === p.id ? "selected" : ""}>${copy(publicShowName(show))}</option>`).join("")}</select></label>` : ""}</div></article>`;
       }).join("") || empty("Let's plan together", "Browse the shows below to choose your favourites.")}</div>${availableIdeas.some((name) => ideas.includes(name)) ? h`<h3>Add something extra?</h3><div class="chooser-extras">${ideas.filter((name) => availableIdeas.includes(name)).map((name) => h`<button type="button" class="outline small" data-guest-idea="${e(name)}">${e(name)} ↗</button>`).join("")}</div>` : ""}<div class="chooser-bottom"><button type="button" class="outline" id="chooser-restart">Start again</button><button type="button" id="chooser-all">See every show</button></div><p class="privacy">Suggestions are ideas. We check availability, venue needs and price before confirming.</p></div>`,
     );
     if (["Baptism", "First Communion"].includes(answers.occasion)) {
@@ -2383,7 +2394,7 @@ const navItems = [
   ["whatsapp", "◈", "WhatsApp customers"],
   ["messaging", "✉", "SMS & WhatsApp"],
   ["packages", "✧", "Shows & packages"],
-  ["guest-shows", "✶", "Guest shows & services"],
+  ["guest-shows", "✶", "Categories & services"],
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
   ["performers", "☆", "Performers"],
@@ -3130,6 +3141,7 @@ function renderGuestShowsAdmin(root: Element) {
     const isHidden = hidden.some((entry) => entry.toLowerCase() === name.toLowerCase());
     return `<article class="panel" data-guest-show-card="${e(name.toLowerCase())}"><span class="badge">${isHidden ? "Hidden" : "Public"}</span><h3>${e(name)}</h3><p>${isHidden ? "Removed from the public website. Existing requests are preserved." : "Visitors can add this service to their event request."}</p><button class="small ${isHidden ? "outline" : "danger"}" data-guest-visibility="${e(name)}" data-guest-action="${isHidden ? "restore" : "hide"}">${isHidden ? "Put back on website" : "Remove from website"}</button></article>`;
   }).join("")}</div>`;
+  mountCatalogueEditing(root,{state:state!,api,reload:loadDashboard,guestPhoto:guestBuiltInPhotos,showPhoto:show=>showPhotos(show)[0]?.url??"",editGallery:editGuestGallery,editShow:id=>editRecord("packages",id),editShowPhotos:editPackageMedia,editPrice:id=>openCatalogueSellingPrice(state!,api,loadDashboard,staffDeviceHeaders,id),upload:async file=>{const response=await fetch("/api/manage/upload-photo",{method:"POST",headers:{"Content-Type":"image/jpeg",...staffDeviceHeaders()},body:await resizedPhoto(file)});const result=await response.json();if(!response.ok)throw Error(result.error??"Unable to upload photo");return result.url;}});
   on(root, "#guest-show-search", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim().toLowerCase();
     root.querySelectorAll<HTMLElement>("[data-guest-show-card]").forEach((card) => {

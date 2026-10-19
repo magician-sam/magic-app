@@ -1,3 +1,6 @@
+import { marketplaceCategoryCards } from "./catalogue-settings.js";
+import type { Business } from "./models.js";
+import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
 import { h, t, copy, setCopy } from "./customer-i18n.js";
 import { playtownCard, openPlaytown } from './playtown-client.js';
 import { playtownMatches } from './playtown.js';
@@ -11,7 +14,7 @@ import { venueMapPlaces } from './venue-map-data.js';
 type Group = "venues" | "companies";
 let discoveryLifecycle:AbortController|undefined;
 const venueMaps=new WeakMap<HTMLElement,ReturnType<typeof mountVenueMap>>();
-type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; photoSearchTags?:Record<string,string[]>; design: (occasion?: string) => void;
+type MountOptions = { root: HTMLElement; businessSlug: string; phone: string; photoSearchTags?:Record<string,string[]>; business?: Business; design: (occasion?: string) => void;
   reserve: (kind:'visit'|'party') => void; account: () => void; open: (title: string, html: string) => void };
 const e = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 const iconPaths: Record<string, string> = {
@@ -30,20 +33,7 @@ const iconPaths: Record<string, string> = {
   event: h('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 2v6M17 2v6M3 11h18M8 15h2M14 15h2"/>'),
 };
 const icon = (name: string) => h`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.sparkle}</svg>`;
-const cards = [
-  ["Playgrounds & venues", "places", "#marketplace-playgrounds", "places", "Play visits & places to celebrate"],
-  ["Entertainment agencies", "teams", "#marketplace-agencies", "teams", "Planners & creative event teams"],
-  ["Artists & shows", "magic", "#shows", "shows", "Magic, circus, comedy & more"],
-  ["Offers & bundles", "gift", "#offers", "offers", "Ready-made or made for you"],
-  ["Science & workshops", "science", "#sam-shows", "science", "Discovery for curious minds"],
-  ["Decoration & flowers", "decorate", "#event-styling", "styling", "Full styling, balloons or flowers"],
-  ["Photography & video", "camera", "#photography-video", "capture", "Capture the people & the moment"],
-  ["Music & sound", "music", "#event-extras", "music", "DJs, live acts & sound systems"],
-  ["Food & cakes", "food", "#event-extras", "food", "Menus, treats & celebration cakes"],
-  ["Baptism & Communion", "candle", "#family-celebrations", "milestones", "Celebrate a meaningful family moment"],
-  ["Favours & keepsakes", "gift", "#favours-keepsakes", "keepsakes", "Thoughtful gifts for your guests"],
-  ["Schools & festivals", "sparkle", "#marketplace-occasions", "schools", "Ideas for bringing a crowd together"],
-] as const;
+const cards = marketplaceCategoryCards;
 type Directory = { partners: PublicPartner[]; total: number; next: string | null; workspaceReady: boolean };
 async function get<T>(path: string): Promise<T> {
   for (let attempt = 0; ; attempt++) {
@@ -91,7 +81,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const nav = root.querySelector(".site-nav");
   nav?.insertAdjacentHTML("afterbegin", h('<a href="#marketplace-playgrounds">Playgrounds</a><a href="#marketplace-agencies">Entertainment agencies</a>'));
   const categorySection = document.createElement("section"); categorySection.id = "marketplace-categories"; categorySection.className = "mp-categories";
-  categorySection.innerHTML = h`<div class="mp-section-intro"><div><h2>Explore categories</h2></div></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon" aria-hidden="true">${icon(shape)}</span><span class="mp-category-copy"><strong>${copy(title)}</strong><small>${copy(description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`).join("")}</nav>`;
+  categorySection.innerHTML = h`<div class="mp-section-intro"><div><h2>Explore categories</h2></div></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => { const key="category:"+theme; const settings: Pick<Business,"catalogueAppearance">=options.business??{}; const cover=settings.catalogueAppearance?.[key]?.cover; return h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon" aria-hidden="true">${cover ? `<img src="${e(cover)}" alt="" loading="lazy">` : icon(shape)}</span><span class="mp-category-copy"><strong>${catalogueNameCopy(settings,key,title)}</strong><small>${catalogueDescriptionCopy(settings,key,description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`; }).join("")}</nav>`;
   hero.after(categorySection);
   const inspiration = document.createElement("section"); inspiration.className = "world-inspiration";
   inspiration.innerHTML = h`<div class="mp-section-intro"><div><h2>Event inspiration</h2></div></div><div class="world-inspiration-grid"><figure class="mp-photo mp-photo-main"><button type="button" data-zoom-photo aria-label="Enlarge celebration decoration"><img src="/portfolio/decoration/garden-birthday.jpg" alt="Garden birthday decoration from the event collection" loading="lazy"></button><figcaption>Decoration ideas</figcaption></figure><figure class="mp-photo mp-photo-small"><button type="button" data-zoom-photo aria-label="Enlarge live music"><img src="/portfolio/guest/live-music.jpg" alt="Live music performance from the event collection" loading="lazy"></button><figcaption>Live music</figcaption></figure><a class="world-inspiration-plan" href="#marketplace-occasions"><span aria-hidden="true">✳</span><h3>Make it yours.</h3><span>Choose your occasion ↗</span></a></div>`;
