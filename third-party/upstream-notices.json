@@ -1,0 +1,59 @@
+{
+  "retrievedAt": "2026-10-19T09:22:43.407Z",
+  "scope": "Authoritative repository licence text at verified release-tag commits, retained verbatim. Preserves upstream attribution; does not assert ownership of third-party software.",
+  "sources": [
+    {
+      "repo": "tursodatabase/libsql-client-ts",
+      "commit": "9496c782af413f6380235c7f5d0c97b5371f49b7",
+      "path": "LICENSE",
+      "blob": "46782b434edc58b791e8cfdc1200c116ad747107",
+      "packages": [
+        "@libsql/client@0.18.0",
+        "@libsql/core@0.18.0"
+      ],
+      "url": "https://raw.githubusercontent.com/tursodatabase/libsql-client-ts/9496c782af413f6380235c7f5d0c97b5371f49b7/LICENSE",
+      "file": "tursodatabase__libsql-client-ts-LICENSE.txt",
+      "sha256": "f7984723ac416cb45f9eb462c4da22ad4a7d7996bd3f9c7a92288e047cce003f"
+    },
+    {
+      "repo": "libsql/isomorphic-ts",
+      "commit": "8929fe3fd4ca465e8b4e7005da1d234c31ce651c",
+      "path": "LICENSE",
+      "blob": "fd1a31eeef0964cd0bb4664f59090497f43578ad",
+      "packages": [
+        "@libsql/isomorphic-ws@0.1.5"
+      ],
+      "url": "https://raw.githubusercontent.com/libsql/isomorphic-ts/8929fe3fd4ca465e8b4e7005da1d234c31ce651c/LICENSE",
+      "file": "libsql__isomorphic-ts-LICENSE.txt",
+      "sha256": "cecf589818a56c2da8a0a6cc82c8a215c9770988c033b6016c2b74bf79f38152"
+    },
+    {
+      "repo": "tursodatabase/libsql-js",
+      "commit": "55bee86d1c284f1ddf2b9e280e870d2b6cef884a",
+      "path": "LICENSE",
+      "blob": "25b96ea3db5596c98bdd15ae656d14c62e019602",
+      "packages": [
+        "@libsql/win32-x64-msvc@0.5.29"
+      ],
+      "url": "https://raw.githubusercontent.com/tursodatabase/libsql-js/55bee86d1c284f1ddf2b9e280e870d2b6cef884a/LICENSE",
+      "file": "tursodatabase__libsql-js-LICENSE.txt",
+      "sha256": "81680d013513cf3003b03b7074948609dfb90dfeca0b8292b3c16e0172a189f4"
+    },
+    {
+      "repo": "martinthomson/encrypted-content-encoding",
+      "commit": "0562510a30819f52424724a6fd5504becacd98a1",
+      "path": "nodejs/LICENSE",
+      "blob": "ea5b60640b01f74e295037aa8a6b7d4ea278a739",
+      "packages": [
+        "http_ece@1.2.0"
+      ],
+      "url": "https://raw.githubusercontent.com/martinthomson/encrypted-content-encoding/0562510a30819f52424724a6fd5504becacd98a1/nodejs/LICENSE",
+      "file": "martinthomson__encrypted-content-encoding-LICENSE.txt",
+      "sha256": "1e881ecf2862d01e6e5bc2b861e46886d2a6fb01499c0c508a209a7271b13cf2"
+    }
+  ],
+  "unresolved": [
+    "is-node-process@1.2.0: MIT manifest, no separate notice found in package or upstream root",
+    "promise-limit@2.7.0: ISC manifest, no separate notice found in package or release-tag tree"
+  ]
+}

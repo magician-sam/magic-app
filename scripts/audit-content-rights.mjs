@@ -9,7 +9,8 @@ await mkdir(reportDirectory, { recursive: true });
 const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
 const packages = Object.entries(lock.packages).filter(([path]) => path).map(([path, value]) => ({ path, version: value.version, license: value.license ?? 'NOT DECLARED', developmentOnly: !!value.dev }));
 const frontend = new Map();
-for (const entry of ['src/client.ts', 'src/partner-client.ts']) {
+const browserEntries = ['src/client.ts', 'src/partner-client.ts', 'src/venue-map-runtime.ts', 'src/customer-info-client.ts'];
+for (const entry of browserEntries) {
   const result = await build({ entryPoints: [entry], bundle: true, minify: true, platform: 'browser', format: 'esm', target: 'es2023', write: false, metafile: true, logLevel: 'silent' });
   for (const path of Object.keys(result.metafile.inputs).filter(path => path.includes('node_modules/'))) {
     let directory = dirname(resolve(path));
@@ -22,7 +23,7 @@ for (const entry of ['src/client.ts', 'src/partner-client.ts']) {
     }
   }
 }
-const notices = ['MAGIC APP — THIRD-PARTY BROWSER SOFTWARE NOTICES', 'Generated from the installed packages used by the customer and partner browser bundles.', 'These notices apply to the identified third-party software, not to photographs, music or the entire Magic App.', ''];
+const notices = ['MAGIC APP — THIRD-PARTY BROWSER SOFTWARE NOTICES', 'Generated from the installed packages used by the customer, partner, map and information-page browser bundles.', 'These notices apply to the identified third-party software, not to photographs, music or the entire Magic App.', ''];
 const bundled = [];
 const missingNotices = [];
 for (const [directory, pkg] of [...frontend.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name))) {
@@ -40,8 +41,9 @@ for (const [directory, pkg] of [...frontend.entries()].sort((a, b) => a[1].name.
   }
   if (missingNotices.includes(`${pkg.name}@${pkg.version}`)) notices.push(`Upstream package declares ${pkg.license}; a separate copyright/licence text was not included.`, `Source repository: ${typeof pkg.repository === 'object' ? pkg.repository.url : pkg.repository}`, 'Full notice verification remains open. This entry does not invent or replace the upstream licence.', '');
 }
+notices.push('='.repeat(70), 'Map tiles/data: © OpenStreetMap contributors, https://www.openstreetmap.org/copyright', 'Map tile usage: https://operations.osmfoundation.org/policies/tiles/', 'Map service availability and usage terms are separate from the Leaflet software licence.', '');
 await writeFile('public/third-party-notices.txt', notices.join('\n'));
-await writeFile(join(reportDirectory, 'software-licences.json'), JSON.stringify({ generatedAt: new Date().toISOString(), scope: 'npm lockfile metadata and actual browser-bundled package notice texts. Native SDKs, external services and media require separate review.', packages, bundled, missingNotices, missingDeclarations: packages.filter(pkg => pkg.license === 'NOT DECLARED') }, null, 2));
+await writeFile(join(reportDirectory, 'software-licences.json'), JSON.stringify({ generatedAt: new Date().toISOString(), browserEntries, scope: 'npm lockfile metadata and actual customer/partner/map/information-page browser-bundled package notice texts. Native SDKs, external services and media require separate review.', packages, bundled, missingNotices, missingDeclarations: packages.filter(pkg => pkg.license === 'NOT DECLARED') }, null, 2));
 
 let old = [];
 try { old = JSON.parse(await readFile(join(reportDirectory, 'media-rights-register.json'), 'utf8')).assets; } catch { /* First inventory. */ }

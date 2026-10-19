@@ -1,13 +1,16 @@
 import { h, t } from './customer-i18n.js';
 import { filterMapPlaces, validCoordinates, type VenueMapPlace, type MapBounds } from './venue-map-data.js';
 import type { createVenueMap } from './venue-map-runtime.js';
+import { loadOptionalMap } from './venue-map-loading.js';
 
 type Runtime=ReturnType<typeof createVenueMap>;
 let stylesheet:Promise<void>|undefined;
 function mapStyles() {
   return stylesheet??=new Promise<void>((resolve,reject)=>{
     const link=document.createElement('link');link.rel='stylesheet';link.href='/vendor/leaflet/leaflet.css?v=20261016-map-1';
-    link.onload=()=>resolve();link.onerror=()=>{stylesheet=undefined;link.remove();reject(new Error('Map styles unavailable'));};document.head.append(link);
+    const failed=()=>{clearTimeout(timer);stylesheet=undefined;link.onload=null;link.onerror=null;link.remove();reject(new Error('Map styles unavailable'));};
+    const timer=setTimeout(failed,10_000);
+    link.onload=()=>{clearTimeout(timer);resolve();};link.onerror=failed;document.head.append(link);
   });
 }
 export function mountVenueMap(section:HTMLElement,open:(id:string)=>void,signal:AbortSignal) {
@@ -46,12 +49,21 @@ export function mountVenueMap(section:HTMLElement,open:(id:string)=>void,signal:
     if(loading)return;
     loading=true;paint();error.hidden=true;
     try {
-      const path='/venue-map.js?v=20261016-map-1';
-      const [module]=await Promise.all([import(path) as Promise<typeof import('./venue-map-runtime.js')>,mapStyles()]);
+      const path='/venue-map.js?v=20261019-rights-1';
+      const [module]=await loadOptionalMap(()=>Promise.all([import(path) as Promise<typeof import('./venue-map-runtime.js')>,mapStyles()]),signal);
       if(signal.aborted||!section.isConnected)return;
       runtime=module.createVenueMap(canvas,open,()=>{areaButton.hidden=false;},()=>{error.hidden=false;});
       loading=false;runtime.resize();paint(true);areaButton.hidden=true;
-    } catch {loading=false;error.hidden=false;paint();}
+    } catch {
+      loading=false;
+      if(signal.aborted||!section.isConnected)return;
+      // Restore the usable list immediately when the optional module or CSS fails.
+      // The message stays visible beside the list, including on narrow phones.
+      mapMode=false;panel.hidden=true;bounds=undefined;
+      shell.append(error);error.hidden=false;
+      shell.querySelectorAll<HTMLElement>('[data-venue-view]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.venueView==='list')));
+      paint();
+    }
   }
   for(const button of shell.querySelectorAll<HTMLButtonElement>('[data-venue-view]'))button.addEventListener('click',()=>{
     mapMode=button.dataset.venueView==='map';panel.hidden=!mapMode;
