@@ -32,6 +32,7 @@ import { monthDays, shiftMonth } from "./calendar.js";
 import { upload } from "@vercel/blob/client";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
+import { rewardsDialogContent } from './customer-rewards.js';
 import type { RewardAward } from "./reward-ledger.js";
 import type {
   Catalog,
@@ -1269,7 +1270,7 @@ function renderPublic() {
   if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,
     account:()=>{void customerAccount();},
     bundle:()=>{requestBundleDiscount=true;saveEventBox();helpChoose();},
-    rewards:()=>{openDialog('Invite friends. Earn magic.',referralPromo().replace('id="rewards"',''));modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},
+    rewards:()=>{openDialog('Earn a free magic show',rewardsDialogContent());modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},
     artists:catalog.performers.length?catalog.performers.map(p=>({id:p.id,name:p.name,photo:p.photo,speciality:p.categories.join(' · ')})):[{id:'sam-profile',name:'Sam',photo:'/portfolio/sam-magic-live-1.jpg',speciality:'Magic, science & bubbles'}],
     artist:key=>{
       const p=catalog.performers.find(p=>p.id===key);

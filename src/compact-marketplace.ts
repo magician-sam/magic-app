@@ -1,5 +1,6 @@
 import { h, copy, setCopy } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
+import { mountHeaderRewards } from './customer-rewards.js';
 
 type Options = {
   root: HTMLElement;
@@ -126,18 +127,7 @@ export function mountCompactMarketplace({
           `<svg class="occasion-art" aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${art}</svg>`,
         );
     });
-  const reward = root.querySelector<HTMLElement>("#rewards");
-  if (reward) {
-    reward.className = "compact-rewards";
-    reward.innerHTML = h(
-      '<div class="reward-copy"><span class="reward-eyebrow">Invite friends.</span><h2>Free magic show</h2><p>5 tokens = a free magic show</p></div><div class="reward-ticket"><div class="reward-coins" aria-hidden="true"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div><div class="reward-actions"><button type="button" class="small">Invite ↗</button><button type="button" class="link small" data-reward-rules>How to earn</button></div></div>',
-    );
-    reward.querySelector("button")!.addEventListener("click", rewards);
-    reward
-      .querySelector("[data-reward-rules]")!
-      .addEventListener("click", rewards);
-    root.querySelector("#shows")?.before(reward);
-  }
+  mountHeaderRewards(root, rewards, signal);
   const offers = root.querySelector<HTMLElement>("#offers");
   if (offers) {
     main.append(offers);

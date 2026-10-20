@@ -1,5 +1,16 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
+  "Invite friends. Earn a free magic show.": {"fr":"Invitez vos amis. Gagnez un spectacle de magie offert.","ar":"ادعُ أصحابك واربح عرض سحر مجاني."},
+  "Earn a free show": {"fr":"Gagnez un spectacle","ar":"اربح عرض مجاني"},
+  "Earn a free magic show": {"fr":"Gagnez un spectacle de magie","ar":"اربح عرض سحر مجاني"},
+  "Share your invitation link": {"fr":"Partagez votre lien d’invitation","ar":"شارك رابط الدعوة"},
+  "Invite friends to discover the shows.": {"fr":"Invitez vos amis à découvrir les spectacles.","ar":"ادعُ أصحابك ليكتشفوا العروض."},
+  "Celebrate. Collect a token.": {"fr":"Une fête. Un jeton gagné.","ar":"حفلة ونقطة جديدة."},
+  "When a friend completes a fully paid Magic, Science or Bubbles show, collect a token.": {"fr":"Gagnez un jeton après le spectacle Magie, Science ou Bulles d’un ami, terminé et payé intégralement.","ar":"بتربح نقطة لما يخلص عرض سحر أو علوم أو فقاعات لصديقك ويكون مدفوع بالكامل."},
+  "Choose your reward": {"fr":"Choisissez votre récompense","ar":"اختار مكافأتك"},
+  "Use tokens for a discount or save five for a free magic show.": {"fr":"Utilisez vos jetons pour une remise ou gardez-en cinq pour un spectacle de magie offert.","ar":"استعمل النقاط لتحصل على حسم أو جمّع خمسة لعرض سحر مجاني."},
+  "Your invitation link and earned tokens are in My account.": {"fr":"Retrouvez votre lien et vos jetons dans Mon compte.","ar":"رابط الدعوة والنقاط اللي ربحتها موجودين بحسابي."},
+  "Token rewards": {"fr":"Récompenses en jetons","ar":"مكافآت النقاط"},
   "VAT included": {"fr":"TVA incluse","ar":"شامل الضريبة على القيمة المضافة"},
   "See more": {"fr":"Voir plus","ar":"شوف المزيد"},
   "See less": {"fr":"Voir moins","ar":"شوف أقل"},
