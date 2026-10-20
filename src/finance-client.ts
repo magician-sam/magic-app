@@ -96,6 +96,43 @@ const titles: Record<FinanceType, string> = {
   close: "Period lock",
 };
 const postingTypes = ["document", "payroll", "stock", "journal", "payment"];
+const financeNavigationDocuments = new WeakSet<Document>();
+function enableFinanceNavigation(document: Document) {
+  if (financeNavigationDocuments.has(document)) return;
+  financeNavigationDocuments.add(document);
+  const opened = () => [
+    ...document.querySelectorAll<HTMLDetailsElement>(
+      ".finance-nav-group[open]",
+    ),
+  ];
+  // Delegate to the live DOM so redraws and workspace changes retain no old menus.
+  document.addEventListener(
+    "click",
+    (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const group = target?.closest<HTMLDetailsElement>(".finance-nav-group");
+      for (const menu of opened()) if (menu !== group) menu.open = false;
+    },
+    true,
+  );
+  document.addEventListener("focusin", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest(".finance-workspace-nav"))
+      for (const menu of opened()) menu.open = false;
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const menus = opened();
+    if (!menus.length) return;
+    for (const menu of menus) {
+      const restoreFocus = menu.contains(document.activeElement);
+      menu.open = false;
+      if (restoreFocus) menu.querySelector("summary")?.focus();
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  });
+}
 export function openCatalogueSellingPrice(
   state: Dashboard,
   api: Api,
@@ -116,6 +153,7 @@ export function mountFinanceDesk(
   headers: () => Record<string, string>,
   initialServiceId?: string,
 ) {
+  enableFinanceNavigation(root.ownerDocument);
   if (userId !== state.user.id) {
     section = "home";
     userId = state.user.id;
@@ -1552,7 +1590,7 @@ export function mountFinanceDesk(
     const grouped = groups
       .map(
         ([name, ids]) =>
-          `<details class="finance-nav-group ${ids.some((id) => id === section) ? "is-current" : ""}"><summary>${name}</summary><div>${tabs
+          `<details name="finance-navigation" class="finance-nav-group ${ids.some((id) => id === section) ? "is-current" : ""}"><summary>${name}</summary><div>${tabs
             .filter(([id]) => (ids as readonly string[]).includes(id))
             .map(([id, name]) => navButton(id, name))
             .join("")}</div></details>`,
