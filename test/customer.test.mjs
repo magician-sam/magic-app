@@ -224,6 +224,7 @@ test("customer accounts isolate staff, businesses and other families; profile an
     );
     const edit = {
       name: "Renamed parent",
+      currentPassword: password,
       phone: "+96170111222",
       username: "happy-parent",
       email: "parent@example.test",

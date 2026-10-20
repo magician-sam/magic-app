@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Store, id } from "./store.js";
 import { hash, token, passwordHash, passwordMatches } from "./auth.js";
 import { customerSchema, requireThat, short } from "./domain.js";
-import type { Booking, Customer } from "./models.js";
+import type { Booking, Customer, Review } from "./models.js";
 import { customerRewards, type CustomerExtras } from "./rewards.js";
 import { rewardView, type RewardAward } from "./reward-ledger.js";
 import { tokenWallet } from "./tokens.js";
@@ -41,8 +41,9 @@ export function customerAccounts(
     requireThat(b, "Business not found", 404);
     return b;
   };
-  const signIn = async (res: Response, accountId: string) => {
+  const signIn = async (res: Response, accountId: string, rememberMe = false) => {
     const value = token();
+    const duration = rememberMe ? 30 * 86400_000 : 8 * 3600_000;
     await store.db
       .prepare("DELETE FROM customer_sessions WHERE expires<?")
       .run(Date.now());
@@ -50,12 +51,12 @@ export function customerAccounts(
       .prepare(
         "INSERT INTO customer_sessions(hash,account_id,expires) VALUES(?,?,?)",
       )
-      .run(hash(value), accountId, Date.now() + 8 * 3600_000);
+      .run(hash(value), accountId, Date.now() + duration);
     res.cookie("magic_customer", value, {
       httpOnly: true,
       sameSite: "strict",
       secure: origin.startsWith("https:"),
-      maxAge: 8 * 3600_000,
+      ...(rememberMe ? { maxAge: duration } : {}),
       path: "/",
     });
   };
@@ -65,6 +66,7 @@ export function customerAccounts(
       .pick({ name: true, phone: true, email: true, offersConsent: true })
       .extend({
         password: z.string().min(7).max(200),
+        rememberMe: z.boolean().default(false),
         username: z
           .string()
           .trim()
@@ -120,13 +122,13 @@ export function customerAccounts(
         },
       );
     });
-    await signIn(res, accountId);
+    await signIn(res, accountId, input.rememberMe);
     res.status(201).json({ username });
   });
   writes.post("/api/customer/:slug/login", async (req, res) => {
     const b = await business(req);
     const input = z
-      .object({ username: short.min(1), password: z.string().min(1).max(200) })
+      .object({ username: short.min(1), password: z.string().min(1).max(200), rememberMe: z.boolean().default(false) })
       .parse(req.body);
     const row = await store.db
       .prepare(
@@ -138,7 +140,7 @@ export function customerAccounts(
       row ? String(row.password) : `${"0".repeat(32)}:${"0".repeat(128)}`,
     );
     requireThat(row && valid, "Username or password is incorrect.", 401);
-    await signIn(res, String(row.id));
+    await signIn(res, String(row.id), input.rememberMe);
     res.json({ ok: true });
   });
   writes.post("/api/customer/:slug/logout", async (req, res) => {
@@ -156,6 +158,8 @@ export function customerAccounts(
       account = await session(req, b.id);
     const c = await store.get<Customer>(b.id, "customers", account.customerId);
     requireThat(c, "Customer record unavailable", 404);
+    const bookings = (await store.all<Booking>(b.id, "bookings")).filter(item => item.customerId === c.id);
+    const ownBookings = new Map(bookings.map(item => [item.id, item]));
     res.json({
       username: account.username,
       referralCode: await referralCodeFor(store, b.id, account.id),
@@ -194,8 +198,10 @@ export function customerAccounts(
           (await store.get<CustomerExtras>(b.id, "customerExtras", c.id))
             ?.childrenAges ?? [],
       },
-      bookings: (await store.all<Booking>(b.id, "bookings"))
-        .filter((x) => x.customerId === c.id)
+      reviews: (await store.all<Review>(b.id, "reviews"))
+        .filter(item => ownBookings.has(item.bookingId))
+        .map(item => ({id:item.id,bookingId:item.bookingId,eventName:ownBookings.get(item.bookingId)!.name,overall:item.overall,text:item.text,createdAt:item.createdAt})),
+      bookings: bookings
         .map((x) => ({
           id: x.id,
           name: x.name,
@@ -238,6 +244,8 @@ export function customerAccounts(
     const input = customerSchema
       .pick({ name: true, phone: true, email: true })
       .extend({
+        offersConsent: z.boolean().optional(),
+        currentPassword: z.string().max(200).default(""),
         username: z
           .string()
           .trim()
@@ -261,8 +269,13 @@ export function customerAccounts(
       )
       .get(b.id, input.username, account.id);
     requireThat(!taken, "That username is already taken.", 409);
+    const { currentPassword, ...profileInput } = input;
     await store.transaction(async () => {
-      const { username, childrenAges, ...contact } = input;
+      if (input.username !== account.username || input.email !== before.email || input.phone !== before.phone) {
+        const credentials = await store.db.prepare("SELECT password FROM customer_accounts WHERE id=?").get(account.id);
+        requireThat(credentials && await passwordMatches(currentPassword, String(credentials.password)), "Enter your current password to change your username, email or phone.", 403);
+      }
+      const { username, childrenAges, ...contact } = profileInput;
       await store.put(b.id, "customers", { ...before, ...contact });
       const extras = await store.get<CustomerExtras>(
         b.id,
@@ -289,7 +302,7 @@ export function customerAccounts(
           username: account.username,
           childrenAges: extras?.childrenAges ?? [],
         },
-        input,
+        profileInput,
       );
     });
     res.json({ ok: true });

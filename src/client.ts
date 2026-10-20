@@ -208,6 +208,7 @@ function on(
   );
 }
 function openDialog(title: string, content: string) {
+  rememberCustomerAccount();
   stopMediaWithin(modal);
   modal.innerHTML = h`<div class="dialog-heading"><h2 id="dialog-title">${copy(title)}</h2><button class="close" aria-label="Close dialog" type="button">×</button></div>${content}`;
   modal.querySelector(".dialog-heading")!.after(dialogLanguageControl());
@@ -215,6 +216,13 @@ function openDialog(title: string, content: string) {
   if (!modal.open) modal.showModal();
   modal.scrollTop = 0;
 }
+function rememberCustomerAccount(view?: "overview" | "profile") {
+  const next = history.state && typeof history.state === "object" ? { ...history.state } : {};
+  if (view) next.customerAccountView = { slug: catalog.business.slug, view };
+  else delete next.customerAccountView;
+  history.replaceState(next, "", location.href);
+}
+modal.addEventListener("close", () => rememberCustomerAccount());
 document.addEventListener("click", (event) => {
   const button = (event.target as Element).closest<HTMLButtonElement>("[data-toggle-password]");
   if (!button) return;
@@ -1817,6 +1825,7 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
           type: "password",
           required: true,
         },
+        { key: "rememberMe", label: "Keep me signed in", type: "checkbox", wide: true },
       ]
     : [
         {
@@ -1828,9 +1837,11 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
         {
           key: "password",
           label: "Password",
+          autocomplete: "current-password",
           type: "password",
           required: true,
         },
+        { key: "rememberMe", label: "Keep me signed in", type: "checkbox", wide: true },
       ];
   openDialog(
     register ? (orderAfter ? "Your shows are saved" : "Your next happy memory starts here") : "Welcome back to the fun",
@@ -2135,7 +2146,7 @@ async function offerNotification() {
     // Visitors without an account see the offers on the public page.
   }
 }
-async function customerAccount() {
+async function customerAccount(editProfile = false) {
   type Account = {
     username: string;
     referralCode: string;
@@ -2155,6 +2166,7 @@ async function customerAccount() {
     announcements: { id: string; packageId: string; title: string; description: string; at: string }[];
     notifications: { id: string; title: string; body: string; kind: string; at: string; url?:string }[];
     pushEnabled: boolean;
+    reviews: {id: string; bookingId: string; eventName: string; overall: number; text: string; createdAt: string}[];
     profile: {
       name: string;
       phone: string;
@@ -2211,13 +2223,29 @@ async function customerAccount() {
       value: account.profile.childrenAges.join(", "),
       help: "One age per child, separated by commas. No names or exact birthdays needed. Leave blank to skip or remove.",
     },
+    { key: "currentPassword", label: "Current password", type: "password", autocomplete: "current-password", help: "Required when changing your username, email or phone.", wide: true },
   ];
+  if (editProfile) {
+    openDialog("Edit profile", formBody(fields) + h('<button type="button" class="link" id="account-back">Back to my account</button>'));
+    rememberCustomerAccount("profile");
+    submit(modal.querySelector("form")!, async (data) => {
+      await api(`/customer/${catalog.business.slug}/profile`, "PUT", {
+        ...formValues(data, fields),
+        childrenAges: String(data.get("childrenAges") ?? "").trim()
+          ? String(data.get("childrenAges")).split(",").map((value) => Number(value.trim())) : [],
+      });
+      notify("Your profile is saved.");
+      await customerAccount();
+    });
+    on(modal, "#account-back", "click", () => customerAccount());
+    return;
+  }
   openDialog(
     "My little world of wonder",
     h("<p>Your username: <strong>") +
       e(account.username) +
       h('</strong>. Save it for next time.</p><p class="privacy">Phone number supplied by you; not yet verified. Only your events appear here.</p>') +
-      formBody(fields) +
+        h`<section class="account-overview"><div class="account-identity"><strong>${e(account.profile.name)}</strong><span>${e(account.profile.email || account.profile.phone)}</span><button type="button" class="outline small" id="account-edit-profile">${copy("Edit profile")}</button></div><div class="account-summary"><span>${copy("My celebrations")}<strong>${account.bookings.length}</strong></span><span>${copy("Your event box")}<strong>${selectionNames().length}</strong></span><span>${copy("Tokens")}<strong>${account.rewards.tokens.balance}</strong></span></div><button type="button" class="outline small" id="account-event-box">${copy("Open my event box")}</button></section>` +
       (account.pushEnabled && "serviceWorker" in navigator && "PushManager" in window ? h('<div class="account-push"><h3>Phone alerts</h3><p>Get a popup when your event changes. New shows and offers use your choice above.</p><button type="button" class="outline small" id="enable-phone-alerts">Enable phone notifications</button> <button type="button" class="link" id="disable-phone-alerts">Turn off</button><p id="phone-alert-status" role="status"></p></div>') : '') +
       (account.notifications.length ? h('<section class="account-announcements"><h3>Your updates</h3>') + account.notifications.map((item) => h`<div class="announcement"><strong>${noticeTitleView(item.title)}</strong><span>${noticeBodyView(item.body,item.kind)}</span>${item.url?.startsWith('/b/')?h`<a href="${e(item.url)}" data-notice-link>Open details ↗</a>`:""}</div>`).join('') + h('</section>') : '') +
       h('<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>') +
@@ -2265,19 +2293,15 @@ async function customerAccount() {
         )
         .join("") ||
         h("<p>Your first happy day is waiting. Add a show to your event box.</p>")) +
+      h('<section class="account-reviews"><h3>My reviews</h3>') +
+      ((account.reviews ?? []).map(review => h`<article><strong>${e(review.eventName)}</strong><span class="account-review-stars" aria-label="${e(review.overall)} / 5">${'★'.repeat(Math.max(0,Math.min(5,Math.round(review.overall))))}</span><p>${e(review.text)}</p></article>`).join('') || h('<p>Reviews appear here after your completed events.</p>')) + h('</section>') +
       h('<button class="link" id="customer-password">Change password</button><button class="link" id="customer-logout">Sign out</button>'),
   );
-  submit(modal.querySelector("form")!, async (data) => {
-    await api(`/customer/${catalog.business.slug}/profile`, "PUT", {
-      ...formValues(data, fields),
-      childrenAges: String(data.get("childrenAges") ?? "").trim()
-        ? String(data.get("childrenAges"))
-            .split(",")
-            .map((x) => Number(x.trim()))
-        : [],
-    });
-    notify("Your profile is saved.");
-    await customerAccount();
+  rememberCustomerAccount("overview");
+  on(modal, "#account-edit-profile", "click", () => customerAccount(true));
+  on(modal, "#account-event-box", "click", () => {
+    modal.close();
+    document.querySelector("#event-box")?.scrollIntoView({ behavior: "smooth" });
   });
   on(modal, "#enable-phone-alerts", "click", async () => {
     const status = modal.querySelector<HTMLElement>("#phone-alert-status")!;
@@ -5919,6 +5943,9 @@ function reviewForm(performerId: string) {
   });
 }
 async function start() {
+  const savedAccountView = history.state?.customerAccountView;
+  const isReload = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type === "reload";
+  if (!isReload) rememberCustomerAccount();
   const emailResetCode = new URLSearchParams(location.hash.slice(1)).get("password-reset");
   if (emailResetCode) history.replaceState(null, "", location.pathname + location.search);
   if (location.pathname === "/manage") {
@@ -5977,8 +6004,13 @@ async function start() {
       location.hash.slice(1),
     );
     history.replaceState(null, "", location.pathname);
-  } else if (linkOptions.get("account") === "create") {
-    customerAuth(false, true);
+  } else if (!emailResetCode && linkOptions.get("account") === "create") {
+    const cleaned = new URL(location.href);
+    cleaned.searchParams.delete("account");
+    history.replaceState(history.state, "", cleaned.pathname + cleaned.search + cleaned.hash);
+    await customerAccount();
+  } else if (!emailResetCode && isReload && savedAccountView?.slug === catalog.business.slug && ["overview", "profile"].includes(savedAccountView.view)) {
+    await customerAccount(savedAccountView.view === "profile");
   }
   if (!sessionStorage.getItem(`visit:${slug}`)) {
     const source =

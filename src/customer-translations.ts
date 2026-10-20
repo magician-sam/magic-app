@@ -668,6 +668,15 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
     "fr": "Confirmez le mot de passe",
     "ar": "تأكيد كلمة المرور"
   },
+  "Keep me signed in": {"fr":"Rester connecté","ar":"إبقائي مسجّلاً للدخول"},
+  "Required when changing your username, email or phone.": {"fr":"Requis pour modifier votre identifiant, votre e-mail ou votre téléphone.","ar":"مطلوبة عند تغيير اسم الدخول أو البريد الإلكتروني أو رقم الهاتف."},
+  "Enter your current password to change your username, email or phone.": {"fr":"Saisissez votre mot de passe actuel pour modifier votre identifiant, votre e-mail ou votre téléphone.","ar":"أدخل كلمة المرور الحالية لتغيير اسم الدخول أو البريد الإلكتروني أو رقم الهاتف."},
+  "Edit profile": {"fr":"Modifier mon profil","ar":"تعديل الملف الشخصي"},
+  "Back to my account": {"fr":"Retour à mon compte","ar":"العودة إلى حسابي"},
+  "Open my event box": {"fr":"Ouvrir ma sélection","ar":"فتح اختيارات حفلتي"},
+  "Tokens": {"fr":"Jetons","ar":"نقاط المكافآت"},
+  "My reviews": {"fr":"Mes avis","ar":"تقييماتي"},
+  "Reviews appear here after your completed events.": {"fr":"Vos avis apparaîtront ici après vos événements terminés.","ar":"تظهر تقييماتك هنا بعد انتهاء مناسباتك."},
   "Hide password": {
     "fr": "Masquer le mot de passe",
     "ar": "إخفاء كلمة المرور"
