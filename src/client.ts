@@ -1810,6 +1810,13 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
           type: "password",
           required: true,
         },
+        {
+          key: "confirmPassword",
+          label: "Confirm password",
+          autocomplete: "new-password",
+          type: "password",
+          required: true,
+        },
       ]
     : [
         {
@@ -1860,10 +1867,14 @@ function customerAuth(orderAfter = false, register = true, afterAuth?: () => voi
     customerAuth(orderAfter, !register, afterAuth),
   );
   submit(modal.querySelector("form")!, async (data) => {
+    if (register && data.get("password") !== data.get("confirmPassword")) {
+      modal.querySelector<HTMLInputElement>('[name="confirmPassword"]')?.focus();
+      throw new Error("The passwords don’t match. Please try again.");
+    }
     const result = await api<{ username?: string }>(
       `/customer/${catalog.business.slug}/${register ? "register" : "login"}`,
       "POST",
-      formValues(data, fields),
+      formValues(data, fields.filter((field) => field.key !== "confirmPassword")),
     );
     if (result.username)
       notify(

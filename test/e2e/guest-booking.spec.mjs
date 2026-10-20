@@ -16,8 +16,20 @@ test("phone guest selection survives reload and signup returns directly to event
   await page.getByLabel('Phone / WhatsApp with country code').fill('+96170112233');
   await page.getByLabel('Your sign-in name').fill(`guest_${Date.now()}`);
   await page.getByLabel('Choose a password').fill('Browser-test-only-42!');
+  const registrations = [];
+  page.on('request', request => {
+    if (request.method() === 'POST' && request.url().endsWith('/customer/magic-by-sam/register'))
+      registrations.push(request.postDataJSON());
+  });
+  await page.getByLabel('Confirm password', { exact: true }).fill('Different-test-only-42!');
+  await page.getByRole('button', { name: 'Create account & continue' }).click();
+  await expect(page.locator('#modal .form-error')).toContainText('The passwords don’t match. Please try again.');
+  expect(registrations).toHaveLength(0);
+  await page.getByLabel('Confirm password', { exact: true }).fill('Browser-test-only-42!');
   await page.getByRole('button', { name: 'Create account & continue' }).click();
   await expect(page.getByRole('heading', { name: 'Tell us about your event' })).toBeVisible();
+  expect(registrations).toHaveLength(1);
+  expect(registrations[0]).not.toHaveProperty('confirmPassword');
   await expect(page.locator('.signup-progress')).toContainText('Football Show');
   await expect(page.locator('.signup-progress')).toContainText('Magic Show');
   await page.getByLabel('Event name', { exact: true }).fill('Guest journey celebration');

@@ -664,6 +664,10 @@ export const customerTranslations: Readonly<Record<string, Readonly<{fr: string;
     "fr": "Afficher le mot de passe",
     "ar": "إظهار كلمة المرور"
   },
+  "Confirm password": {
+    "fr": "Confirmez le mot de passe",
+    "ar": "تأكيد كلمة المرور"
+  },
   "Hide password": {
     "fr": "Masquer le mot de passe",
     "ar": "إخفاء كلمة المرور"

@@ -118,6 +118,7 @@ test("customer request, owner quote, customer acceptance and owner confirmation"
   await page.getByLabel("Phone / WhatsApp").fill("+96170011223");
   await page.getByLabel("Your sign-in name").fill(`browser_${Date.now()}`);
   await page.getByLabel("Choose a password").fill("Customer-browser-test-42!");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Customer-browser-test-42!");
   await expect(page.getByText("Your 1 chosen show is still in your event box.")).toBeVisible();
   await page.getByRole("button", { name: "Create account & continue" }).click();
   await expect(page.getByText("Still in your event box: Magic Show")).toBeVisible();
