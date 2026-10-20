@@ -360,6 +360,16 @@ export function financeRoutes(app: Express, store: Store) {
     }
     if (data.type === "account") {
       requireThat(
+        !data.code ||
+          !records.some(
+            (record) =>
+              record.id !== old?.id &&
+              record.data.type === "account" &&
+              record.data.code?.toLowerCase() === data.code.toLowerCase(),
+          ),
+        "This account code is already assigned. Use a unique code or edit its existing account.",
+      );
+      requireThat(
         !data.cash || data.category === "asset",
         "Cash accounts must be assets.",
       );

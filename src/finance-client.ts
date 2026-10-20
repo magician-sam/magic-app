@@ -16,6 +16,11 @@ import {
 } from "./finance-math.js";
 import { guestServiceNames } from "./guest-services.js";
 import { catalogueName } from "./catalogue-settings.js";
+import {
+  financeDocumentState,
+  financeWorkflowSummary,
+} from "./finance-workflow.js";
+import { financeReviewTables, reviewCsv } from "./finance-review.js";
 
 type Api = <T = Record<string, unknown>>(
   path: string,
@@ -32,6 +37,7 @@ interface View {
     category: string;
     cash: boolean;
     active: boolean;
+    code: string;
   }[];
   attachments: { id: string; recordId: string; name: string; mime: string }[];
   canPayroll: boolean;
@@ -120,6 +126,7 @@ export function mountFinanceDesk(
   root.append(panel);
   let view: View;
   let dialog: HTMLDialogElement | undefined;
+  let documentFilter = "active";
   const money = (n: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -1158,10 +1165,34 @@ export function mountFinanceDesk(
     const rows = view.records.filter(
       (r) => types.includes(r.data.type) && filter(r),
     );
-    return `<section class="panel"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${types.map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(titles[type])}</button>`).join("")}</div></div><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}">${
+    const documents = types.some((type) =>
+      ["document", "payroll"].includes(type),
+    );
+    return `<section class="panel finance-record-list" data-list-filter="${documents ? e(documentFilter) : "active"}"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${types.map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(titles[type])}</button>`).join("")}</div></div><div class="finance-list-tools"><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}"><div class="finance-list-filters" role="group" aria-label="Filter ${e(title)}">${[
+      ["active", "Active"],
+      ...(documents
+        ? [
+            ["draft", "Drafts"],
+            ["open", "Unpaid"],
+            ["overdue", "Overdue"],
+            ["settled", "Settled"],
+          ]
+        : []),
+      ["archived", "Archived"],
+      ["all", "All"],
+    ]
+      .map(
+        ([value, label]) =>
+          `<button type="button" data-finance-state-filter="${value}" aria-pressed="${value === (documents ? documentFilter : "active")}">${label}</button>`,
+      )
+      .join(
+        "",
+      )}</div><span class="finance-list-count" role="status"></span></div>${
       rows.length
         ? table(
-            ["Record", "Status", "Value", ""],
+            documents
+              ? ["Record", "Status", "Total", "Due", "Remaining", ""]
+              : ["Record", "Status", "Value", ""],
             rows.map((r) => {
               let value = "";
               if (r.totals) value = money(r.totals.total);
@@ -1193,11 +1224,31 @@ export function mountFinanceDesk(
                 const s = stockState(r, view.records);
                 value = `${s.onHand} on hand · ${s.out} out · ${money(s.value)}`;
               }
-              return `<tr data-finance-row><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="badge">${r.archived ? "Archived" : r.publishedAt ? "Published" : e(r.status === "draft" && !postingTypes.includes(r.data.type) ? "Saved" : r.status)}</span></td><td>${e(value)}</td><td><button type="button" class="small outline" data-finance-open="${e(r.id)}">Open / edit</button></td></tr>`;
+              const paymentState = financeDocumentState(
+                r,
+                view.records,
+                today(),
+              );
+              const due = "dueDate" in r.data ? r.data.dueDate : "";
+              const status = r.archived
+                ? "Archived"
+                : r.publishedAt
+                  ? "Published"
+                  : paymentState
+                    ? paymentState.overdue
+                      ? "Overdue"
+                      : paymentState.balance > 0
+                        ? "Open"
+                        : "Settled"
+                    : r.status === "draft" &&
+                        !postingTypes.includes(r.data.type)
+                      ? "Saved"
+                      : r.status;
+              return `<tr data-finance-row data-record-status="${e(r.status)}" data-record-archived="${r.archived}" data-record-open="${!!paymentState && paymentState.balance > 0}" data-record-overdue="${!!paymentState?.overdue}" data-record-settled="${!!paymentState && paymentState.balance === 0}"><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="finance-state ${paymentState?.overdue ? "is-overdue" : paymentState?.balance ? "is-open" : ""}">${e(status)}</span></td><td>${e(value)}</td>${documents ? `<td>${e(due || "—")}</td><td>${paymentState ? money(paymentState.balance) : "—"}</td>` : ""}<td><button type="button" class="small outline" data-finance-open="${e(r.id)}">Open / edit</button></td></tr>`;
             }),
           )
         : `<div class="finance-empty">${e(title)} will appear here. Add your first record above.</div>`
-    }</section>`;
+    }<p class="finance-filter-empty" hidden>No records match. Change the filter or clear your search.</p></section>`;
   }
   function eventCosts() {
     return `<section class="panel"><h3>Event cost sheets</h3><p>Accepted totals stay fixed. Artist commitments and unpaid bills count toward forecasts. Missing costs stay visible.</p>${table(
@@ -1246,16 +1297,16 @@ export function mountFinanceDesk(
         )
         .reduce((n, b) => n + b.balance, 0);
     return `<section class="panel"><h3>Posted ledger reports</h3><form class="finance-report-period"><label>From<input name="from" type="date" value="${e(reportFrom)}"></label><label>To<input name="to" type="date" value="${e(reportTo)}"></label><button type="submit" class="small">Apply period</button><button type="button" class="small outline" data-report-reset>All dates</button></form><p>${e(view.ledgerScope)} ${view.canPayroll ? "" : "Payroll journals are excluded from your view."}</p><div class="finance-kpis"><span>Posted income <b>${money(revenue)}</b></span><span>Posted expenses <b>${money(expenses)}</b></span><span>Ledger result before unposted items / company tax <b>${money(revenue - expenses)}</b></span></div><h4>Financial position · through ${e(reportTo || "all dates")}</h4><div class="finance-kpis"><span>Assets <b>${money(assets)}</b></span><span>Liabilities <b>${money(liabilities)}</b></span><span>Equity plus ledger result <b>${money(equity + retained)}</b></span></div><p>Assets less liabilities/equity/result: ${money(assets - liabilities - equity - retained)}. Complete opening balances and accountant review are required.</p><h4>VAT & government control balances (selected postings)</h4>${table(
-      ["Control account", "Debit / (credit)"],
+      ["Code", "Control account", "Debit / (credit)"],
       ["output_vat", "input_vat", "salary_tax", "social"].map(
         (id) =>
-          `<tr><td>${e(view.accounts.find((a) => a.id === id)?.name ?? id)}</td><td>${money(balances.find((b) => b.accountId === id)?.balance ?? 0)}</td></tr>`,
+          `<tr><td>${e(view.accounts.find((a) => a.id === id)?.code || "—")}</td><td>${e(view.accounts.find((a) => a.id === id)?.name ?? id)}</td><td>${money(balances.find((b) => b.accountId === id)?.balance ?? 0)}</td></tr>`,
       ),
     )}<p>These ledger control balances are worksheets for review, not filed returns. VAT recovery and applicable filing treatment must be checked.</p><h4>Trial balance · selected postings</h4>${table(
-      ["Account", "Debits", "Credits", "Debit / (credit) balance"],
+      ["Code", "Account", "Debits", "Credits", "Debit / (credit) balance"],
       balances.map(
         (b) =>
-          `<tr><td>${e(view.accounts.find((a) => a.id === b.accountId)?.name ?? b.accountId)}</td><td>${money(b.debit)}</td><td>${money(b.credit)}</td><td>${money(b.balance)}</td></tr>`,
+          `<tr><td>${e(view.accounts.find((a) => a.id === b.accountId)?.code || "—")}</td><td>${e(view.accounts.find((a) => a.id === b.accountId)?.name ?? b.accountId)}</td><td>${money(b.debit)}</td><td>${money(b.credit)}</td><td>${money(b.balance)}</td></tr>`,
       ),
     )}<p><strong>Debits ${money(dr)} · Credits ${money(cr)} · ${dr === cr ? "Balanced" : "OUT OF BALANCE — review required"}</strong></p><button type="button" class="outline" data-export-ledger>Download ledger CSV</button><p class="muted">Opening balances, complete postings and accountant review are required before using this as company financial statements.</p></section><section class="panel"><h3>Document balances & due dates</h3>${table(
       ["Document", "Due", "Unpaid", "Status"],
@@ -1271,61 +1322,139 @@ export function mountFinanceDesk(
         ),
     )}</section>`;
   }
-  function home() {
-    const posted = view.records.filter((r) => r.status === "posted");
-    const invoices = posted.filter(
-        (r) => r.data.type === "document" && r.data.kind === "invoice",
+  function chartOfAccounts() {
+    const mapped = view.accounts.filter(
+      (account) => account.active && account.code,
+    ).length;
+    const balances = ledgerBalances(view.journals);
+    return `<section class="panel finance-chart"><div class="section-heading"><div><span class="eyebrow">Accountant-approved mapping</span><h3>Chart of accounts</h3></div><button type="button" class="small" data-finance-add="account">＋ Account</button></div><p>Give each ledger account the code agreed with your accountant. Codes appear beside names in reports and accountant exports. Customer and supplier references remain separate.</p><div class="finance-chart-progress"><strong>${mapped} of ${view.accounts.filter((account) => account.active).length} active accounts mapped</strong><button class="link" data-finance-section="review">Accountant review ↗</button></div><input class="search" type="search" data-chart-search aria-label="Find a ledger account" placeholder="Find a code, account or category">${table(
+      ["Code", "Account", "Category", "Posted balance", "Status", ""],
+      view.accounts.map(
+        (account) =>
+          `<tr data-chart-row><td><code>${e(account.code || "Not mapped")}</code></td><td><strong>${e(account.name)}</strong><small>${e(account.id)}</small></td><td>${e(account.category)}${account.cash ? " · Cash / bank" : ""}</td><td>${money(balances.find((balance) => balance.accountId === account.id)?.balance || 0)}</td><td>${account.active ? "Active" : "Archived"}</td><td><button class="small outline" data-edit-account="${e(account.id)}">Edit name / code</button></td></tr>`,
       ),
-      bills = posted.filter(
-        (r) =>
-          (r.data.type === "document" && r.data.kind === "bill") ||
-          r.data.type === "payroll",
-      );
-    const owed = invoices.reduce(
-        (n, r) => n + Math.max(0, documentBalance(r, view.records).balance),
-        0,
-      ),
-      pay = bills.reduce(
-        (n, r) => n + Math.max(0, documentBalance(r, view.records).balance),
-        0,
-      ),
-      balances = ledgerBalances(view.journals),
-      cash = balances
-        .filter((b) =>
-          view.accounts.some((a) => a.id === b.accountId && a.cash),
-        )
-        .reduce((n, b) => n + b.balance, 0);
-    return `<div class="finance-welcome"><div><span class="eyebrow">A clearer picture of your business</span><h2>Your finance desk</h2><p>Prices, people, payments and event costs, together.</p></div><span class="finance-currency">${e(view.currency)}</span></div><div class="finance-kpis"><button data-finance-section="sales"><span>Customers owe</span><b>${money(owed)}</b></button><button data-finance-section="purchases"><span>Bills & salaries due</span><b>${money(pay)}</b></button><button data-finance-section="cash"><span>Posted cash / bank / Whish</span><b>${money(cash)}</b></button><button data-finance-section="reports"><span>Posted documents</span><b>${posted.filter((r) => r.data.type === "document").length}</b></button></div><section class="panel finance-get-started"><h3>Start with your real figures</h3><p>Set private artist rates and approved selling prices. Add suppliers and employees, then record invoices, bills and payments.</p><div class="actions"><button data-finance-add="price">＋ Price & cost</button><button class="outline" data-finance-add="document">＋ Invoice / bill</button>${view.canPayroll ? '<button class="outline" data-finance-add="employee">＋ Employee</button>' : ""}</div><p class="muted">${e(view.ledgerScope)} No invented prices or tax rates. Payments are records of money movements; this app does not send money or file returns.</p></section><section class="panel"><h3>Needs attention</h3><div class="finance-attention">${active(
-      "price",
-    )
-      .filter((r) => r.data.type === "price" && r.data.cost === null)
-      .map(
-        (r) =>
-          `<button class="outline" data-finance-open="${r.id}">Missing cost · ${e(r.data.name)}</button>`,
-      )
-      .join("")}${active("obligation")
-      .filter(
-        (r) => r.data.type === "obligation" && r.data.status !== "settled",
-      )
-      .map(
-        (r) =>
-          `<button class="outline" data-finance-open="${r.id}">${e(r.data.name)} · ${e((r.data as DataOf<"obligation">).dueDate)}</button>`,
-      )
-      .join("")}${
-      active("item")
-        .filter(
-          (r) =>
-            r.data.type === "item" &&
-            stockState(r, view.records).onHand <= r.data.lowStock,
-        )
-        .map(
-          (r) =>
-            `<button class="outline" data-finance-open="${r.id}">Low stock · ${e(r.data.name)}</button>`,
-        )
-        .join("") ||
-      "<p>Keep prices, due dates and stock up to date to see your next actions here.</p>"
-    }</div></section>`;
+    )}<p class="muted">Use your accountant’s current Lebanese chart. No official codes or tax classifications are assumed. Code changes keep existing entries linked to the same ledger account and remain in the audit history.</p></section>`;
   }
+  function accountantReview() {
+    const unmapped = view.accounts.filter(
+      (account) => account.active && !account.code,
+    ).length;
+    const dr = view.journals.reduce(
+      (sum, journal) =>
+        sum + journal.lines.reduce((n, line) => n + line.debit, 0),
+      0,
+    );
+    const cr = view.journals.reduce(
+      (sum, journal) =>
+        sum + journal.lines.reduce((n, line) => n + line.credit, 0),
+      0,
+    );
+    return `<section class="panel finance-review"><span class="eyebrow">For your accountant or external auditor</span><h3>Accountant review files</h3><p>Trace totals from the chart to posted journal entries and their source documents.</p><form class="finance-report-period"><label>From<input name="from" type="date" value="${e(reportFrom)}"></label><label>To<input name="to" type="date" value="${e(reportTo)}"></label><button type="submit" class="small">Apply period</button><button type="button" class="small outline" data-report-reset>All dates</button></form><div class="finance-review-checks"><span>${dr === cr ? "✓ Visible journal debits and credits balance" : "Review required: visible journals do not balance"}</span><span>${unmapped ? `${unmapped} active accounts still need approved codes` : "✓ All active ledger accounts have codes"}</span><span>${view.canPayroll ? "Payroll included in your authorized view" : "Payroll / restricted journals excluded: this is a limited review"}</span></div><div class="finance-review-downloads">${[
+      [
+        "chart",
+        "Chart of accounts",
+        "Current codes, account names and stable ledger references.",
+      ],
+      [
+        "ledger",
+        "Posted journal entries",
+        "Dated entries, debit/credit amounts, source IDs and document links.",
+      ],
+      [
+        "trial",
+        "Trial balance",
+        "Opening balance, period movements and closing balance.",
+      ],
+      [
+        "documents",
+        "Document balances",
+        "Invoices, bills, credits and permitted payroll, with current balances.",
+      ],
+    ]
+      .map(
+        ([key, title, description]) =>
+          `<article><h4>${title}</h4><p>${description}</p><button type="button" class="small outline" data-review-export="${key}">Download CSV ↧</button></article>`,
+      )
+      .join(
+        "",
+      )}</div><details class="finance-setup-note"><summary>How to use these files</summary><ol><li>Ask your accountant to review account names, codes and company details before business launch.</li><li>Choose the journal reporting dates and download the four CSV files.</li><li>Match the stable account and source IDs across files. Amounts are integer cents in ${e(view.currency)}.</li><li>Document balances use current payments and credits, not a reconstructed historical balance. The date filter selects document issue dates. The chart export is the current mapping.</li><li>Provide invoices, bills and statement evidence separately through your authorized process. These files are review workpapers, not certified statements, a tax filing or proof of payment.</li></ol></details><p class="muted">${e(view.ledgerScope)} No automatic foreign-currency conversion is performed.</p><div class="actions"><button class="small outline" data-finance-section="accounts">Review account codes</button><button class="small outline" data-finance-section="tax">Company & tax profile</button></div></section>`;
+  }
+  function home() {
+    const summary = financeWorkflowSummary(view.records, today());
+    const cash = ledgerBalances(view.journals)
+      .filter((balance) =>
+        view.accounts.some(
+          (account) => account.id === balance.accountId && account.cash,
+        ),
+      )
+      .reduce((sum, balance) => sum + balance.balance, 0);
+    const card = (
+      title: string,
+      destination: string,
+      amount: number,
+      stats: { drafts: number; open: number; overdue: number },
+      kind: string,
+    ) =>
+      `<article class="finance-workflow-card"><div class="finance-card-heading"><span>${e(title)}</span><span class="finance-card-symbol" aria-hidden="true">${kind === "bill" ? "↗" : "↙"}</span></div><strong class="finance-card-amount">${money(amount)}</strong><small>Outstanding balance · posted records</small><div class="finance-card-counts"><button data-finance-section="${destination}" data-finance-preset="draft">${stats.drafts} draft${stats.drafts === 1 ? "" : "s"}</button><button data-finance-section="${destination}" data-finance-preset="open">${stats.open} open</button><button class="${stats.overdue ? "finance-overdue" : ""}" data-finance-section="${destination}" data-finance-preset="overdue">${stats.overdue} overdue</button></div><div class="finance-card-actions"><button type="button" class="small" data-finance-add="document" data-finance-kind="${kind}">＋ ${kind === "bill" ? "Bill" : "Invoice"}</button><button class="small outline" data-finance-section="${destination}">View records ↗</button></div></article>`;
+    const needs = [
+      ...active("price")
+        .filter(
+          (record) => record.data.type === "price" && record.data.cost === null,
+        )
+        .map((record) => ({ record, label: "Missing direct cost" })),
+      ...active("obligation")
+        .filter(
+          (record) =>
+            record.data.type === "obligation" &&
+            record.data.status !== "settled",
+        )
+        .map((record) => ({
+          record,
+          label:
+            record.data.type === "obligation"
+              ? `Government obligation · ${record.data.dueDate}`
+              : "",
+        })),
+      ...active("item")
+        .filter(
+          (record) =>
+            record.data.type === "item" &&
+            stockState(record, view.records).onHand <= record.data.lowStock,
+        )
+        .map((record) => ({ record, label: "Low stock" })),
+    ];
+    return `<div class="finance-welcome"><div><span class="eyebrow">Your business, in balance</span><h2>Accounting overview</h2><p>See what needs action. Open a record to continue.</p></div><span class="finance-currency">${e(view.currency)}</span></div>
+      <div class="finance-workflow-grid">${card("Invoices & credits", "sales", summary.invoices.due, summary.invoices, "invoice")}${card("Supplier bills", "purchases", summary.bills.due, summary.bills, "bill")}
+      <article class="finance-workflow-card"><div class="finance-card-heading"><span>Cash, bank & Whish</span><span class="finance-card-symbol" aria-hidden="true">⇄</span></div><strong class="finance-card-amount">${money(cash)}</strong><small>Balance from posted ledger entries</small><p class="finance-card-note">Record payments and compare accounts with your statements.</p><div class="finance-card-actions"><button class="small" data-finance-add="payment">＋ Money movement</button><button class="small outline" data-finance-section="cash">Accounts & checks ↗</button></div></article>
+      <article class="finance-workflow-card finance-operations-card"><div class="finance-card-heading"><span>Event performance</span><span class="finance-card-symbol" aria-hidden="true">✦</span></div><strong class="finance-card-amount">${state.bookings.filter((booking) => !["cancelled", "completed"].includes(booking.status)).length} events</strong><small>Excluding completed and cancelled events</small><p class="finance-card-note">Compare agreed sales with artist costs, stock and expenses.</p><div class="finance-card-actions"><button class="small" data-finance-section="events">Cost sheets ↗</button><button class="small outline" data-finance-section="prices">Prices & costs ↗</button></div></article></div>
+      ${view.canPayroll ? `<div class="finance-payroll-summary"><span><strong>Payroll</strong> · ${summary.payroll.drafts} drafts · ${summary.payroll.open} unpaid · ${summary.payroll.overdue} overdue</span><button class="link" data-finance-section="employees">${money(summary.payroll.due)} due ↗</button></div>` : ""}
+      <section class="panel finance-next-actions"><div class="section-heading"><div><span class="eyebrow">Next actions</span><h3>Upcoming & overdue</h3></div><button class="small outline" data-finance-section="reports">All reports ↗</button></div>${
+        summary.upcoming.length
+          ? table(
+              ["Record", "Due date", "Remaining", "Status"],
+              summary.upcoming
+                .slice(0, 8)
+                .map(
+                  ({ record, state: due }) =>
+                    `<tr><td><button class="link" data-finance-open="${e(record.id)}">${e(record.number || record.data.name)}</button><small>${record.data.type === "payroll" ? "Payroll" : record.data.type === "document" && record.data.kind === "bill" ? "Supplier bill" : "Customer invoice"}</small></td><td>${e(due.dueDate || "No due date")}</td><td>${money(due.balance)}</td><td><span class="finance-state ${due.overdue ? "is-overdue" : "is-open"}">${due.overdue ? "Overdue" : "Open"}</span></td></tr>`,
+                ),
+            )
+          : '<div class="finance-empty">No outstanding posted invoices, bills or salaries. Drafts appear in their own review queues above.</div>'
+      }</section>
+      <section class="panel"><div class="section-heading"><h3>Costs, stock & obligations</h3><button class="small outline" data-finance-section="tax">Tax workspace ↗</button></div><div class="finance-attention">${
+        needs.length
+          ? needs
+              .slice(0, 8)
+              .map(
+                ({ record, label }) =>
+                  `<button class="outline" data-finance-open="${e(record.id)}">${e(label)} · ${e(record.data.name)}</button>`,
+              )
+              .join("")
+          : "<p>No missing price costs, open obligations or low-stock items in the current records.</p>"
+      }</div>${needs.length > 8 ? '<p class="muted">More records are available in Prices, Inventory and Tax.</p>' : ""}</section>
+      <details class="finance-setup-note"><summary>Setup & accounting scope</summary><p>${e(view.ledgerScope)}</p><p>Use reviewed company details, opening balances, artist rates and tax codes. Payments record money movements; the app does not send money or file government returns. Automatic bank feeds and statutory payroll calculations are not connected.</p><div class="actions"><button class="small outline" data-finance-section="tax">Company & tax setup</button><button class="small outline" data-finance-section="ledger">Journals & period locks</button></div></details>`;
+  }
+
   function draw() {
     const tabs = [
       ["home", "Overview"],
@@ -1339,6 +1468,8 @@ export function mountFinanceDesk(
       ["events", "Event cost sheets"],
       ["partners", "Partner settlements"],
       ["reports", "Reports"],
+      ["review", "Accountant review"],
+      ["accounts", "Chart of accounts"],
       ["ledger", "Journals & settings"],
     ];
     if (!tabs.some((t) => t[0] === section)) section = "home";
@@ -1402,14 +1533,43 @@ export function mountFinanceDesk(
         `<section class="panel finance-note"><p>Settlement worksheets track reviewed commission and partner balances. They do not automatically post revenue or move money. Confirm principal/agent treatment before journaling.</p></section>` +
         list("Partner settlement worksheets", ["settlement"]);
     if (section === "reports") body = reports();
+    if (section === "accounts") body = chartOfAccounts();
+    if (section === "review") body = accountantReview();
     if (section === "ledger")
       body =
         list("Manual balanced journals", ["journal"]) +
         list("Period locks (owner only)", ["close"]);
-    panel.innerHTML = `<div class="finance-error" role="alert"></div><nav class="finance-nav" aria-label="Finance desk sections">${tabs.map(([id, name]) => `<button type="button" data-finance-section="${id}" aria-pressed="${section === id}">${name}</button>`).join("")}</nav>${body}`;
+    const groups = [
+      ["Customers", ["sales"]],
+      ["Suppliers", ["purchases", "partners"]],
+      ["Money", ["cash"]],
+      ["Operations", ["prices", "events", "inventory", "employees"]],
+      ["Reporting", ["reports", "review", "tax"]],
+      ["Configuration", ["accounts", "ledger"]],
+    ] as const;
+    const navButton = (id: string, name: string) =>
+      `<button type="button" data-finance-section="${id}" aria-pressed="${section === id}">${e(name)}</button>`;
+    const grouped = groups
+      .map(
+        ([name, ids]) =>
+          `<details class="finance-nav-group ${ids.some((id) => id === section) ? "is-current" : ""}"><summary>${name}</summary><div>${tabs
+            .filter(([id]) => (ids as readonly string[]).includes(id))
+            .map(([id, name]) => navButton(id, name))
+            .join("")}</div></details>`,
+      )
+      .join("");
+    panel.innerHTML = `<div class="finance-error" role="alert"></div><nav class="finance-nav finance-workspace-nav" aria-label="Finance desk sections">${navButton("home", "Overview")}${grouped}<select class="finance-mobile-sections" aria-label="Accounting section">${tabs.map(([id, name]) => `<option value="${id}" ${id === section ? "selected" : ""}>${e(name)}</option>`).join("")}</select></nav><div class="finance-context-row"><span>Accounting <span aria-hidden="true">/</span> <strong>${e(tabs.find(([id]) => id === section)?.[1] || "Overview")}</strong></span><button type="button" class="link" data-finance-refresh>↻ Refresh</button></div>${body}`;
+    panel
+      .querySelector<HTMLSelectElement>(".finance-mobile-sections")
+      ?.addEventListener("change", (event) => {
+        section = (event.currentTarget as HTMLSelectElement).value;
+        documentFilter = "active";
+        draw();
+      });
     panel.querySelectorAll<HTMLElement>("[data-finance-section]").forEach((b) =>
       b.addEventListener("click", () => {
         section = b.dataset.financeSection!;
+        documentFilter = b.dataset.financePreset || "active";
         draw();
       }),
     );
@@ -1421,8 +1581,9 @@ export function mountFinanceDesk(
             b.dataset.financeAdd as FinanceType,
             undefined,
             false,
-            b.dataset.financeAdd === "document" && section === "purchases"
-              ? { kind: "bill" }
+            b.dataset.financeAdd === "document" &&
+              (section === "purchases" || b.dataset.financeKind)
+              ? { kind: b.dataset.financeKind || "bill" }
               : {},
           ),
         ),
@@ -1442,7 +1603,11 @@ export function mountFinanceDesk(
     panel.querySelectorAll<HTMLElement>("[data-edit-account]").forEach((b) =>
       b.addEventListener("click", () => {
         const a = view.accounts.find((a) => a.id === b.dataset.editAccount)!;
-        const existing = view.records.find((r) => r.id === "account-" + a.id);
+        const existing = view.records.find(
+          (r) =>
+            r.id === "account-" + a.id ||
+            (r.id === a.id && r.data.type === "account"),
+        );
         if (existing) edit("account", existing);
         else {
           const record: FinanceRecord = {
@@ -1459,7 +1624,7 @@ export function mountFinanceDesk(
               notes: "",
               category: a.category as DataOf<"account">["category"],
               cash: a.cash,
-              code: "",
+              code: a.code || "",
             },
           };
           edit("account", record);
@@ -1467,20 +1632,99 @@ export function mountFinanceDesk(
       }),
     );
     panel
-      .querySelectorAll<HTMLInputElement>("[data-finance-filter]")
-      .forEach((input) =>
-        input.addEventListener("input", () =>
-          input
-            .closest("section")!
-            .querySelectorAll<HTMLElement>("[data-finance-row]")
-            .forEach(
-              (row) =>
-                (row.hidden = !(row.textContent ?? "")
-                  .toLowerCase()
-                  .includes(input.value.toLowerCase())),
-            ),
-        ),
+      .querySelector("[data-finance-refresh]")
+      ?.addEventListener("click", run(load));
+    panel
+      .querySelector<HTMLInputElement>("[data-chart-search]")
+      ?.addEventListener("input", (event) => {
+        const query = (event.currentTarget as HTMLInputElement).value
+          .trim()
+          .toLowerCase();
+        panel
+          .querySelectorAll<HTMLElement>("[data-chart-row]")
+          .forEach((row) => {
+            row.hidden = !(row.textContent || "").toLowerCase().includes(query);
+          });
+      });
+    panel
+      .querySelectorAll<HTMLElement>("[data-review-export]")
+      .forEach((button) =>
+        button.addEventListener("click", () => {
+          const tables = financeReviewTables(
+            view.records,
+            view.journals,
+            view.accounts,
+            view.currency,
+            reportFrom,
+            reportTo,
+          );
+          const key = button.dataset.reviewExport as keyof typeof tables;
+          const csv = reviewCsv(tables[key]);
+          const link = document.createElement("a"),
+            url = URL.createObjectURL(
+              new Blob([csv], { type: "text/csv;charset=utf-8" }),
+            );
+          link.href = url;
+          link.download = `accountant-${key}-${reportFrom || "start"}-${reportTo || "all"}-${view.currency}.csv`;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }),
       );
+    panel
+      .querySelectorAll<HTMLElement>(".finance-record-list")
+      .forEach((list) => {
+        const input = list.querySelector<HTMLInputElement>(
+          "[data-finance-filter]",
+        )!;
+        const apply = () => {
+          const filter = list.dataset.listFilter,
+            query = input.value.trim().toLowerCase();
+          const rows = [
+            ...list.querySelectorAll<HTMLElement>("[data-finance-row]"),
+          ];
+          let shown = 0;
+          for (const row of rows) {
+            const archived = row.dataset.recordArchived === "true";
+            const match =
+              filter === "all" || filter === "archived"
+                ? filter === "all" || archived
+                : !archived &&
+                  (filter === "active" ||
+                    (filter === "draft" &&
+                      row.dataset.recordStatus === "draft") ||
+                    (filter === "open" && row.dataset.recordOpen === "true") ||
+                    (filter === "overdue" &&
+                      row.dataset.recordOverdue === "true") ||
+                    (filter === "settled" &&
+                      row.dataset.recordSettled === "true"));
+            row.hidden =
+              !match || !(row.textContent || "").toLowerCase().includes(query);
+            if (!row.hidden) shown++;
+          }
+          list.querySelector(".finance-list-count")!.textContent =
+            `${shown} of ${rows.length} records`;
+          (list.querySelector(".finance-filter-empty") as HTMLElement).hidden =
+            shown > 0 || rows.length === 0;
+          list
+            .querySelectorAll<HTMLElement>("[data-finance-state-filter]")
+            .forEach((button) =>
+              button.setAttribute(
+                "aria-pressed",
+                String(button.dataset.financeStateFilter === filter),
+              ),
+            );
+        };
+        input.addEventListener("input", apply);
+        list
+          .querySelectorAll<HTMLElement>("[data-finance-state-filter]")
+          .forEach((button) =>
+            button.addEventListener("click", () => {
+              list.dataset.listFilter = button.dataset.financeStateFilter;
+              apply();
+            }),
+          );
+        apply();
+      });
     panel
       .querySelector<HTMLFormElement>(".finance-report-period")
       ?.addEventListener("submit", (event) => {
@@ -1506,45 +1750,16 @@ export function mountFinanceDesk(
     panel
       .querySelector("[data-export-ledger]")
       ?.addEventListener("click", () => {
-        const cell = (v: unknown) =>
-          '"' +
-          String(v ?? "")
-            .replace(/^[=+@-]/, "'")
-            .replaceAll('"', '""') +
-          '"';
-        const rows = [
-          [
-            "Date",
-            "Source",
-            "Memo",
-            "Account",
-            "Debit cents",
-            "Credit cents",
-            "Currency",
-          ],
-          ...view.journals
-            .filter(
-              (j) =>
-                (!reportFrom || j.date >= reportFrom) &&
-                (!reportTo || j.date <= reportTo),
-            )
-            .flatMap((j) =>
-              j.lines.map((l) => [
-                j.date,
-                j.sourceId,
-                j.memo,
-                view.accounts.find((a) => a.id === l.accountId)?.name ??
-                  l.accountId,
-                l.debit,
-                l.credit,
-                view.currency,
-              ]),
-            ),
-        ];
+        const rows = financeReviewTables(
+          view.records,
+          view.journals,
+          view.accounts,
+          view.currency,
+          reportFrom,
+          reportTo,
+        ).ledger;
         const url = URL.createObjectURL(
-          new Blob([rows.map((r) => r.map(cell).join(",")).join("\r\n")], {
-            type: "text/csv;charset=utf-8",
-          }),
+          new Blob([reviewCsv(rows)], { type: "text/csv;charset=utf-8" }),
         );
         const a = document.createElement("a");
         a.href = url;

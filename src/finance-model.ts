@@ -25,7 +25,15 @@ export const financeInput = z.discriminatedUnion("type", [
       type: z.literal("account"),
       category: z.enum(["asset", "liability", "equity", "income", "expense"]),
       cash: z.boolean(),
-      code: z.string().max(40).default(""),
+      code: z
+        .string()
+        .trim()
+        .max(40)
+        .regex(
+          /^$|^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/,
+          "Use letters, numbers, dots, underscores or dashes for an account code.",
+        )
+        .default(""),
     })
     .strict(),
   z
@@ -397,6 +405,12 @@ export function accountsFor(records: FinanceRecord[]) {
       name,
       category,
       cash,
+      code:
+        (
+          records.find(
+            (r) => r.id === "account-" + id && r.data.type === "account",
+          )?.data as DataOf<"account"> | undefined
+        )?.code ?? "",
       active: !records.find((r) => r.id === "account-" + id)?.archived,
       ...(records.find((r) => r.id === "account-" + id)?.data.type === "account"
         ? { name: records.find((r) => r.id === "account-" + id)!.data.name }
@@ -409,6 +423,7 @@ export function accountsFor(records: FinanceRecord[]) {
         name: r.data.name,
         category: (r.data as DataOf<"account">).category,
         cash: (r.data as DataOf<"account">).cash,
+        code: (r.data as DataOf<"account">).code ?? "",
         active: !r.archived,
       })),
   ];

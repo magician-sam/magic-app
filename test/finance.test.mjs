@@ -1466,3 +1466,106 @@ test("ledger-tracked consumables consume and restore stock and cost once; equipm
     await f.close();
   }
 });
+
+test("account codes are editable mappings with uniqueness and permissions, preserving posted IDs and journals", async () => {
+  const f = await fixture();
+  try {
+    const opening = await f.post(
+      await f.save({
+        type: "journal",
+        name: "Synthetic opening",
+        notes: "",
+        date: "2026-10-01",
+        lines: [
+          { accountId: "receivable", debit: 10000, credit: 0 },
+          { accountId: "sales", debit: 0, credit: 10000 },
+        ],
+      }),
+    );
+    const before = await f.ok("/manage/finance");
+    const data = {
+      type: "account",
+      name: "Customer control",
+      notes: "Synthetic code only",
+      category: "asset",
+      cash: false,
+      code: "TEST-AR",
+    };
+    assert.equal(
+      (
+        await f.request(
+          "/manage/finance/account-receivable",
+          "PUT",
+          { revision: 0, data },
+          "sales",
+        )
+      ).status,
+      403,
+    );
+    const saved = await f.ok("/manage/finance/account-receivable", "PUT", {
+      revision: 0,
+      data,
+    });
+    let state = await f.ok("/manage/finance");
+    assert.equal(
+      state.accounts.find((a) => a.id === "receivable").code,
+      "TEST-AR",
+    );
+    assert.deepEqual(state.journals, before.journals);
+    assert.equal(
+      state.records.find((r) => r.id === opening.id).status,
+      "posted",
+    );
+    const duplicate = await f.request("/manage/finance/new", "PUT", {
+      revision: 0,
+      data: { ...data, name: "Duplicate", code: "test-ar" },
+    });
+    assert.equal(duplicate.status, 400);
+    assert.match(JSON.stringify(duplicate.data), /already assigned/);
+    const invalid = await f.request("/manage/finance/new", "PUT", {
+      revision: 0,
+      data: { ...data, code: "=SUM(A1)" },
+    });
+    assert.equal(invalid.status, 400);
+    const updated = await f.ok("/manage/finance/" + saved.id, "PUT", {
+      revision: saved.revision,
+      data: { ...data, code: "TEST-AR-2" },
+    });
+    assert.equal(updated.revision, saved.revision + 1);
+    assert.equal(
+      (
+        await f.request("/manage/finance/" + saved.id, "PUT", {
+          revision: saved.revision,
+          data,
+        })
+      ).status,
+      409,
+    );
+    const custom = await f.save({
+      ...data,
+      name: "Other control",
+      code: "TEST-OTHER",
+    });
+    state = await f.ok("/manage/finance");
+    assert.equal(
+      state.accounts.find((a) => a.id === custom.id).code,
+      "TEST-OTHER",
+    );
+    assert.equal(
+      state.accounts.find((a) => a.id === "receivable").code,
+      "TEST-AR-2",
+    );
+    assert.deepEqual(state.journals, before.journals);
+    assert.equal(
+      (
+        await f.request("/manage/finance/account-receivable", "PUT", {
+          revision: updated.revision,
+          data: { ...data, category: "income" },
+        })
+      ).status,
+      400,
+    );
+  } finally {
+    await f.close();
+  }
+});
