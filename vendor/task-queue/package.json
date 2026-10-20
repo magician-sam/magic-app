@@ -1,0 +1,10 @@
+{
+  "name": "@magic-app/task-queue",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Original application queue for the pinned libSQL client's callable limiter interface; not an upstream fork.",
+  "main": "index.cjs",
+  "exports": "./index.cjs",
+  "files": ["index.cjs", "NOTICE.txt"]
+}

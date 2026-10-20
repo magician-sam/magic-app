@@ -1,0 +1,6 @@
+Original Magic App application code, created 20 October 2026.
+This private application component is not the upstream promise-limit package
+and contains no copied upstream implementation. It implements only the callable
+limiter interface consumed by @libsql/client 0.18.0, not the unused map API.
+No separate open-source licence is granted for this original application code.
+Rights follow the original application's ownership arrangements.

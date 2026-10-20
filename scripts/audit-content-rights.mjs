@@ -9,16 +9,30 @@ await mkdir(reportDirectory, { recursive: true });
 const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
 const packages = Object.entries(lock.packages).filter(([path]) => path).map(([path, value]) => ({ path, version: value.version, license: value.license ?? 'NOT DECLARED', developmentOnly: !!value.dev }));
 const frontend = new Map();
+const firstParty = new Map();
+const originalHelpers = new Map([
+  ['@magic-app/runtime-context', 'runtime-context'],
+  ['@magic-app/task-queue', 'task-queue'],
+]);
 const browserEntries = ['src/client.ts', 'src/partner-client.ts', 'src/venue-map-runtime.ts', 'src/customer-info-client.ts'];
 for (const entry of browserEntries) {
   const result = await build({ entryPoints: [entry], bundle: true, minify: true, platform: 'browser', format: 'esm', target: 'es2023', write: false, metafile: true, logLevel: 'silent' });
   for (const path of Object.keys(result.metafile.inputs).filter(path => path.includes('node_modules/'))) {
     let directory = dirname(resolve(path));
     while (directory.startsWith(root) && directory !== root) {
-      try {
-        const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
-        if (manifest.name && manifest.version) { frontend.set(directory, manifest); break; }
-      } catch { /* Try its parent package directory. */ }
+      let manifest;
+      try { manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8')); }
+      catch { /* Try its parent package directory. */ }
+        if (manifest?.name && manifest.version) {
+          const helper = originalHelpers.get(manifest.name);
+          if (helper) {
+            // Verify provenance rather than silently filtering by a package name.
+            const own = await readFile(join(root, 'vendor', helper, 'index.cjs'), 'utf8');
+            if (own !== await readFile(join(directory, 'index.cjs'), 'utf8')) throw new Error('Original adapter mismatch');
+            firstParty.set(directory, { name: manifest.name, version: manifest.version, source: `vendor/${helper}`, license: 'Original application rights; no separate open-source licence granted' });
+          } else frontend.set(directory, manifest);
+          break;
+        }
       directory = dirname(directory);
     }
   }
@@ -43,7 +57,7 @@ for (const [directory, pkg] of [...frontend.entries()].sort((a, b) => a[1].name.
 }
 notices.push('='.repeat(70), 'Map tiles/data: © OpenStreetMap contributors, https://www.openstreetmap.org/copyright', 'Map tile usage: https://operations.osmfoundation.org/policies/tiles/', 'Map service availability and usage terms are separate from the Leaflet software licence.', '');
 await writeFile('public/third-party-notices.txt', notices.join('\n'));
-await writeFile(join(reportDirectory, 'software-licences.json'), JSON.stringify({ generatedAt: new Date().toISOString(), browserEntries, scope: 'npm lockfile metadata and actual customer/partner/map/information-page browser-bundled package notice texts. Native SDKs, external services and media require separate review.', packages, bundled, missingNotices, missingDeclarations: packages.filter(pkg => pkg.license === 'NOT DECLARED') }, null, 2));
+await writeFile(join(reportDirectory, 'software-licences.json'), JSON.stringify({ generatedAt: new Date().toISOString(), browserEntries, scope: 'npm lockfile metadata and actual customer/partner/map/information-page browser-bundled package notice texts. Native SDKs, external services and media require separate review.', packages, bundled, firstPartyHelpers: [...firstParty.values()], missingNotices, missingDeclarations: packages.filter(pkg => pkg.license === 'NOT DECLARED') }, null, 2));
 
 let old = [];
 try { old = JSON.parse(await readFile(join(reportDirectory, 'media-rights-register.json'), 'utf8')).assets; } catch { /* First inventory. */ }

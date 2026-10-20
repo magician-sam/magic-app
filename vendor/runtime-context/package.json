@@ -1,0 +1,10 @@
+{
+  "name": "@magic-app/runtime-context",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Original application helper for the pinned Blob SDK's runtime check; not an upstream fork.",
+  "main": "index.cjs",
+  "exports": "./index.cjs",
+  "files": ["index.cjs", "NOTICE.txt"]
+}

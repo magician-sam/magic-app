@@ -52,8 +52,10 @@
       "sha256": "1e881ecf2862d01e6e5bc2b861e46886d2a6fb01499c0c508a209a7271b13cf2"
     }
   ],
-  "unresolved": [
+  "historicalGapsReplaced20261020": [
     "is-node-process@1.2.0: MIT manifest, no separate notice found in package or upstream root",
     "promise-limit@2.7.0: ISC manifest, no separate notice found in package or release-tag tree"
-  ]
+  ],
+  "unresolved": [],
+  "resolution": "Both registry packages replaced by independently written private application adapters under vendor/, installed by root npm overrides. Earlier upstream notices were not invented. See vendor/README.md."
 }

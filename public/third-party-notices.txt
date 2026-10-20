@@ -476,14 +476,6 @@ THE SOFTWARE.
 
 
 ======================================================================
-is-node-process 1.2.0
-Declared licence: MIT
-
-Upstream package declares MIT; a separate copyright/licence text was not included.
-Source repository: https://github.com/mswjs/is-node-process
-Full notice verification remains open. This entry does not invent or replace the upstream licence.
-
-======================================================================
 jose 5.10.0
 Declared licence: MIT
 

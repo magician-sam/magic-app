@@ -1,0 +1,6 @@
+Original Magic App application code, created 20 October 2026.
+This private application component is not the upstream is-node-process package
+and contains no copied upstream implementation. It implements the runtime-check
+interface consumed by the pinned @vercel/blob SDK.
+No separate open-source licence is granted for this original application code.
+Rights follow the original application's ownership arrangements.

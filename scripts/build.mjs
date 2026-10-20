@@ -1,5 +1,6 @@
 import { cp, mkdir } from "node:fs/promises";
 import { build } from "esbuild";
+import './verify-dependency-adapters.mjs';
 await mkdir("dist/public", { recursive: true });
 await cp("public", "dist/public", { recursive: true });
 await mkdir('dist/public/vendor/leaflet',{recursive:true});

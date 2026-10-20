@@ -8,6 +8,6 @@ The verbatim files in licences/ restore notices omitted from the installed packa
 
 web-push3.6.7 is MPL-2.0; preserve its package licence and covered source when distribution obligations apply. Source: https://github.com/web-push-libs/web-push . It does not make independently written application files MPL by itself. Check final distribution against the licence.
 
-Open notice gaps: is-node-process1.2.0 (MIT declaration) and promise-limit2.7.0 (ISC declaration) lack separate full notices in the inspected releases. No holder/year was fabricated. Obtain authoritative clarification or a reviewed replacement before commercial launch. A package licence declaration alone is not a complete legal clearance.
+The earlier notice gaps for is-node-process1.2.0 and promise-limit2.7.0 were resolved on 20 October 2026 by removing those registry implementations. Root npm overrides now install two independently written private application helpers from vendor/. Their own names are @magic-app/runtime-context and @magic-app/task-queue; they are not copies or relicensed upstream code. Pinned SDKs and a build-time check guard this substitution. See vendor/README.md and test/dependency-adapters.test.mjs. Old release archives remain private historical evidence, not current dependencies. A package licence declaration alone is not a complete legal clearance.
 
 Native Electron/Chromium/Android distributions require their own component notices and final release review. Hosted map, mail and storage service terms are separate from software licences.
