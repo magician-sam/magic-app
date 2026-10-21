@@ -49,7 +49,7 @@ export const customerSchema = z.object({
     .enum(["family", "school", "organization", "planner", "venue", "unknown"])
     .default("family"),
   children: z
-    .array(z.object({ name: short.min(1), birthday: date }))
+    .array(z.object({ id: z.string().max(64).optional(), name: short.min(1), birthday: date }))
     .max(20)
     .default([]),
   contacts: z

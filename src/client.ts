@@ -32,6 +32,7 @@ import { monthDays, shiftMonth } from "./calendar.js";
 import { upload } from "@vercel/blob/client";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
+import type { FamilyChild } from "./family-profiles.js";
 import { rewardsDialogContent } from './customer-rewards.js';
 import type { RewardAward } from "./reward-ledger.js";
 import type {
@@ -216,7 +217,7 @@ function openDialog(title: string, content: string) {
   if (!modal.open) modal.showModal();
   modal.scrollTop = 0;
 }
-function rememberCustomerAccount(view?: "overview" | "profile") {
+function rememberCustomerAccount(view?: "overview" | "profile" | "family") {
   const next = history.state && typeof history.state === "object" ? { ...history.state } : {};
   if (view) next.customerAccountView = { slug: catalog.business.slug, view };
   else delete next.customerAccountView;
@@ -2112,7 +2113,7 @@ async function customerResetQueue() {
 function tokenLadder() {
   return h('<div class="token-ladder" aria-label="Magic show token rewards">') +
     [10, 20, 30, 40, 100].map((percent, index) =>
-      h`<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? copy("Free magic show") : `${percent}% off`}</strong></div>`
+      h`<div><b>${index + 1} <small>✦</small></b><strong>${percent === 100 ? copy("Free magic show") : copy(`${percent}% off`)}</strong></div>`
     ).join("") + h('</div>');
 }
 function offerLink(key:string){const show=catalog.packages.find(p=>p.id===key);return show?.bundleIds?.length?'#offer/'+encodeURIComponent(key):detailPageLink('show',key);}
@@ -2173,6 +2174,7 @@ async function customerAccount(editProfile = false) {
       email: string;
       offersConsent: boolean;
       childrenAges: number[];
+      familyCount: number;
     };
     bookings: { id: string; name: string; date: string; status: string; declined: boolean }[];
   };
@@ -2217,12 +2219,6 @@ async function customerAccount(editProfile = false) {
       value: account.profile.email,
     },
     { key: "offersConsent", label: "Send me new shows, bundles and offers", type: "checkbox", value: account.profile.offersConsent, wide: true },
-    {
-      key: "childrenAges",
-      label: "Children’s ages (optional)",
-      value: account.profile.childrenAges.join(", "),
-      help: "One age per child, separated by commas. No names or exact birthdays needed. Leave blank to skip or remove.",
-    },
     { key: "currentPassword", label: "Current password", type: "password", autocomplete: "current-password", help: "Required when changing your username, email or phone.", wide: true },
   ];
   if (editProfile) {
@@ -2231,8 +2227,6 @@ async function customerAccount(editProfile = false) {
     submit(modal.querySelector("form")!, async (data) => {
       await api(`/customer/${catalog.business.slug}/profile`, "PUT", {
         ...formValues(data, fields),
-        childrenAges: String(data.get("childrenAges") ?? "").trim()
-          ? String(data.get("childrenAges")).split(",").map((value) => Number(value.trim())) : [],
       });
       notify("Your profile is saved.");
       await customerAccount();
@@ -2249,9 +2243,8 @@ async function customerAccount(editProfile = false) {
       (account.pushEnabled && "serviceWorker" in navigator && "PushManager" in window ? h('<div class="account-push"><h3>Phone alerts</h3><p>Get a popup when your event changes. New shows and offers use your choice above.</p><button type="button" class="outline small" id="enable-phone-alerts">Enable phone notifications</button> <button type="button" class="link" id="disable-phone-alerts">Turn off</button><p id="phone-alert-status" role="status"></p></div>') : '') +
       (account.notifications.length ? h('<section class="account-announcements"><h3>Your updates</h3>') + account.notifications.map((item) => h`<div class="announcement"><strong>${noticeTitleView(item.title)}</strong><span>${noticeBodyView(item.body,item.kind)}</span>${item.url?.startsWith('/b/')?h`<a href="${e(item.url)}" data-notice-link>Open details ↗</a>`:""}</div>`).join('') + h('</section>') : '') +
       h('<section class="token-account"><span class="eyebrow">Invite friends. Earn magic.</span><h3>') +
-      account.rewards.tokens.balance +
-      ' token' + (account.rewards.tokens.balance === 1 ? '' : 's') +
-      ' ready to use</h3><p>When a friend joins with your link and completes a fully paid Magic, Science or Bubbles show, you get one token.</p>' +
+      copy(account.rewards.tokens.balance + (account.rewards.tokens.balance === 1 ? ' token ready to use' : ' tokens ready to use')) +
+      h('</h3><p>When a friend joins with your link and completes a fully paid Magic, Science or Bubbles show, you get one token.</p>') +
       tokenLadder() +
       h('<p class="hint">Choose how many to use on one magic show. Spend 2 from a balance of 3 and keep 1. Ask us to apply your choice to your proposal. Extra tokens can be added by our team.</p></section>') +
       (account.announcements.length ? h('<section class="account-announcements"><h3>New offers for you</h3>') +
@@ -2275,7 +2268,7 @@ async function customerAccount(editProfile = false) {
       e(account.referralCode) +
       h('</strong> <button type="button" class="outline small" id="copy-referral-code">Copy code</button></p><p><a href="') +
       e(invitationLink) +
-      '">Open my invitation link ↗</a> <button type="button" class="outline small" id="copy-referral-link">Copy invitation link</button></p>' +
+      h('">Open my invitation link ↗</a> <button type="button" class="outline small" id="copy-referral-link">Copy invitation link</button></p>') +
       account.bookings.filter((b) => b.status === "confirmed").map((b) => h`<div class="account-milestone"><strong>✦ ${e(b.name)} is confirmed!</strong><span>Your countdown and assistant certificate are ready.</span><button type="button" class="small" data-customer-event="${e(b.id)}">Open my event ↗</button></div>`).join("") +
       h('<h3>My celebrations</h3>') +
       (account.bookings
@@ -2298,6 +2291,10 @@ async function customerAccount(editProfile = false) {
       h('<button class="link" id="customer-password">Change password</button><button class="link" id="customer-logout">Sign out</button>'),
   );
   rememberCustomerAccount("overview");
+  const familyButton=document.createElement('button');familyButton.type='button';familyButton.className='outline small';familyButton.id='account-family';
+  familyButton.innerHTML=copy('Family details')+' · '+(account.profile.familyCount??0);
+  modal.querySelector('.account-overview')?.append(familyButton);
+  on(modal,'#account-family','click',()=>customerFamily());
   on(modal, "#account-edit-profile", "click", () => customerAccount(true));
   on(modal, "#account-event-box", "click", () => {
     modal.close();
@@ -2399,6 +2396,33 @@ async function customerAccount(editProfile = false) {
     );
     location.href = result.path;
   });
+}
+
+async function customerFamily() {
+  const saved=await api<{version:string;children:FamilyChild[]}>(`/customer/${catalog.business.slug}/family`);
+  let children=saved.children;
+  const readRows=():FamilyChild[]=>[...modal.querySelectorAll<HTMLElement>('[data-family-child]')].map(row=>({
+    id:row.dataset.familyChild!,
+    firstName:row.querySelector<HTMLInputElement>('[name$="-name"]')!.value,
+    age:row.querySelector<HTMLInputElement>('[name$="-age"]')!.value===''?null:Number(row.querySelector<HTMLInputElement>('[name$="-age"]')!.value),
+    birthday:row.querySelector<HTMLInputElement>('[name$="-birthday"]')!.value,
+    interests:row.querySelector<HTMLTextAreaElement>('[name$="-interests"]')!.value,
+  }));
+  const draw=()=>{
+    openDialog('Family details',h('<p>Optional details help us suggest activities and plan birthday cards.</p>')+
+      h('<form class="family-form"><div class="family-children">')+children.map((child,index)=>h`<fieldset data-family-child="${e(child.id)}"><legend>${copy('Child '+(index+1))}</legend><div class="forms-grid">${field({key:child.id+'-name',label:'First name (optional)',value:child.firstName})}${field({key:child.id+'-age',label:'Age (optional)',type:'number',min:0,max:25,value:child.age??''})}${field({key:child.id+'-birthday',label:'Birthday (optional)',type:'date',value:child.birthday})}${field({key:child.id+'-interests',label:'Interests or favourite characters (optional)',type:'textarea',value:child.interests,wide:true})}</div><button type="button" class="link" data-family-remove="${e(child.id)}">${copy('Remove child')}</button></fieldset>`).join('')+
+      (!children.length?h('<p>No family details added.</p>'):'')+h('</div><button type="button" class="outline small" id="family-add">Add a child</button><div class="form-error" role="alert"></div><div class="form-actions"><button type="submit">Save family details</button><button type="button" class="link" id="family-back">Back to my account</button></div></form>'));
+    rememberCustomerAccount('family');
+    const add=modal.querySelector<HTMLButtonElement>('#family-add')!;add.disabled=children.length>=20;
+    on(modal,'#family-add','click',()=>{children=readRows();if(children.length<20){children.push({id:crypto.randomUUID(),firstName:'',age:null,birthday:'',interests:''});draw();}});
+    on(modal,'[data-family-remove]','click',event=>{children=readRows().filter(child=>child.id!==(event.currentTarget as HTMLElement).dataset.familyRemove);draw();});
+    on(modal,'#family-back','click',()=>customerAccount());
+    submit(modal.querySelector('form')!,async()=>{
+      children=readRows();
+      await api(`/customer/${catalog.business.slug}/family`,'PUT',{expectedVersion:saved.version,children});
+      notify('Your family details are saved.');await customerAccount();
+    });
+  };draw();
 }
 
 async function login() {
@@ -6009,8 +6033,8 @@ async function start() {
     cleaned.searchParams.delete("account");
     history.replaceState(history.state, "", cleaned.pathname + cleaned.search + cleaned.hash);
     await customerAccount();
-  } else if (!emailResetCode && isReload && savedAccountView?.slug === catalog.business.slug && ["overview", "profile"].includes(savedAccountView.view)) {
-    await customerAccount(savedAccountView.view === "profile");
+  } else if (!emailResetCode && isReload && savedAccountView?.slug === catalog.business.slug && ["overview", "profile", "family"].includes(savedAccountView.view)) {
+    if(savedAccountView.view === "family") await customerFamily(); else await customerAccount(savedAccountView.view === "profile");
   }
   if (!sessionStorage.getItem(`visit:${slug}`)) {
     const source =

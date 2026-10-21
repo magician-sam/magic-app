@@ -1,6 +1,9 @@
 import { writeRoutes } from "./write-routes.js";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
+import {DateTime} from 'luxon';
+import {familyChildren,familyVersion,familyAges,familySaveSchema} from './family-profiles.js';
+import {birthdayChildKey,type BirthdayDraft} from './birthday-crm.js';
 import { Store, id } from "./store.js";
 import { hash, token, passwordHash, passwordMatches } from "./auth.js";
 import { customerSchema, requireThat, short } from "./domain.js";
@@ -160,6 +163,7 @@ export function customerAccounts(
     requireThat(c, "Customer record unavailable", 404);
     const bookings = (await store.all<Booking>(b.id, "bookings")).filter(item => item.customerId === c.id);
     const ownBookings = new Map(bookings.map(item => [item.id, item]));
+    const extras = await store.get<CustomerExtras>(b.id,'customerExtras',c.id);
     res.json({
       username: account.username,
       referralCode: await referralCodeFor(store, b.id, account.id),
@@ -194,9 +198,8 @@ export function customerAccounts(
         email: c.email,
         offersConsent: c.offersConsent,
         phoneVerified: false,
-        childrenAges:
-          (await store.get<CustomerExtras>(b.id, "customerExtras", c.id))
-            ?.childrenAges ?? [],
+        familyCount: familyChildren(c,extras).length,
+        childrenAges: extras?.family ? familyAges(familyChildren(c,extras),DateTime.now().setZone(b.timezone).toISODate()!) : extras?.childrenAges ?? [],
       },
       reviews: (await store.all<Review>(b.id, "reviews"))
         .filter(item => ownBookings.has(item.bookingId))
@@ -254,7 +257,7 @@ export function customerAccounts(
         childrenAges: z
           .array(z.number().int().min(0).max(25))
           .max(20)
-          .default([]),
+          .optional(),
       })
       .parse(req.body);
     const before = await store.get<Customer>(
@@ -283,9 +286,10 @@ export function customerAccounts(
         before.id,
       );
       await store.put<CustomerExtras>(b.id, "customerExtras", {
+        ...extras,
         id: before.id,
         referredBy: extras?.referredBy ?? "",
-        childrenAges,
+        childrenAges: extras?.family ? familyAges(familyChildren(before,extras),DateTime.now().setZone(b.timezone).toISODate()!) : childrenAges ?? extras?.childrenAges ?? [],
       });
       await store.db
         .prepare("UPDATE customer_accounts SET username=? WHERE id=?")
@@ -306,6 +310,37 @@ export function customerAccounts(
       );
     });
     res.json({ ok: true });
+  });
+  app.get('/api/customer/:slug/family',async(req,res)=>{
+    const b=await business(req),account=await session(req,b.id);
+    const customer=await store.get<Customer>(b.id,'customers',account.customerId);
+    requireThat(customer,'Customer record unavailable',404);
+    const extras=await store.get<CustomerExtras>(b.id,'customerExtras',customer.id);
+    res.set('Cache-Control','private, no-store').json({version:familyVersion(customer,extras),children:familyChildren(customer,extras)});
+  });
+  writes.put('/api/customer/:slug/family',async(req,res)=>{
+    const b=await business(req),account=await session(req,b.id),input=familySaveSchema.parse(req.body);
+    const today=DateTime.now().setZone(b.timezone).toISODate()!;
+    requireThat(input.children.every(child=>!child.birthday||child.birthday<=today),'A birthday cannot be in the future.');
+    await store.transaction(async()=>{
+      const customer=await store.get<Customer>(b.id,'customers',account.customerId);
+      requireThat(customer,'Customer record unavailable',404);
+      const extras=await store.get<CustomerExtras>(b.id,'customerExtras',customer.id);
+      requireThat(input.expectedVersion===familyVersion(customer,extras),'Family details changed elsewhere. Reopen this page and try again.',409);
+      const family=input.children;
+      const next={...customer,children:family.flatMap((child,index)=>child.birthday?[{id:child.id,name:child.firstName||`Child ${index+1}`,birthday:child.birthday}]:[])};
+      await store.put(b.id,'customers',next);
+      await store.put<CustomerExtras>(b.id,'customerExtras',{...extras,id:customer.id,referredBy:extras?.referredBy||'',family,childrenAges:familyAges(family,today)});
+      const validKeys=new Map(next.children.map(child=>[birthdayChildKey(child),child.name]));
+      for(const draft of await store.all<BirthdayDraft>(b.id,'birthdayDrafts')){
+        if(draft.customerId!==customer.id||draft.status!=='prepared'||validKeys.get(draft.childKey)===draft.child) continue;
+        const suppressed={...draft,status:'suppressed' as const,revision:draft.revision+1,note:'Family details changed or removed by the account holder.'};
+        await store.put(b.id,'birthdayDrafts',suppressed);
+        await store.audit(b.id,account.id,'birthday.suppressed',draft.id,draft,suppressed);
+      }
+      await store.audit(b.id,account.id,'customer.family-updated',customer.id,familyChildren(customer,extras),family);
+    });
+    res.json({ok:true});
   });
   writes.post("/api/customer/:slug/password", async (req, res) => {
     const b = await business(req),

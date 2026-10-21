@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {familyChildren} from './family-profiles.js';
 import type { Store } from "./store.js";
 import type { Booking, Customer, MoneyEntry } from "./models.js";
 import { totals } from "./domain.js";
@@ -30,6 +31,7 @@ export type CustomerExtras = {
   id: string;
   childrenAges: number[];
   referredBy: string;
+  family?: import('./family-profiles.js').FamilyChild[];
 };
 export const rewardSettings = async (
   store: Store,
@@ -77,6 +79,6 @@ export async function customerRewards(
           : 0,
     profilePoints:
       (customer.email ? settings.emailPoints : 0) +
-      (extras?.childrenAges.length ? settings.childrenPoints : 0),
+      ((extras?.family ? familyChildren(customer,extras).some(child=>child.age!==null||!!child.birthday) : extras?.childrenAges.length) ? settings.childrenPoints : 0),
   };
 }

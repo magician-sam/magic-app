@@ -39,7 +39,7 @@ export interface BirthdayRow {
   childKey: string; child: string; birthday: string; status: string;
   nextDate: string; bookingIds: string[]; candidate?: BirthdayDraft;
 }
-export const birthdayChildKey = (child: Customer["children"][number]) => hash(`${child.name.trim().toLowerCase()}:${child.birthday}`);
+export const birthdayChildKey = (child: Customer["children"][number]) => hash(child.id && !child.id.startsWith('legacy-') ? `family:${child.id}:${child.birthday}` : `${child.name.trim().toLowerCase()}:${child.birthday}`);
 const bookedStatuses = new Set(["accepted", "confirmed", "completed"]);
 
 // An accepted birthday event near the date suppresses prompts conservatively.

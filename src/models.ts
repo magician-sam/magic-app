@@ -95,7 +95,7 @@ export interface Customer {
   phone: string;
   email: string;
   kind: "family" | "school" | "organization" | "planner" | "venue" | "unknown";
-  children: { name: string; birthday: string }[];
+  children: { id?: string; name: string; birthday: string }[];
   contacts: { name: string; role: string; phone: string }[];
   notes: string;
   language: string;
