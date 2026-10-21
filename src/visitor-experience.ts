@@ -3,6 +3,8 @@ import type { Package } from "./models.js";
 /** Original service illustrations, distinct from real provider portfolio media. */
 export function serviceArtwork(name: string): string {
   const art = [
+    [/inflatabl|climbing tower|obstacle course/i,'<path d="M9 66V30h14v9h10V26h14v13h10v-9h14v36ZM9 30l7-14 7 14M57 30l7-14 7 14M30 66V51a10 10 0 0 1 20 0v15M7 69h66"/>'],
+    [/popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream|food station|party machine/i,'<path d="M15 36h50l-6 30H21ZM10 29h60l-6-13H16ZM20 16V9m40 7V9M29 36v30m22-30v30M13 70h54"/><circle cx="30" cy="72" r="3"/><circle cx="50" cy="72" r="3"/>'],
     [/photograph/i, '<rect x="12" y="27" width="56" height="37" rx="8"/><path d="m25 27 5-10h20l5 10M59 34h2"/><circle cx="40" cy="44" r="12"/><path d="M13 12h8M17 8v8M65 15h8M69 11v8"/>'],
     [/videograph|video coverage|event film/i, '<rect x="13" y="24" width="54" height="43" rx="7"/><path d="M13 35h54m-50-9 8-10 12 10 8-10 12 10M35 44l14 8-14 8Z"/>'],
     [/floral|flower decor|flower arrang/i, '<path d="M40 66V38m0 16c-13 0-17-7-17-13 10 0 17 5 17 13Zm0-8c13 0 17-7 17-13-10 0-17 5-17 13Z"/><path d="M40 13c7-9 15 0 11 8 13-2 15 10 4 15 7 9-4 17-15 7-11 10-22 2-15-7-11-5-9-17 4-15-4-8 4-17 11-8Z"/><circle cx="40" cy="28" r="6"/><path d="M24 69h32"/>'],
@@ -14,6 +16,8 @@ export function serviceArtwork(name: string): string {
 
 export function experienceFor(name: string) {
   const entries = [
+    [/inflatabl|climbing tower|obstacle course/i,"party","Room for adventure","Castles, slides & active adventures.","Space, age range, power, anchoring, weather and supervision must be reviewed by the provider before confirmation."],
+    [/popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream|food station|party machine/i,"hospitality","A station for every celebration","Treat stations & party machines, by request.","Choose rental or staffed service. Servings, ingredients, hygiene, utilities and delivery are agreed with the provider."],
     [/food|beverage|f&b/i, "hospitality", "Good company. Something delicious.", "Food & drinks for your guests.", "Share your guest count, menu ideas and dietary requirements. We confirm catering and serving arrangements with you."],
     [/cake/i, "sweet", "Make a wish. Make it yours.", "A celebration cake, made for your theme.", "Tell us your theme, preferred flavours and guest count. Design, size and delivery are agreed with you."],
     [/\bdj\b/i, "nightlife", "Your crowd. Your soundtrack.", "Your party. Your soundtrack.", "Share your favourite music and the atmosphere you want. We confirm the DJ, playlist preferences and event arrangements."],

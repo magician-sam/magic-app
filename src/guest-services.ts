@@ -33,6 +33,17 @@ export function guestServiceNames(otherShowNames: string[] = [], hidden: string[
     ["Chair Balance", /chair balance/i],
     ["Circus Parade", /circus parade/i],
     ["Characters", /character/i],
+    ["Inflatable Castles", /inflatabl.*castle|bounc.*castle/i],
+    ["Inflatable Slides", /inflatabl.*slide/i],
+    ["Climbing Towers", /climbing tower/i],
+    ["Inflatable Obstacle Courses", /obstacle course/i],
+    ["Popcorn Station", /popcorn/i],
+    ["Cotton Candy Station", /cotton candy/i],
+    ["Hot Dog Station", /hot dog/i],
+    ["Crêpe Station", /cr[eê]pe/i],
+    ["Slush Machine", /slush/i],
+    ["Soft Serve Station", /soft serve/i],
+    ["Rolled Ice Cream Station", /rolled ice cream/i],
   ] as const) {
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }

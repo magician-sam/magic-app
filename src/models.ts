@@ -123,6 +123,8 @@ export interface Quote {
   packageSnapshot?: Package[];
 }
 export interface Booking {
+  inspirationPhoto?: boolean;
+  serviceRequirements?: import('./service-requirements.js').ServiceRequirements;
   venuePreference?: import('./booking-preferences.js').VenuePreference;
   paymentPreference?: import('./booking-preferences.js').PaymentPreference;
   playgroundRequest?: import('./playtown.js').PlaygroundRequest;

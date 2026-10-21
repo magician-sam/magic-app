@@ -67,6 +67,7 @@ export function staffRouteAllowed(userOrRole: User | Role, method: string, fullP
   const path = fullPath.split("?")[0].replace(/^\/api\/manage/, "");
   if ((method==='GET'&&(path==='/finance'||/^\/finance\/[^/]+\/print$/.test(path)||/^\/finance-attachment\/[^/]+$/.test(path)))||(method==='PUT'&&/^\/finance\/[^/]+$/.test(path))||(method==='POST'&&/^\/finance\/[^/]+\/(archive|publish|post|reverse|recognize|attachment)$/.test(path))) return allowed('money');
   if (method === "GET") {
+    if (/^\/bookings\/[^/]+\/inspiration$/.test(path)) return allowed('events')||allowed('quotes');
     if (path === "/birthdays") return allowed("followups") && allowed("customers");
     if (path === "/office-tasks") return allowed("officeTasks");
     if (path === "/export") return allowed("businessExport");
@@ -122,7 +123,7 @@ export function staffResponse(value: unknown, role: Role): unknown {
     }
     if (role === "accountant") {
       record.notes = ""; record.venueNotes = ""; record.checklist = [];
-      for (const key of ["customAnswers", "giftDetails", "surpriseDetails", "certificate"]) delete record[key];
+      for (const key of ["customAnswers", "giftDetails", "surpriseDetails", "certificate", "serviceRequirements"]) delete record[key];
       record.availabilityResponses = {};
       record.artistCompletion = Object.fromEntries(Object.entries((record.artistCompletion ?? {}) as Record<string, Record<string, unknown>>).map(([id, done]) => [id, { ...done, notes: "", problems: "" }]));
     }

@@ -33,6 +33,7 @@ import { upload } from "@vercel/blob/client";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
 import type { FamilyChild } from "./family-profiles.js";
+import {selectedRequirementGroups,isInflatableService,isFoodStationService,type ServiceRequirements} from './service-requirements.js';
 import { rewardsDialogContent } from './customer-rewards.js';
 import type { RewardAward } from "./reward-ledger.js";
 import type {
@@ -304,7 +305,7 @@ function formValues(data: FormData, fields: Field[]): Record<string, unknown> {
     ]),
   );
 }
-async function resizedPhoto(file: File, format = "image/jpeg"): Promise<Blob> {
+async function resizedPhoto(file: File, format = "image/jpeg",maxEdge=1600): Promise<Blob> {
   if (file.size > 20_000_000) throw new Error("Choose a photo under 20 MB.");
   // Data images are allowed by the site's image policy; blob image URLs are not.
   const localUrl = await new Promise<string>((resolve, reject) => {
@@ -316,7 +317,7 @@ async function resizedPhoto(file: File, format = "image/jpeg"): Promise<Blob> {
   const image = new Image();
     image.src = localUrl;
     await image.decode();
-    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -907,13 +908,16 @@ function samProfile() {
 function guestCatalogGroups() {
   const names = moreShowNames();
   const party = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
-  const extras = names.filter((name) => /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
+  const extras = names.filter((name) => !isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
   const styling = names.filter(name => /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name));
   const capture = names.filter(name => /photograph|videograph|video coverage|event film/i.test(name));
   const gifts = names.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
+  const inflatables=names.filter(isInflatableService),foodStations=names.filter(isFoodStationService);
   const groups = [
     { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
-    { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name)) },
+    { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name) && !inflatables.includes(name) && !foodStations.includes(name)) },
+    { id:"inflatables",title:"Inflatables & Attractions",names:inflatables },
+    { id:"food-stations",title:"Food Stations & Party Machines",names:foodStations },
     { id: "event-styling", title: "Decoration & flowers", names: styling },
     { id: "photography-video", title: "Photography & video", names: capture },
     { id: "favours-keepsakes", title: "Favours & keepsakes", names: gifts },
@@ -941,11 +945,11 @@ function mobileMenuMarkup() {
   const partyNames = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
   const services = moreShowNames();
   const party = services.filter((name) => partyNames.includes(name));
-  const extras = services.filter((name) => /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
+  const extras = services.filter((name) => !isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
   const styling = services.filter(name => /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name));
   const capture = services.filter(name => /photograph|videograph|video coverage|event film/i.test(name));
   const gifts = services.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
-  const special = services.filter((name) => !partyNames.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name));
+  const special = services.filter((name) => !partyNames.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name) && !isInflatableService(name) && !isFoodStationService(name));
   const showButtons = (items: Package[]) => items.map((show) => h`<button type="button" class="mobile-menu-leaf" data-menu-show="${e(show.id)}"><span>${copy(publicShowName(show))}</span><b aria-hidden="true">↗</b></button>`).join("");
   const serviceButtons = (items: string[]) => items.map((name) => h`<button type="button" class="mobile-menu-leaf" data-menu-service="${e(name)}"><span>${catalogueNameCopy(catalog.business,"service:"+name,name)}</span><b aria-hidden="true">↗</b></button>`).join("");
   const branch = (title: string, children: string, nested = false) => h`<details class="mobile-menu-branch${nested ? " mobile-menu-subbranch" : ""}"><summary><span><strong>${copy(title)}</strong></span><b aria-hidden="true">⌄</b></summary><div class="mobile-menu-children">${children}</div></details>`;
@@ -956,6 +960,8 @@ function mobileMenuMarkup() {
     styling.length ? branch("Decoration & flowers", serviceButtons(styling), true) : "",
     capture.length ? branch("Photography & video", serviceButtons(capture), true) : "",
     gifts.length ? branch("Favours & keepsakes", serviceButtons(gifts), true) : "",
+    branch("Inflatables & Attractions",serviceButtons(services.filter(isInflatableService)),true),
+    branch("Food Stations & Party Machines",serviceButtons(services.filter(isFoodStationService)),true),
     extras.length ? branch("The finishing touches", serviceButtons(extras), true) : "",
     h('<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>'),
   ].join("");
@@ -1054,6 +1060,7 @@ function polishVisitorCatalog() {
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
     if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
+    if(key&&selectedRequirementGroups([key]).length&&!card.querySelector('.published-service-price')){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=copy('Price Upon Request');card.querySelector('.show-body')?.append(label);}
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
   const groups = [
@@ -1061,6 +1068,7 @@ function polishVisitorCatalog() {
     ["special-acts", "Special acts"], ["event-styling", "Decoration & flowers"],
     ["photography-video", "Photography & video"], ["favours-keepsakes", "Favours & keepsakes"],
     ["event-extras", "Food, cakes & music"],
+    ["inflatables","Inflatables & Attractions"],["food-stations","Food Stations & Party Machines"],
   ];
   for (const [id, title] of groups) {
     const group = app.querySelector<HTMLElement>(`#${id}`);
@@ -1337,7 +1345,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${catalogueNameCopy(catalog.business,"service:"+name,name)}</button></h3><p>${specialDescription}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
+  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(isInflatableService(name)?"Attractions · by request":isFoodStationService(name)?"Food stations · by request":serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${catalogueNameCopy(catalog.business,"service:"+name,name)}</button></h3><p>${specialDescription}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
 }
 function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
@@ -1355,12 +1363,12 @@ function enquiryDetails(name: string, inline = false) {
       ? h`<section><h3>${isGift ? copy("Gift ideas") : isCapture ? copy("Portfolio") : isActivity ? copy("Activity ideas") : isDecoration ? copy("Decoration portfolio") : copy("Past event photos")}</h3><p class="show-demo-note">${isGift ? copy("Examples only. Personalisation and delivery agreed in your quote.") : isCapture ? copy("Portfolio examples. Coverage, delivery and sharing permissions agreed separately.") : isActivity ? copy("Activity ideas. Your final programme is agreed together.") : isDecoration ? copy("Past setups. Your design and materials are agreed in your quote.") : copy("Past performances. Your performer and setup may vary.")}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : h('<p class="show-media-empty">Tell us your ideas.</p>');
   const publicPrice=catalog.publicPrices?.find(p=>p.serviceId===name);
-  const servicePrice=publicPrice&&publicPrice.priceMode!=='quote'?`<p class="published-service-price">${publicPrice.priceMode==='from'?copy('From')+' ':''}${money(publicPrice.price)}${publicPrice.taxApplied?' · '+copy('VAT included'):''}</p>`:'';
+  const servicePrice=publicPrice&&publicPrice.priceMode!=='quote'?`<p class="published-service-price">${publicPrice.priceMode==='from'?copy('From')+' ':''}${money(publicPrice.price)}${publicPrice.taxApplied?' · '+copy('VAT included'):''}</p>`:selectedRequirementGroups([name]).length?h('<p class="published-service-price">Price Upon Request</p>'):'';
   const characterChoice = /character/i.test(name) && characterChoiceNames().length
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     publicGuestName(name),
-    h`<div class="show-detail"><p class="eyebrow">${isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Food Stations & Party Machines"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -1403,13 +1411,36 @@ function chooseCharacter() {
 function creativeServiceOnly(packageIds: string[], services: string[] = []) {
   return !packageIds.length && !!services.length && services.every(name => /decoration|balloons? styling|event styling|floral|flower arrang|photograph|videograph|video coverage|event film|favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
 }
+function requirementFields(services:readonly string[],saved?:ServiceRequirements):Field[]{
+  return selectedRequirementGroups(services).flatMap(group=>group.fields.map(item=>({key:`requirements-${group.key}-${item.key}`,label:item.label,type:item.type,value:saved?.[group.key]?.[item.key]??'',...('choices' in item?{options:[{value:'',label:'Not sure yet'},...item.choices.filter(value=>value!=='Not sure yet').map(value=>({value,label:value}))]}:{}),...('help' in item?{help:item.help}:{}),...(item.type==='number'?{min:1,max:999999}:{}),wide:item.type==='textarea'})));
+}
+function requirementForm(services:readonly string[],saved?:ServiceRequirements){
+  const fields=requirementFields(services,saved);
+  return selectedRequirementGroups(services).map(group=>h`<fieldset class="service-requirements"><legend>${copy(group.title)}</legend><div class="forms-grid">${fields.filter(f=>f.key.startsWith(`requirements-${group.key}-`)).map(field).join('')}</div><p class="hint">Preferences only. Availability, suitability, staffing and setup need provider approval.</p></fieldset>`).join('');
+}
+function inspirationField(services:readonly string[],hasPhoto=false){
+  return selectedRequirementGroups(services).some(group=>group.key==='decoration')?h`<fieldset class="service-requirements"><legend>Inspiration photo (optional)</legend><label class="field">Choose a reference photo<input type="file" name="inspiration-photo" accept="image/jpeg,image/png,image/webp"></label><p class="hint">Inspiration only. We’ll review what can be reproduced. The image stays with your private event details.</p>${hasPhoto?h('<label class="check"><input type="checkbox" name="remove-inspiration">Remove saved reference photo</label>'):''}</fieldset>`:'';
+}
+async function readInspiration(data:FormData){
+  const file=data.get('inspiration-photo');
+  if(!(file instanceof File)||!file.size)return undefined;
+  const photo=await resizedPhoto(file,'image/jpeg',900);
+  if(photo.size>300000)throw Error('Choose a simpler or smaller reference photo.');
+  const bytes=new Uint8Array(await photo.arrayBuffer());
+  let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return {mime:'image/jpeg',data:btoa(binary)};
+}
+function readRequirements(data:FormData,services:readonly string[]):ServiceRequirements{
+  return Object.fromEntries(selectedRequirementGroups(services).map(group=>[group.key,Object.fromEntries(group.fields.map(item=>[item.key,String(data.get(`requirements-${group.key}-${item.key}`)??'').trim()]))]));
+}
 function requestedServicesSummary(b: Booking) {
   if(b.playgroundRequest) {
     const p=b.playgroundRequest;
     return h`<section class="requested-services"><h3>PLAYTOWN reservation request</h3><p>${copy(p.kind==='visit'?'Children’s play visit':'Private event')} · ${copy(`${p.children} children`)}</p><p>${copy('Ages:')} ${e(p.childAges)}</p>${p.passes.map(pass=>h`<p>${copy(pass.name)} × ${pass.quantity} · USD ${pass.unitUsd} ${copy('each')}</p>`).join('')}<p>${p.referenceTotalUsd===null?copy('Private event price to be quoted.'):copy('Listed pass total: USD')+' '+p.referenceTotalUsd+'.'}</p><small>Entry and arrangements are subject to confirmation. No payment has been taken by submitting this request.</small></section>`;
   }
 
-  return b.requestedServices?.length ? h`<section class="requested-services"><h3>Services in your request</h3><p>${b.requestedServices.map(copy).join(" · ")}</p><small>Requested preferences. The proposal will confirm the selected services, arrangements and price.</small></section>` : "";
+  const details=selectedRequirementGroups(b.requestedServices??[]).map(group=>{const answers=b.serviceRequirements?.[group.key];return answers&&group.fields.some(item=>answers[item.key])?h`<section class="requested-services"><h3>${copy(group.title)}</h3><dl>${group.fields.filter(item=>answers[item.key]).map(item=>h`<dt>${copy(item.label)}</dt><dd>${'choices' in item?copy(answers[item.key]):e(answers[item.key])}</dd>`).join('')}</dl></section>`:'';}).join('');
+  return (b.requestedServices?.length ? h`<section class="requested-services"><h3>Services in your request</h3><p>${b.requestedServices.map(copy).join(" · ")}</p><small>Requested preferences. The proposal will confirm the selected services, arrangements and price.</small></section>` : "")+details+(b.inspirationPhoto?h`<button type="button" class="outline small" data-view-inspiration="${e(b.id)}">View inspiration photo</button>`:'');
 }
 function paymentPreferenceField(value?: string): Field {
   return {key:'paymentPreference',label:'Preferred payment method',type:'select',value:value??'undecided',options:[...paymentPreferences,{value:'card',label:'Visa / Mastercard — coming soon',disabled:true}],help:'This is a preference. The team confirms the accepted method and payment instructions; no payment is taken now.'};
@@ -1584,10 +1615,10 @@ async function requestForm(retainedForm?: FormData) {
   const planAge = designerAudienceAge(designerPreferences);
   const serviceOnly = creativeServiceOnly(basket, guestBasket);
   const fields = eventFields(chosenOccasion ? { occasion: chosenOccasion, ...(planAge !== null ? { age: planAge } : {}) } : undefined).filter(f => !serviceOnly || !["age", "space", "indoor", "power"].includes(f.key));
-  const creativeServices = guestBasket.some(name => /decoration|floral|flower|photograph|videograph|favou?rs?|keepsakes?|guest gifts?/i.test(name));
+  const creativeServices = guestBasket.some(name => /photograph|videograph|favou?rs?|keepsakes?|guest gifts?/i.test(name));
   const magicOnly = !guestBasket.length && basket.length === 1 && catalog.packages.find((item) => item.id === basket[0])?.category.toLowerCase() === "magic";
   const tokenChoices = magicOnly ? Math.min(5, account.rewards.tokens.balance) : 0;
-  const giftExtras = h`<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
+  const giftExtras = requirementForm(guestBasket) + inspirationField(guestBasket) + h`<details class="booking-extra"><summary>🎁 A gift or a surprise? (optional)</summary><p>Plan something personal. Only our event team sees your surprise notes.</p><div class="forms-grid">${field({ key: "gift-event", label: "This event is a gift", type: "checkbox", wide: true })}${field({ key: "gift-recipient", label: "Gift recipient’s name" })}${field({ key: "gift-flexible", label: "The date is flexible", type: "checkbox" })}${field({ key: "gift-message", label: "A message for the gift card", type: "textarea", wide: true })}${field({ key: "surprise-event", label: "Plan a surprise for someone", type: "checkbox", wide: true })}${field({ key: "surprise-guest", label: "Guest of honor’s name" })}${field({ key: "surprise-proposal", label: "This is a proposal", type: "checkbox" })}${field({ key: "surprise-secret", label: "One secret that would make it personal", type: "textarea", wide: true, help: "Only Sam and the event team see this. Please share only what you are comfortable sharing." })}${field({ key: "surprise-met", label: "How did you meet? (for a proposal)" })}${field({ key: "surprise-moment", label: "What moment would you like Sam to be part of?", type: "textarea", wide: true })}</div></details>`;
   openDialog(
     "Tell us about your event",
     h`<p class="signup-progress"><strong>2 of 2 · Event details</strong><span>Still in your event box: ${selectionNames().map(copy).join(" + ")}</span></p>${designerSummary(designerPreferences) ? h`<div class="designer-plan-summary"><span class="eyebrow">Your starting idea</span><p>${designerSummary(designerPreferences).split(" · ").map(copy).join(" · ")}</p><button type="button" class="link" id="edit-designer-plan">Edit these preferences ↗</button><small>Exact event details below take priority. These preferences don’t confirm a booking.</small></div>` : ""}` + formBody(
@@ -1627,6 +1658,7 @@ async function requestForm(retainedForm?: FormData) {
       `/public/${catalog.business.slug}/requests`,
       "POST",
       {
+        inspiration:await readInspiration(data),
         customAnswers: Object.fromEntries(
           questions.map((f) => {
             const value = String(data.get("custom-" + f.id) ?? "");
@@ -1646,6 +1678,7 @@ async function requestForm(retainedForm?: FormData) {
             ...new Set([...basket, ...selected(data, "checkout-extra")]),
           ],
           requestedServices: guestBasket,
+          serviceRequirements: readRequirements(data,guestBasket),
           performerIds: selectedPerformers,
         },
       },
@@ -5062,7 +5095,7 @@ function editEvent(b: Booking) {
     "Edit the big day",
     formBody(
       fields,
-      choices(
+      requirementForm(b.requestedServices??[],b.serviceRequirements)+inspirationField(b.requestedServices??[],!!b.inspirationPhoto)+choices(
         "packageIds",
         state!.packages.filter((p) => p.active || b.packageIds.includes(p.id)),
         b.packageIds,
@@ -5098,6 +5131,9 @@ function editEvent(b: Booking) {
       }));
     await api(`/manage/bookings/${b.id}/details`, "PUT", {
       ...value,
+      serviceRequirements:readRequirements(data,b.requestedServices??[]),
+      inspiration:await readInspiration(data),
+      removeInspiration:data.has('remove-inspiration'),
       packageIds: selected(data, "packageIds"),
       performerIds: state!.user.role === "sales" ? b.performerIds : selected(data, "performerIds"),
       backupPerformerIds: state!.user.role === "sales" ? b.backupPerformerIds : selected(data, "backupPerformerIds"),
@@ -6054,6 +6090,11 @@ async function start() {
     sessionStorage.setItem(`visit:${slug}`, "1");
   }
 }
+document.addEventListener('click',event=>{
+  const button=(event.target as Element).closest<HTMLButtonElement>('[data-view-inspiration]');
+  if(!button)return;
+  void (async()=>{button.disabled=true;try{const photo=await api<{mime:string;data:string}>(location.pathname==='/manage'?'/manage/bookings/'+encodeURIComponent(button.dataset.viewInspiration!)+'/inspiration':'/event/inspiration');openDialog('View inspiration photo',h`<img class="inspiration-preview" src="data:image/jpeg;base64,${e(photo.data)}" alt="Inspiration photo (optional)">`);}finally{button.disabled=false;}})().catch(error=>notify(error.message));
+});
 start().catch((error) => {
   app.innerHTML = h`<main class="loading" id="main"><span class="spark">✧</span><h1>The stage isn’t ready.</h1><p>${e(error.message)}</p><a class="button" href="/">Back to the website</a></main>`;
 });

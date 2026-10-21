@@ -3,6 +3,8 @@ import { financeRoutes, publicFinancePrices } from './finance-routes.js';
 import { FinanceValidationError } from './finance-math.js';
 import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
+import {serviceRequirementsMatch} from './service-requirements-schema.js';
+import {inspirationPhotoSchema,type InspirationPhoto} from './event-inspiration.js';
 import { catalogueRoutes } from "./catalogue-routes.js";
 import { whatsappHistory } from "./whatsapp-history.js";
 import { whatsappCustomers } from "./whatsapp-customers.js";
@@ -492,12 +494,14 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const business = await businessBySlug(String(req.params.slug));
     const account = await customerSession(req, business.id);
     const input = z
-      .object({ event: eventSchema.extend({ packageIds: z.array(short.min(1)).max(12), requestedServices: z.array(short.min(1)).max(30).default([]) }), customAnswers: z.unknown().optional() })
+      .object({ event: eventSchema.extend({ packageIds: z.array(short.min(1)).max(12), requestedServices: z.array(short.min(1)).max(30).default([]) }), inspiration:inspirationPhotoSchema.optional(), customAnswers: z.unknown().optional() })
       .parse(req.body);
     requireThat(input.event.packageIds.length + input.event.requestedServices.length > 0, "Choose at least one show.");
     const services = guestServiceNames(business.otherShowNames, business.hiddenGuestServices);
     requireThat(input.event.requestedServices.every((name) => services.includes(name)), "A selected guest act is unavailable.");
     requireThat(new Set(input.event.requestedServices).size === input.event.requestedServices.length, "Choose each guest act once.");
+    requireThat(serviceRequirementsMatch(input.event.serviceRequirements,input.event.requestedServices),'Service details must match the selected services.');
+    requireThat(!input.inspiration||serviceRequirementsMatch({decoration:{}},input.event.requestedServices),'Inspiration photos are for decoration requests.');
     await validateSelection(
       business.id,
       input.event.packageIds,
@@ -518,6 +522,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       const booking: Booking = {
         customAnswers: answers,
         ...input.event,
+        inspirationPhoto:!!input.inspiration,
         packageSnapshot: await Promise.all(
           input.event.packageIds.map(
             async (p) => await owned<Package>(business.id, "packages", p),
@@ -541,6 +546,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         updatedAt: now,
       };
       await store.put(business.id, "bookings", booking);
+      if(input.inspiration)await store.put(business.id,'eventInspiration',{id:booking.id,...input.inspiration});
       await store.audit(
         business.id,
         "customer",
@@ -556,6 +562,12 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       };
     });
     res.status(201).json(result);
+  });
+  app.get('/api/event/inspiration',async(req,res)=>{
+    const {business,booking}=await eventAccess(req);
+    const photo=await store.get<InspirationPhoto>(business.id,'eventInspiration',booking.id);
+    requireThat(photo&&booking.inspirationPhoto,'Reference photo not found.',404);
+    res.set('Cache-Control','private, no-store').json({mime:photo.mime,data:photo.data});
   });
   app.get("/api/event", async (req, res) => {
     const { business, booking } = await eventAccess(req);
@@ -617,6 +629,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         revision,
         giftDetails: booking.giftDetails,
         requestedServices: booking.requestedServices ?? [],
+        serviceRequirements:booking.serviceRequirements,
+        inspirationPhoto:booking.inspirationPhoto,
         playgroundRequest: booking.playgroundRequest,
         certificate: booking.certificate,
         customAnswers: booking.customAnswers ?? [],
@@ -1059,6 +1073,14 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       }),
     );
   });
+  app.get('/api/manage/bookings/:id/inspiration',async(request,res)=>{
+    const req=request as Authed;
+    requireThat(userCanStaffAction(req.user,'events')||userCanStaffAction(req.user,'quotes'),'Event planning access required.',403);
+    const booking=await owned<Booking>(req.business.id,'bookings',String(req.params.id));
+    const photo=await store.get<InspirationPhoto>(req.business.id,'eventInspiration',booking.id);
+    requireThat(photo&&booking.inspirationPhoto,'Reference photo not found.',404);
+    res.set('Cache-Control','private, no-store').json({mime:photo.mime,data:photo.data});
+  });
   app.get("/api/manage/state", async (request, res) => {
     if (request.user.role !== "performer")
       await generateFollowups(store, request.business);
@@ -1087,7 +1109,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     if (req.user.role === "accountant") {
       result.customers = (result.customers as Customer[]).map((customer) => ({ ...customer, children: [], contacts: [], notes: "", followUp: "", source: "" }));
       result.bookings = (result.bookings as Booking[]).map((booking) => ({
-        ...booking, notes: "", venueNotes: "", checklist: [], customAnswers: undefined, giftDetails: undefined, surpriseDetails: undefined, certificate: undefined,
+        ...booking, notes: "", venueNotes: "", checklist: [], customAnswers: undefined, giftDetails: undefined, surpriseDetails: undefined, certificate: undefined, serviceRequirements:undefined,
         availabilityResponses: {},
         artistCompletion: Object.fromEntries(Object.entries(booking.artistCompletion ?? {}).map(([key, completion]) => [key, { ...completion, notes: "", problems: "" }])),
       }));
@@ -1118,6 +1140,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         packageSnapshot: undefined,
         customAnswers: undefined,
         giftDetails: undefined,
+        serviceRequirements:undefined,
+        inspirationPhoto:undefined,
         surpriseDetails: undefined,
         backupPerformerIds: [],
         availabilityResponses: b.availabilityResponses?.[req.user.performerId ?? ""]
@@ -1908,6 +1932,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='actPlans' AND id=?").run(req.business.id, booking.id);
       await store.db.prepare("DELETE FROM links WHERE business_id=? AND booking_id=?").run(req.business.id, booking.id);
       await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='bookings' AND id=?").run(req.business.id, booking.id);
+      await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='eventInspiration' AND id=?").run(req.business.id, booking.id);
       const audits = await store.all<{ id: string; entityId: string }>(req.business.id, "audit");
       for (const audit of audits.filter((item) => deletedIds.has(item.entityId)))
         await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='audit' AND id=?").run(req.business.id, audit.id);
@@ -1988,6 +2013,10 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     );
     validEventDate(req.business, input, false);
     const before = await owned<Booking>(req.business.id, "bookings", String(req.params.id));
+    requireThat(serviceRequirementsMatch(input.serviceRequirements,before.requestedServices??[]),'Service details must match the selected services.');
+    const inspiration=inspirationPhotoSchema.optional().parse(req.body.inspiration),removeInspiration=z.boolean().default(false).parse(req.body.removeInspiration);
+    requireThat(!(inspiration&&removeInspiration),'Choose a new photo or remove the saved one.');
+    requireThat(!inspiration||serviceRequirementsMatch({decoration:{}},before.requestedServices??[]),'Inspiration photos are for decoration requests.');
     if (req.user.role === "sales") {
       requireThat(input.surpriseDetails === undefined, "Private surprise plans are managed by the owner or manager.", 403);
       requireThat(JSON.stringify(input.performerIds) === JSON.stringify(before.performerIds) && JSON.stringify(input.backupPerformerIds) === JSON.stringify(before.backupPerformerIds), "Artist assignments are managed by the owner or manager.", 403);
@@ -2015,10 +2044,12 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
             JSON.stringify(b.performerIds) !==
               JSON.stringify(input.performerIds);
           const packageChanged =
-            JSON.stringify(b.packageIds) !== JSON.stringify(input.packageIds);
+            JSON.stringify(b.packageIds) !== JSON.stringify(input.packageIds)||
+            (input.serviceRequirements!==undefined&&JSON.stringify(b.serviceRequirements??{})!==JSON.stringify(input.serviceRequirements))||!!inspiration||(removeInspiration&&!!b.inspirationPhoto);
           return {
             ...b,
             ...input,
+            inspirationPhoto:inspiration?true:removeInspiration?false:b.inspirationPhoto,
             runningOrder: packageChanged ? undefined : b.runningOrder,
             packageSnapshot: packageChanged
               ? await Promise.all(
@@ -2057,6 +2088,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         },
         "details.updated-recheck-required",
       );
+    if(inspiration)await store.put(req.business.id,'eventInspiration',{id:saved.id,...inspiration});
+    else if(removeInspiration)await store.db.prepare("DELETE FROM records WHERE business_id=? AND kind='eventInspiration' AND id=?").run(req.business.id,saved.id);
     const delivery = await eventNotice(store, req.business, saved, "updated", origin);
     res.json({ ...saved, delivery, priorStatus: before.status });
   });

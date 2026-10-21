@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { z } from "zod";
+import {serviceRequirementsSchema} from './service-requirements-schema.js';
 import type {
   AvailabilityBlock,
   Booking,
@@ -64,6 +65,7 @@ export const customerSchema = z.object({
   followUp: z.union([date, z.literal("")]).default(""),
 });
 export const eventSchema = z.object({
+  serviceRequirements: serviceRequirementsSchema.optional(),
   name: short.min(2),
   date,
   time,

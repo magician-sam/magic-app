@@ -27,6 +27,8 @@ const focused = new Set([
   "#browse-music",
   "#browse-food",
   "#browse-science",
+  "#browse-inflatables",
+  "#browse-food-stations",
 ]);
 
 /** A single catalogue on the homepage, with addressable focused category views. */
@@ -203,6 +205,8 @@ export function mountCompactMarketplace({
       match: /\bDJ\b|Sound System|Live Music|Parades/i,
     },
     "#browse-food": { title: "Food & cakes", match: /Food|Beverage|Cake/i },
+    "#browse-inflatables": {title:"Inflatables & Attractions",match:/inflatabl|climbing tower|obstacle course/i},
+    "#browse-food-stations": {title:"Food Stations & Party Machines",match:/popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream|food station|party machine/i},
     "#browse-science": {
       title: "Science & workshops",
       match: /Science|Workshop/i,

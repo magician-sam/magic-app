@@ -1,5 +1,7 @@
 /** Approved source-owned customer copy. Stored values and provider names remain unchanged. */
+import {serviceRequirementsTranslations} from './service-requirements-translations.js';
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
+  ...serviceRequirementsTranslations,
   "{count} token ready to use": {"fr":"{count} jeton disponible","ar":"{count} نقطة جاهزة للاستخدام"},
   "{count} tokens ready to use": {"fr":"{count} jetons disponibles","ar":"{count} نقاط جاهزة للاستخدام"},
   "Change password": {"fr":"Changer le mot de passe","ar":"تغيير كلمة المرور"},

@@ -2,6 +2,17 @@ import { customerTranslations } from './customer-translations.js';
 
 /** Canonical service keys stay unchanged. Aliases only expand public search. */
 export const multilingualAliases: Record<string, readonly string[]> = {
+  'Inflatable Castles':['bouncy castle','bouncing castle','chateau gonflable','العاب نفخ','قلعة نفخ','نطيطة'],
+  'Inflatable Slides':['inflatable slide','toboggan gonflable','زحليقة نفخ'],
+  'Climbing Towers':['climbing wall','escalade','تسلق'],
+  'Inflatable Obstacle Courses':['obstacle course','parcours gonflable','حواجز نفخ'],
+  'Popcorn Station':['popcorn','pop corn','بوشار','فشار'],
+  'Cotton Candy Station':['candy floss','barbe a papa','غزل البنات','شعر البنات'],
+  'Hot Dog Station':['hotdog','hot dog','هوت دوغ','هوت دوغز'],
+  'Crêpe Station':['crepe','crepes','كريب'],
+  'Slush Machine':['slushy','granite','سلاش'],
+  'Soft Serve Station':['soft serve','glace italienne','بوظة سوفت'],
+  'Rolled Ice Cream Station':['ice cream rolls','glace roulee','بوظة رول'],
   'Magic Show': ['magic','magician','magicien','prestidigitation','ساحر','سحر','ماجيك'],
   'Science Show': ['science','scientifique','experiences scientifiques','تجارب','علوم','علمي','ساينس'],
   'Bubble Show': ['bubbles','bubble','bulles','savon','فقاعات','صابون','بابل'],
