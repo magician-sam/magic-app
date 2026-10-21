@@ -1,6 +1,7 @@
 import { h, copy, setCopy } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
 import { mountHeaderRewards } from './customer-rewards.js';
+import {marketplaceCollections} from './category-collections.js';
 
 type Options = {
   root: HTMLElement;
@@ -29,6 +30,8 @@ const focused = new Set([
   "#browse-science",
   "#browse-inflatables",
   "#browse-food-stations",
+  "#browse-party-machines",
+  ...Object.keys(marketplaceCollections),
 ]);
 
 /** A single catalogue on the homepage, with addressable focused category views. */
@@ -199,19 +202,7 @@ export function mountCompactMarketplace({
     paint(true);
   });
   const allCards = [...root.querySelectorAll<HTMLElement>("#shows .show-card")];
-  const collections: Record<string, { title: string; match: RegExp }> = {
-    "#browse-music": {
-      title: "Music & sound",
-      match: /\bDJ\b|Sound System|Live Music|Parades/i,
-    },
-    "#browse-food": { title: "Food & cakes", match: /Food|Beverage|Cake/i },
-    "#browse-inflatables": {title:"Inflatables & Attractions",match:/inflatabl|climbing tower|obstacle course/i},
-    "#browse-food-stations": {title:"Food Stations & Party Machines",match:/popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream|food station|party machine/i},
-    "#browse-science": {
-      title: "Science & workshops",
-      match: /Science|Workshop/i,
-    },
-  };
+  const collections=marketplaceCollections;
   let wasFocused = document.body.classList.contains("category-focused");
   function paint(restore = false) {
     const hash = location.hash,

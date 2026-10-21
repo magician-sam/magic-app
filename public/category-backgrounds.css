@@ -1,0 +1,15 @@
+/* A shared lavender treatment keeps category subjects consistent and replaceable. */
+.compact-marketplace.marketplace-world .mp-category{position:relative;isolation:isolate;overflow:hidden;border:1px solid #e5dcec;background:#fcf9ff;box-shadow:0 2px 7px #44305d04;transition:transform .2s,box-shadow .2s,border-color .2s}
+.mp-category-art{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.47;background:#eee5f4;transition:opacity .25s,transform .4s}
+.mp-category-art img{width:100%;height:100%;display:block;object-fit:cover;object-position:center;filter:grayscale(1) sepia(.45) hue-rotate(215deg) saturate(.65);mix-blend-mode:multiply}
+.mp-category-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#faf6ff08,#faf6ff85 36%,#faf6ff85 64%,#faf6ff08)}
+.compact-marketplace.marketplace-world .mp-category-icon{background:#fdfbffdc;color:#76558e;border:1px solid #e7daef;box-shadow:0 3px 12px #4a305c0a;backdrop-filter:blur(3px)}
+.compact-marketplace.marketplace-world .mp-category-copy{position:relative;z-index:1;min-width:0;max-width:100%}
+.compact-marketplace.marketplace-world .mp-category strong{display:inline-block;color:#2c2140;text-shadow:0 1px 4px #fff;padding:3px 5px;border-radius:6px;background:#fff9;line-height:1.3}
+.compact-marketplace.marketplace-world .mp-category-arrow{color:#755987}
+.compact-marketplace.marketplace-world .mp-category:hover,.compact-marketplace.marketplace-world .mp-category:focus-visible{border-color:#bfa3d2;box-shadow:0 6px 18px #52376913}
+.mp-category:hover .mp-category-art,.mp-category:focus-visible .mp-category-art{opacity:.62;transform:scale(1.025)}
+.mp-category:active .mp-category-art{opacity:.65}
+@media(max-width:680px){.compact-marketplace.marketplace-world .mp-category{border-radius:14px;padding:10px 4px;min-height:104px}.mp-category-art img{object-position:17% center}.mp-category-art{opacity:.32}.mp-category-art::after{background:linear-gradient(180deg,#fcf9ff05,#fcf9ff80)}.compact-marketplace.marketplace-world .mp-category strong{font-size:11px;padding:2px 3px}.compact-marketplace.marketplace-world .mp-category-icon{width:37px;height:37px;border-radius:12px}}
+@media(max-width:540px){.compact-marketplace.marketplace-world .mp-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.compact-marketplace.marketplace-world .mp-category{min-height:88px;gap:5px}.compact-marketplace.marketplace-world .mp-category strong{font-size:12px;max-width:100%;overflow-wrap:anywhere;box-sizing:border-box}}
+@media(prefers-reduced-motion:reduce){.mp-category-art,.compact-marketplace.marketplace-world .mp-category{transition:none}.mp-category:hover .mp-category-art{transform:none}}

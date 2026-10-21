@@ -63,7 +63,7 @@ export const marketplaceCategoryCards = [
     "Menus, treats & celebration cakes",
   ],
   ["Inflatables & Attractions","sparkle","#browse-inflatables","inflatables","Castles, slides & active adventures"],
-  ["Food Stations & Party Machines","food","#browse-food-stations","food-stations","Popcorn, treats & staffed stations"],
+  ["Popcorn, Candy & More","food","#browse-treats","food-stations","Popcorn, cotton candy & frozen drinks"],
   [
     "Baptism & Communion",
     "candle",

@@ -14,7 +14,7 @@ export const serviceRequirementGroups = [
     {key:'supervision',label:'Supervision arrangement',type:'select',choices:['Please advise','Staff required','Venue staff — needs provider approval']},
     {key:'access',label:'Access, setup & transport details (optional)',type:'textarea'},
   ]},
-  { key:'foodStations',title:'Food station & machine details',match:/food station|party machine|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream/i,fields:[
+  { key:'foodStations',title:'Party machine details',match:/food station|party machine|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream/i,fields:[
     {key:'serviceMode',label:'Service arrangement',type:'select',choices:['Please advise','Machine rental only','Staffed station with ingredients','Staffed station — ingredients to confirm']},
     {key:'servings',label:'Estimated number of servings (optional)',type:'number'},
     {key:'hours',label:'Serving duration or time window (optional)',type:'text'},

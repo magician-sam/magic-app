@@ -23,7 +23,7 @@ export const catalogueAppearanceInput = z
       .refine((v) => {
         if (
           !v ||
-          /^\/(?:portfolio|playgrounds|demo)\/[a-zA-Z0-9/_-]+\.(?:jpg|jpeg|png|webp)$/i.test(
+          /^\/(?:portfolio|playgrounds|demo|category-art)\/[a-zA-Z0-9/_-]+\.(?:jpg|jpeg|png|webp)$/i.test(
             v,
           )
         )

@@ -917,7 +917,7 @@ function guestCatalogGroups() {
     { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
     { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name) && !inflatables.includes(name) && !foodStations.includes(name)) },
     { id:"inflatables",title:"Inflatables & Attractions",names:inflatables },
-    { id:"food-stations",title:"Food Stations & Party Machines",names:foodStations },
+    { id:"party-machines",title:"Popcorn, Candy & More",names:foodStations },
     { id: "event-styling", title: "Decoration & flowers", names: styling },
     { id: "photography-video", title: "Photography & video", names: capture },
     { id: "favours-keepsakes", title: "Favours & keepsakes", names: gifts },
@@ -961,7 +961,7 @@ function mobileMenuMarkup() {
     capture.length ? branch("Photography & video", serviceButtons(capture), true) : "",
     gifts.length ? branch("Favours & keepsakes", serviceButtons(gifts), true) : "",
     branch("Inflatables & Attractions",serviceButtons(services.filter(isInflatableService)),true),
-    branch("Food Stations & Party Machines",serviceButtons(services.filter(isFoodStationService)),true),
+    branch("Popcorn, Candy & More",serviceButtons(services.filter(isFoodStationService)),true),
     extras.length ? branch("The finishing touches", serviceButtons(extras), true) : "",
     h('<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>'),
   ].join("");
@@ -1068,7 +1068,7 @@ function polishVisitorCatalog() {
     ["special-acts", "Special acts"], ["event-styling", "Decoration & flowers"],
     ["photography-video", "Photography & video"], ["favours-keepsakes", "Favours & keepsakes"],
     ["event-extras", "Food, cakes & music"],
-    ["inflatables","Inflatables & Attractions"],["food-stations","Food Stations & Party Machines"],
+    ["inflatables","Inflatables & Attractions"],["party-machines","Popcorn, Candy & More"],
   ];
   for (const [id, title] of groups) {
     const group = app.querySelector<HTMLElement>(`#${id}`);
@@ -1368,7 +1368,7 @@ function enquiryDetails(name: string, inline = false) {
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     publicGuestName(name),
-    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Food Stations & Party Machines"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Popcorn, Candy & More"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;

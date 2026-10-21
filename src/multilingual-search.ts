@@ -10,7 +10,7 @@ export const multilingualAliases: Record<string, readonly string[]> = {
   'Cotton Candy Station':['candy floss','barbe a papa','غزل البنات','شعر البنات'],
   'Hot Dog Station':['hotdog','hot dog','هوت دوغ','هوت دوغز'],
   'Crêpe Station':['crepe','crepes','كريب'],
-  'Slush Machine':['slushy','granite','سلاش'],
+  'Slush Machine':['frisco','frisko','slush','sluch','slushy','frozen drinks','granite','سلاش','فريسكو','فريزكو'],
   'Soft Serve Station':['soft serve','glace italienne','بوظة سوفت'],
   'Rolled Ice Cream Station':['ice cream rolls','glace roulee','بوظة رول'],
   'Magic Show': ['magic','magician','magicien','prestidigitation','ساحر','سحر','ماجيك'],
@@ -72,7 +72,7 @@ export function normalizeSearch(value: string): string {
 const translatedKeys = new Map(Object.entries(customerTranslations).flatMap(([key,value])=>[key,value.en??key,value.fr,value.ar].map(text=>[normalizeSearch(text),key] as const)));
 const aliasKeys = new Map(Object.keys(multilingualAliases).flatMap(key=>{
   const tr=Object.hasOwn(customerTranslations,key)?customerTranslations[key]:null;
-  return [key,...(tr?[tr.fr,tr.ar]:[])].map(value=>[normalizeSearch(value),key] as const);
+  return [key,...(tr?[tr.en??key,tr.fr,tr.ar]:[])].map(value=>[normalizeSearch(value),key] as const);
 }));
 const geographicKeys = ['Ain El Tineh, Beirut','Beirut','Jounieh','Tripoli','Sidon'] as const;
 export function locationTerms(values: readonly string[]): string[] {

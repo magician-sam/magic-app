@@ -5,6 +5,7 @@ import {
   type CatalogueAppearance,
 } from "./catalogue-settings.js";
 import { userCanStaffAction } from "./staff-permissions.js";
+import {categoryBackground} from './category-backgrounds.js';
 type Options = {
   state: Dashboard;
   api: <T = unknown>(
@@ -45,8 +46,8 @@ export function mountCatalogueEditing(root: Element, o: Options) {
   categoryPanel.className = "panel catalogue-manager";
   categoryPanel.innerHTML = `<div class="section-heading"><div><h2>Homepage categories</h2><p>Change a category’s name or photo. Set individual prices on the shows and services below.</p></div></div><div class="catalogue-category-grid">${marketplaceCategoryCards
     .map(([name, , , key]) => {
-      const value = b.catalogueAppearance?.["category:" + key];
-      return `<article><div class="catalogue-tile-cover">${value?.cover ? `<img src="${e(value.cover)}" alt="" loading="lazy">` : '<span aria-hidden="true">✦</span>'}</div><h3>${e(catalogueName(b, "category:" + key, name))}</h3><button type="button" class="small outline" data-appearance-key="category:${key}" data-fallback-name="${e(name)}">Edit category</button></article>`;
+      const cover=categoryBackground(b,key);
+      return `<article><div class="catalogue-tile-cover">${cover ? `<img src="${e(cover)}" alt="" loading="lazy">` : '<span aria-hidden="true">✦</span>'}</div><h3>${e(catalogueName(b, "category:" + key, name))}</h3><button type="button" class="small outline" data-appearance-key="category:${key}" data-fallback-name="${e(name)}">Edit category</button></article>`;
     })
     .join("")}</div>`;
   root.prepend(categoryPanel);

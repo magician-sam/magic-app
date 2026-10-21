@@ -1,4 +1,6 @@
 import { marketplaceCategoryCards } from "./catalogue-settings.js";
+import {categoryBackground} from './category-backgrounds.js';
+import {marketplaceCollections} from './category-collections.js';
 import type { Business } from "./models.js";
 import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
 import { h, t, copy, setCopy } from "./customer-i18n.js";
@@ -81,7 +83,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   const nav = root.querySelector(".site-nav");
   nav?.insertAdjacentHTML("afterbegin", h('<a href="#marketplace-playgrounds">Playgrounds</a><a href="#marketplace-agencies">Entertainment agencies</a>'));
   const categorySection = document.createElement("section"); categorySection.id = "marketplace-categories"; categorySection.className = "mp-categories";
-  categorySection.innerHTML = h`<div class="mp-section-intro"><div><h2>Explore categories</h2></div></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => { const key="category:"+theme; const settings: Pick<Business,"catalogueAppearance">=options.business??{}; const cover=settings.catalogueAppearance?.[key]?.cover; return h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-icon" aria-hidden="true">${cover ? `<img src="${e(cover)}" alt="" loading="lazy">` : icon(shape)}</span><span class="mp-category-copy"><strong>${catalogueNameCopy(settings,key,title)}</strong><small>${catalogueDescriptionCopy(settings,key,description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`; }).join("")}</nav>`;
+  categorySection.innerHTML = h`<div class="mp-section-intro"><div><h2>Explore categories</h2></div></div><nav class="mp-category-grid" aria-label="Marketplace categories">${cards.map(([title, shape, target, theme, description]) => { const key="category:"+theme; const settings: Pick<Business,"catalogueAppearance">=options.business??{}; return h`<a class="mp-category mp-${theme}" href="${target}"><span class="mp-category-art" aria-hidden="true"><img src="${e(categoryBackground(settings,theme))}" alt="" width="960" height="320" loading="lazy" decoding="async"></span><span class="mp-category-icon" aria-hidden="true">${icon(shape)}</span><span class="mp-category-copy"><strong>${catalogueNameCopy(settings,key,title)}</strong><small>${catalogueDescriptionCopy(settings,key,description)}</small></span><span class="mp-category-arrow" aria-hidden="true">↗</span></a>`; }).join("")}</nav>`;
   hero.after(categorySection);
   const inspiration = document.createElement("section"); inspiration.className = "world-inspiration";
   inspiration.innerHTML = h`<div class="mp-section-intro"><div><h2>Event inspiration</h2></div></div><div class="world-inspiration-grid"><figure class="mp-photo mp-photo-main"><button type="button" data-zoom-photo aria-label="Enlarge celebration decoration"><img src="/portfolio/decoration/garden-birthday.jpg" alt="Garden birthday decoration from the event collection" loading="lazy"></button><figcaption>Decoration ideas</figcaption></figure><figure class="mp-photo mp-photo-small"><button type="button" data-zoom-photo aria-label="Enlarge live music"><img src="/portfolio/guest/live-music.jpg" alt="Live music performance from the event collection" loading="lazy"></button><figcaption>Live music</figcaption></figure><a class="world-inspiration-plan" href="#marketplace-occasions"><span aria-hidden="true">✳</span><h3>Make it yours.</h3><span>Choose your occasion ↗</span></a></div>`;
@@ -111,7 +113,7 @@ export function mountMarketplaceDiscovery(options: MountOptions) {
   playButton.addEventListener("click", () => options.design("Playground visit"));
   places.querySelector(".mp-directory-feature")!.append(playButton);
   const shows = root.querySelector("#shows"); shows?.before(places, agencies);
-  for (const link of categorySection.querySelectorAll<HTMLAnchorElement>("a")) if (!root.querySelector(link.hash)) link.href = "#shows";
+  for (const link of categorySection.querySelectorAll<HTMLAnchorElement>("a")) if (!root.querySelector(link.hash)&&!Object.hasOwn(marketplaceCollections,link.hash)) link.href = "#shows";
   const search = places.querySelector<HTMLFormElement>(".mp-venue-search")!;
   venueMaps.set(places,mountVenueMap(places,id=>{if(id==='playtown')openPlaytown(options);else if(id.startsWith('partner:'))void openProfile(id.slice(8),options);},discoveryLifecycle.signal));
   search.addEventListener("submit", event => {

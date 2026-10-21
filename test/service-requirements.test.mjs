@@ -5,11 +5,20 @@ import {selectedRequirementGroups,isInflatableService,isFoodStationService} from
 import {guestServiceNames} from '../dist/guest-services.js';import {marketplaceCategoryCards} from '../dist/catalogue-settings.js';
 import {matchesMultilingual,multilingualTerms} from '../dist/multilingual-search.js';
 import {inspirationPhotoSchema} from '../dist/event-inspiration.js';
+import {marketplaceCollections} from '../dist/category-collections.js';
+import {categoryBackground,categoryBackgroundKeys} from '../dist/category-backgrounds.js';
+import {translateCustomerCopy} from '../dist/customer-language.js';
 
 test('food machines and inflatables have separate discovery, typed inquiries and no budget question',()=>{
   const names=guestServiceNames();assert.equal(names.filter(isInflatableService).length,4);assert.equal(names.filter(isFoodStationService).length,7);
-  assert.equal(names.some(name=>/frisco/i.test(name)),false,'undefined owner terminology is not invented');
+  assert.equal(names.filter(name=>name==='Slush Machine').length,1,'Frisco is an alias of the existing slush offering, not duplicate inventory');
   assert.notEqual(marketplaceCategoryCards.find(c=>c[3]==='food-stations')[2],marketplaceCategoryCards.find(c=>c[3]==='inflatables')[2]);
+  const treats=marketplaceCategoryCards.find(c=>c[3]==='food-stations');assert.equal(treats[0],'Popcorn, Candy & More');assert.equal(treats[2],'#browse-treats');
+  for(const [, , target] of marketplaceCategoryCards)if(target.startsWith('#browse-'))assert.ok(Object.hasOwn(marketplaceCollections,target),'focused category has an explicit route');
+  for(const name of names.filter(isFoodStationService)){assert.equal(marketplaceCollections['#browse-treats'].match.test(name),true);assert.equal(marketplaceCollections['#browse-food'].match.test(name),false);assert.equal(marketplaceCollections['#browse-inflatables'].match.test(name),false);}
+  assert.equal(marketplaceCollections['#browse-food'].match.test('Food & Beverages'),true);assert.equal(marketplaceCollections['#browse-food'].match.test('Cakes'),true);
+  assert.equal(categoryBackgroundKeys.length,marketplaceCategoryCards.length);assert.ok(categoryBackground({},'places').startsWith('/category-art/'));assert.equal(categoryBackground({catalogueAppearance:{'category:places':{cover:'https://example.test/owned.jpg'}}},'places'),'https://example.test/owned.jpg');
+  assert.equal(translateCustomerCopy('Slush Machine','en'),'Frisco / Slush');
   assert.deepEqual(selectedRequirementGroups(['Popcorn Station']).map(g=>g.key),['foodStations']);
   assert.deepEqual(selectedRequirementGroups(['Inflatable Castles']).map(g=>g.key),['inflatables']);
   assert.equal(serviceRequirementsSchema.safeParse({decoration:{budget:'100'}}).success,false);
@@ -20,6 +29,7 @@ test('food machines and inflatables have separate discovery, typed inquiries and
   assert.equal(matchesMultilingual(multilingualTerms(['Popcorn Station']),'بوشار'),true);
   assert.equal(matchesMultilingual(multilingualTerms(['Inflatable Castles']),'chateaux gonflables'),true);
   assert.equal(matchesMultilingual(multilingualTerms(['Popcorn Station']),'popcron'),true);
+  for(const query of ['frisco','sluch','فريسكو'])assert.equal(matchesMultilingual(multilingualTerms(['Slush Machine']),query),true);
   assert.equal(inspirationPhotoSchema.safeParse({mime:'image/jpeg',data:Buffer.from([255,216,255,1,255,217]).toString('base64')}).success,false,'a JPEG prefix alone is not an image frame');
 });
 
