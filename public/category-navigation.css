@@ -1,0 +1,11 @@
+.compact-marketplace .category-view-header {padding:20px;border:1px solid #e2d7ed;border-radius:20px;background:linear-gradient(120deg,#fff9f0,#f0e7ff);margin:16px 0 22px}
+.compact-marketplace .category-view-description {margin:8px auto 0;max-width:600px;color:#5d506e;font-size:14px}
+.compact-marketplace .category-view-header h2:focus {outline:none}
+.compact-marketplace .category-view-header button {min-height:44px}
+.compact-marketplace.category-focused #shows {border-top:0}
+.compact-marketplace.category-focused .show-group {border-top:0;padding-top:0;margin-top:0}
+.compact-marketplace .category-school-events {padding:24px;border:1px solid #ded8ee;border-radius:20px;background:#fff;max-width:780px;margin:0 auto}
+.compact-marketplace .category-event-choices {display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:20px}
+.compact-marketplace .category-event-choices button {min-height:48px;flex:1 1 190px;max-width:300px}
+.compact-marketplace .category-empty-state {padding:24px;margin:12px 0;border:1px solid #e2d7ed;border-radius:18px;background:#fff}
+@media(max-width:540px){.compact-marketplace .category-view-header{padding:16px 10px}.compact-marketplace .category-view-description{font-size:13px}.compact-marketplace .category-school-events{padding:18px 12px}}

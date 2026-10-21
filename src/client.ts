@@ -1059,6 +1059,7 @@ function polishVisitorCatalog() {
     const id = card.querySelector<HTMLElement>("[data-show-details]")?.dataset.showDetails;
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
+    card.dataset.categoryService = key ?? (show ? show.category + ' ' + publicShowName(show) : '');
     if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
     if(key&&selectedRequirementGroups([key]).length&&!card.querySelector('.published-service-price')){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=copy('Price Upon Request');card.querySelector('.show-body')?.append(label);}
     card.dataset.experienceTheme = experienceFor(name).theme;
@@ -1284,7 +1285,7 @@ function renderPublic() {
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, business: catalog.business, phone: contactPhone,
     reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
-  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,
+  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,business:catalog.business,design:occasion=>helpChoose(occasion),
     account:()=>{void customerAccount();},
     bundle:()=>{requestBundleDiscount=true;saveEventBox();helpChoose();},
     rewards:()=>{openDialog('Earn a free magic show',rewardsDialogContent());modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},

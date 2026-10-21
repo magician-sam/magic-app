@@ -1,7 +1,11 @@
-import { h, copy, setCopy } from "./customer-i18n.js";
+import { h, copy, setCopy, t, customerLanguage } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
 import { mountHeaderRewards } from './customer-rewards.js';
 import {marketplaceCollections} from './category-collections.js';
+import {categoryPages, categoryPageHash, categoryPageForHash, categoryPageIncludes} from './category-pages.js';
+import {catalogueNameCopy, catalogueDescriptionCopy} from './catalogue-copy.js';
+import {catalogueName} from './catalogue-settings.js';
+import type {Business} from './models.js';
 
 type Options = {
   root: HTMLElement;
@@ -10,6 +14,8 @@ type Options = {
   account: () => void;
   artists: { id: string; name: string; photo: string; speciality: string }[];
   artist: (id: string) => void;
+  business: Pick<Business, 'catalogueAppearance'>;
+  design: (occasion?: string) => void;
 };
 let controller: AbortController | undefined;
 let returnY = 0;
@@ -32,6 +38,8 @@ const focused = new Set([
   "#browse-food-stations",
   "#browse-party-machines",
   ...Object.keys(marketplaceCollections),
+  ...categoryPages.map(page => categoryPageHash(page.key)),
+  '#shows', '#event-styling', '#photography-video', '#favours-keepsakes',
 ]);
 
 /** A single catalogue on the homepage, with addressable focused category views. */
@@ -42,6 +50,8 @@ export function mountCompactMarketplace({
   account,
   artists,
   artist,
+  business,
+  design,
 }: Options) {
   controller?.abort();
   controller = new AbortController();
@@ -148,12 +158,19 @@ export function mountCompactMarketplace({
   if (agencies) main.append(agencies);
   const places = root.querySelector<HTMLElement>("#marketplace-playgrounds");
   if (places) main.append(places);
+  const schoolEvents = document.createElement('section');
+  schoolEvents.id = 'category-school-events';
+  schoolEvents.className = 'category-school-events';
+  schoolEvents.innerHTML = h('<p>Tell us about your group, preferred date and location. We’ll help you plan the details.</p><div class="category-event-choices"><button type="button" class="outline" data-category-occasion="School event">School event<span aria-hidden="true"> ↗</span></button><button type="button" class="outline" data-category-occasion="Festival">Festival<span aria-hidden="true"> ↗</span></button></div>');
+  schoolEvents.querySelectorAll<HTMLButtonElement>('button').forEach(button => button.addEventListener('click', () => design(button.dataset.categoryOccasion!), {signal}));
+  main.append(schoolEvents);
   root
     .querySelectorAll<HTMLAnchorElement>(".mp-category,.mobile-site-menu a")
     .forEach((link) => {
-      if (link.classList.contains("mp-music")) link.href = "#browse-music";
-      if (link.classList.contains("mp-food")) link.href = "#browse-food";
-      if (link.classList.contains("mp-science")) link.href = "#browse-science";
+      if (link.classList.contains('mp-category')) {
+        const page = categoryPages.find(page => link.classList.contains('mp-' + page.key));
+        if (page) link.href = categoryPageHash(page.key);
+      }
     });
   const artistSection = root.querySelector<HTMLElement>("#performers");
   if (artistSection) {
@@ -190,7 +207,7 @@ export function mountCompactMarketplace({
   routeHeader.className = "category-view-header";
   routeHeader.hidden = true;
   routeHeader.innerHTML = h(
-    '<button type="button" class="outline small">← Explore all</button><h2></h2>',
+    '<button type="button" class="outline small">← Back to categories</button><div><h2 tabindex="-1"></h2><p class="category-view-description"></p></div>',
   );
   main.prepend(routeHeader);
   routeHeader.querySelector("button")!.addEventListener("click", () => {
@@ -202,12 +219,19 @@ export function mountCompactMarketplace({
     paint(true);
   });
   const allCards = [...root.querySelectorAll<HTMLElement>("#shows .show-card")];
+  const emptyCategory = document.createElement('div');
+  emptyCategory.className = 'category-empty-state';
+  emptyCategory.hidden = true;
+  emptyCategory.innerHTML = h('<p>No services are listed in this category yet.</p><button type="button" class="outline">Tell us what you need<span aria-hidden="true"> ↗</span></button>');
+  emptyCategory.querySelector('button')!.addEventListener('click', () => design(), {signal});
+  root.querySelector('#shows')?.prepend(emptyCategory);
   const collections=marketplaceCollections;
   let wasFocused = document.body.classList.contains("category-focused");
-  function paint(restore = false) {
+  function paint(restore = false, navigate = true) {
     const hash = location.hash,
       offerId = hash.startsWith("#offer/") ? decodeKey(hash.slice(7)) : "",
-      active = focused.has(hash) || !!offerId,
+      page = categoryPageForHash(hash),
+      active = !!page || focused.has(hash) || !!offerId,
       collection = collections[hash];
     if (active && !wasFocused) returnY = window.scrollY;
     // A chosen category replaces a previous text search rather than combining
@@ -227,12 +251,13 @@ export function mountCompactMarketplace({
         "route-hidden",
         active
           ? section.id !==
-              (collection ? "shows" : offerId ? "offers" : hash.slice(1))
+              (page?.section || (collection ? "shows" : offerId ? "offers" : hash.slice(1)))
           : [
               "offers",
               "family-celebrations",
               "marketplace-agencies",
               "marketplace-playgrounds",
+              "category-school-events",
             ].includes(section.id),
       );
     }
@@ -241,16 +266,17 @@ export function mountCompactMarketplace({
         ".show-card.category-excluded,.show-group.category-excluded",
       )
       .forEach((el) => el.classList.remove("category-excluded"));
-    if (collection) {
+    if (collection || page?.section === 'shows') {
       allCards.forEach((card) => {
         const title =
+          card.dataset.categoryService ||
           card.dataset.guestName ||
           card.querySelector<HTMLElement>("[data-show-details]")?.dataset
             .showDetails ||
           "";
         card.classList.toggle(
           "category-excluded",
-          !collection.match.test(title),
+          page ? !categoryPageIncludes(page, title, card.closest('.show-group')?.id || '') : !collection!.match.test(title),
         );
       });
       root
@@ -262,8 +288,9 @@ export function mountCompactMarketplace({
           ),
         );
     }
+    emptyCategory.hidden = !(page?.section === 'shows' && !allCards.some(card => !card.classList.contains('category-excluded')));
     offers?.querySelector(".offer-unavailable")?.remove();
-    if (offers && (hash === "#offers" || offerId)) {
+    if (offers && (page?.section === 'offers' || hash === "#offers" || offerId)) {
       offers.hidden = false;
       offers
         .querySelectorAll<HTMLElement>(".show-card")
@@ -290,6 +317,11 @@ export function mountCompactMarketplace({
         );
     }
     routeHeader.hidden = !active;
+    if (page) {
+      routeHeader.querySelector('h2')!.innerHTML = catalogueNameCopy(business, 'category:' + page.key, page.title);
+      routeHeader.querySelector('.category-view-description')!.innerHTML = catalogueDescriptionCopy(business, 'category:' + page.key, page.description);
+    } else {
+    routeHeader.querySelector('.category-view-description')!.replaceChildren();
     setCopy(
       routeHeader.querySelector("h2")!,
       offerId
@@ -303,16 +335,24 @@ export function mountCompactMarketplace({
             }[hash] ||
             "",
     );
-    if (active) {
+    }
+    document.title = page ? catalogueName(business, 'category:' + page.key, page.title, customerLanguage()) + ' · Magic App' : t('Magic App · Set the scene. Make it yours.');
+    if (active && navigate) {
       root
         .querySelector("#mobile-site-menu")
         ?.setAttribute("aria-hidden", "true");
       routeHeader.scrollIntoView({ block: "start" });
-    } else if (wasFocused || restore) window.scrollTo({ top: returnY });
+      routeHeader.querySelector<HTMLElement>('h2')!.focus({preventScroll:true});
+    } else if (!active && navigate && (wasFocused || restore)) {
+      window.scrollTo({ top: returnY });
+      const heading = root.querySelector<HTMLElement>('#marketplace-categories h2');
+      if (heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
+    }
     wasFocused = active;
   }
   window.addEventListener("hashchange", () => paint(), { signal });
   window.addEventListener("popstate", () => paint(), { signal });
+  document.addEventListener('customerlanguagechange', () => paint(false, false), {signal});
   window.addEventListener(
     "hashchange",
     () => {

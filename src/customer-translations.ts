@@ -2,6 +2,9 @@
 import {serviceRequirementsTranslations} from './service-requirements-translations.js';
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
   ...serviceRequirementsTranslations,
+  "← Back to categories": {"fr":"← Retour aux catégories","ar":"العودة إلى الأقسام ←"},
+  "No services are listed in this category yet.": {"fr":"Aucun service n’est encore présenté dans cette catégorie.","ar":"ما في خدمات معروضة بهالقسم بعد."},
+  "Tell us about your group, preferred date and location. We’ll help you plan the details.": {"fr":"Parlez-nous de votre groupe, de la date et du lieu souhaités. Nous vous aiderons à préparer les détails.","ar":"خبرنا عن مجموعتك والموعد والمكان المفضّلين. منساعدك بتخطيط التفاصيل."},
   "{count} token ready to use": {"fr":"{count} jeton disponible","ar":"{count} نقطة جاهزة للاستخدام"},
   "{count} tokens ready to use": {"fr":"{count} jetons disponibles","ar":"{count} نقاط جاهزة للاستخدام"},
   "Change password": {"fr":"Changer le mot de passe","ar":"تغيير كلمة المرور"},
