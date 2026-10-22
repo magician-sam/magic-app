@@ -1,3 +1,8 @@
+import {
+  attendanceClockHours,
+  attendanceLocked,
+  validatePayrollHours,
+} from "./employee-payroll.js";
 import { randomUUID } from "node:crypto";
 import type { Express, Request } from "express";
 import express from "express";
@@ -405,7 +410,7 @@ export function financeRoutes(app: Express, store: Store) {
           guestServiceNames(
             req.business.otherShowNames ?? [],
             req.business.hiddenGuestServices ?? [],
-        req.business.slug,
+            req.business.slug,
           ).includes(data.serviceId),
         "Choose an existing service.",
       );
@@ -462,6 +467,65 @@ export function financeRoutes(app: Express, store: Store) {
       }
       documentTotals(data, records);
     }
+    if (data.type === "work") {
+      requireThat(
+        !old || !attendanceLocked(records, old.id),
+        "This attendance is included in posted payroll. Reverse that payroll before changing it.",
+        409,
+      );
+      const hours = attendanceClockHours(data, req.business.timezone);
+      if (hours !== null) data.hours = hours;
+      const employee = records.find(
+        (r) => r.id === data.employeeId && r.data.type === "employee",
+      )?.data;
+      if (employee?.type === "employee")
+        requireThat(
+          data.date >= employee.startDate &&
+            (!employee.endDate ||
+              (data.toDate || data.date) <= employee.endDate),
+          "Attendance must fall within the employment dates.",
+        );
+      if (
+        data.kind === "attendance" &&
+        data.approved &&
+        data.startTime &&
+        data.endTime
+      ) {
+        const from = DateTime.fromISO(data.date + "T" + data.startTime, {
+            zone: req.business.timezone,
+          }).toMillis(),
+          to = DateTime.fromISO(
+            (data.toDate || data.date) + "T" + data.endTime,
+            { zone: req.business.timezone },
+          ).toMillis();
+        requireThat(
+          !records.some((r) => {
+            if (
+              r.id === old?.id ||
+              r.archived ||
+              r.data.type !== "work" ||
+              r.data.employeeId !== data.employeeId ||
+              !r.data.approved ||
+              r.data.kind !== "attendance" ||
+              !r.data.startTime ||
+              !r.data.endTime
+            )
+              return false;
+            const a = DateTime.fromISO(r.data.date + "T" + r.data.startTime, {
+                zone: req.business.timezone,
+              }).toMillis(),
+              b = DateTime.fromISO(
+                (r.data.toDate || r.data.date) + "T" + r.data.endTime,
+                { zone: req.business.timezone },
+              ).toMillis();
+            return from < b && to > a;
+          }),
+          "Approved clock entries overlap for this employee.",
+          409,
+        );
+      }
+    }
+    if (data.type === "payroll") validatePayrollHours(data, records);
     if (data.type === "payroll" || data.type === "work")
       requireThat(
         records.some(
@@ -598,6 +662,12 @@ export function financeRoutes(app: Express, store: Store) {
   writes.post("/api/manage/finance/:id/archive", async (req, res) => {
     const old = await owned(req, String(req.params.id));
     await recordAccess(req, old);
+    if (old.data.type === "work")
+      requireThat(
+        !attendanceLocked(await all(req.business.id), old.id),
+        "Attendance included in posted payroll cannot be archived; correct the payroll first.",
+        409,
+      );
     const input = z
       .object({ revision: z.number().int(), archived: z.boolean() })
       .strict()
@@ -985,6 +1055,7 @@ export function financeRoutes(app: Express, store: Store) {
       await store.put(req.business.id, "financeCounter", sequence);
       next.number = `${data.kind === "invoice" ? "INV" : data.kind === "bill" ? "BILL" : "CN"}-${String(sequence.count).padStart(6, "0")}`;
     } else if (data.type === "payroll") {
+      validatePayrollHours(data, records);
       requireThat(
         data.reviewed,
         "Review payroll deductions and contribution amounts first.",
@@ -1621,6 +1692,19 @@ export function financeRoutes(app: Express, store: Store) {
               )
               .join("")
           : "";
+    if (d.type === "payroll")
+      rows =
+        "<tr><td>Pay calculation</td><td>" +
+        html(
+          d.payBasis === "hourly"
+            ? String(d.paidHours) +
+                " hours × " +
+                money(d.hourlyRate) +
+                " per hour"
+            : "Monthly salary",
+        ) +
+        "</td></tr>" +
+        rows;
     if (d.type === "payment")
       rows = `<tr><td>${html(d.kind)}</td><td>${html(money(d.amount))}</td></tr><tr><td>Reference</td><td>${html(d.reference)}</td></tr><tr><td>Account</td><td>${html(accountsFor(await all(req.business.id)).find((a) => a.id === d.accountId)?.name ?? d.accountId)}</td></tr>`;
     res

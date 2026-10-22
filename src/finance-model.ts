@@ -141,6 +141,8 @@ export const financeInput = z.discriminatedUnion("type", [
       startDate: day,
       endDate: optionalDay,
       salary: amount,
+      payBasis: z.enum(["monthly", "hourly"]).default("monthly"),
+      hourlyRate: amount.default(0),
       taxReference: z.string().max(120),
       socialReference: z.string().max(120),
       contractNotes: text,
@@ -155,6 +157,13 @@ export const financeInput = z.discriminatedUnion("type", [
       date: day,
       toDate: optionalDay,
       hours: z.number().min(0).max(10000),
+      startTime: z
+        .union([z.literal(""), z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/)])
+        .default(""),
+      endTime: z
+        .union([z.literal(""), z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/)])
+        .default(""),
+      breakMinutes: z.number().int().min(0).max(1440).default(0),
       approved: z.boolean(),
     })
     .strict(),
@@ -167,6 +176,11 @@ export const financeInput = z.discriminatedUnion("type", [
       date: day,
       dueDate: optionalDay,
       basic: amount,
+      payBasis: z.enum(["monthly", "hourly"]).default("monthly"),
+      paidHours: z.number().min(0).max(10000).default(0),
+      hourlyRate: amount.default(0),
+      workIds: z.array(key.min(1)).max(500).default([]),
+      calculationNotes: text.default(""),
       allowances: amount,
       overtime: amount,
       tax: amount,

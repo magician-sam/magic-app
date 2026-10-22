@@ -1,3 +1,8 @@
+import {
+  attendanceClockHours,
+  approvedAttendance,
+  hourlyBasic,
+} from "./employee-payroll.js";
 import type { Dashboard } from "./models.js";
 import type {
   FinanceData,
@@ -56,7 +61,9 @@ type Field = {
     | "month"
     | "check"
     | "select"
-    | "percent";
+    | "percent"
+    | "time";
+  step?: string;
   options?: [string, string][];
   required?: boolean;
   nullable?: boolean;
@@ -64,6 +71,9 @@ type Field = {
 };
 let section = "home";
 let userId = "";
+let employeeTab = "directory",
+  employeeMonth = "",
+  employeeFilter = "";
 let reportFrom = "";
 let reportTo = "";
 const e = (v: unknown) =>
@@ -156,6 +166,9 @@ export function mountFinanceDesk(
   enableFinanceNavigation(root.ownerDocument);
   if (userId !== state.user.id) {
     section = "home";
+    employeeTab = "directory";
+    employeeMonth = "";
+    employeeFilter = "";
     userId = state.user.id;
   }
   const panel = document.createElement("section");
@@ -255,7 +268,7 @@ export function mountFinanceDesk(
       value !== ""
         ? Number(value) / 100
         : (value ?? "");
-    return `<label>${label}<input name="${name}" aria-label="${label}" type="${numeric ? "number" : f.kind === "date" ? "date" : f.kind === "month" ? "month" : "text"}" ${numeric && !f.signed ? 'min="0"' : ""} ${f.kind === "money" || f.kind === "percent" ? 'step="0.01"' : numeric ? 'step="1"' : ""} value="${e(shown)}" ${required} maxlength="2000">${f.nullable ? "<small>Blank = unknown, not zero.</small>" : ""}</label>`;
+    return `<label>${label}<input name="${name}" aria-label="${label}" type="${numeric ? "number" : f.kind === "date" ? "date" : f.kind === "month" ? "month" : f.kind === "time" ? "time" : "text"}" ${numeric && !f.signed ? 'min="0"' : ""} ${f.kind === "money" || f.kind === "percent" ? 'step="0.01"' : numeric ? 'step="' + (f.step ?? "1") + '"' : ""} value="${e(shown)}" ${required} maxlength="2000">${f.nullable ? "<small>Blank = unknown, not zero.</small>" : ""}</label>`;
   };
   function fields(type: FinanceType): Field[] {
     const select = (
@@ -459,7 +472,12 @@ export function mountFinanceDesk(
           { key: "phone", label: "Phone" },
           date("startDate", "Employment starts", true),
           date("endDate", "Employment ends"),
+          select("payBasis", "Pay basis", [
+            ["monthly", "Monthly salary"],
+            ["hourly", "Hourly pay"],
+          ]),
           m("salary", "Monthly base salary"),
+          m("hourlyRate", "Hourly rate"),
           { key: "taxReference", label: "Salary tax reference" },
           { key: "socialReference", label: "NSSF / CNSS reference" },
           { key: "contractNotes", label: "Contract details", kind: "textarea" },
@@ -470,7 +488,27 @@ export function mountFinanceDesk(
           select("kind", "Record", choices(["attendance", "leave"])),
           date("date", "From", true),
           date("toDate", "Until"),
-          { key: "hours", label: "Hours", kind: "number" },
+          {
+            key: "startTime",
+            label: "Clock-in (business local time)",
+            kind: "time",
+          },
+          {
+            key: "endTime",
+            label: "Clock-out (business local time)",
+            kind: "time",
+          },
+          {
+            key: "breakMinutes",
+            label: "Unpaid break (minutes)",
+            kind: "number",
+          },
+          {
+            key: "hours",
+            label: "Paid hours (after breaks)",
+            kind: "number",
+            step: "any",
+          },
           check("approved", "Approved"),
         ];
       case "payroll":
@@ -484,7 +522,23 @@ export function mountFinanceDesk(
           },
           date("date", "Posting date", true),
           date("dueDate", "Pay due"),
+          select("payBasis", "Pay basis", [
+            ["monthly", "Monthly salary"],
+            ["hourly", "Hourly pay"],
+          ]),
+          {
+            key: "paidHours",
+            label: "Paid hours",
+            kind: "number",
+            step: "any",
+          },
+          m("hourlyRate", "Hourly rate for this payslip"),
           m("basic", "Basic pay"),
+          {
+            key: "calculationNotes",
+            label: "Reason for manual hours / pay adjustment",
+            kind: "textarea",
+          },
           m("allowances", "Allowances"),
           m("overtime", "Overtime"),
           m("tax", "Employee salary tax"),
@@ -833,9 +887,16 @@ export function mountFinanceDesk(
     const original = record?.data as unknown as
       Record<string, unknown> | undefined;
     if (!record && type === "payroll") {
-      const employee = active("employee")[0];
+      const employee =
+        active("employee").find((r) => r.id === defaults.employeeId) ??
+        active("employee")[0];
       if (employee?.data.type === "employee")
-        defaults = { basic: employee.data.salary, ...defaults };
+        defaults = {
+          basic: employee.data.payBasis === "hourly" ? 0 : employee.data.salary,
+          payBasis: employee.data.payBasis ?? "monthly",
+          hourlyRate: employee.data.hourlyRate ?? 0,
+          ...defaults,
+        };
     }
     const values: Record<string, unknown> = {
       currency: "LBP",
@@ -854,15 +915,38 @@ export function mountFinanceDesk(
       values.reference = "";
       values.name = String(values.name ?? "") + " (replacement)";
     }
+    let selectedWorkIds =
+      record?.data.type === "payroll" && !duplicate
+        ? [...(record.data.workIds ?? [])]
+        : [];
+    const employeePayment = type === "payment" && section === "employees";
     const config: Field[] = [
       {
         key: "name",
-        label: type === "document" ? "Customer / document title" : "Name",
+        label:
+          type === "document"
+            ? "Customer / document title"
+            : type === "employee"
+              ? "Employee name"
+              : type === "work"
+                ? "Attendance / leave description"
+                : type === "payroll"
+                  ? "Payslip name"
+                  : "Name",
         required: true,
       },
       ...fields(type),
       { key: "notes", label: "Notes / agreement details", kind: "textarea" },
     ];
+    if (employeePayment)
+      config.forEach((f) => {
+        if (f.key === "documentId") f.label = "Payslip";
+        if (f.key === "name")
+          f.label =
+            String(values.kind) === "advance"
+              ? "Salary advance description"
+              : "Salary payment description";
+      });
     const lines = ["document", "journal"].includes(type)
       ? lineEditor(
           type,
@@ -875,8 +959,72 @@ export function mountFinanceDesk(
                 ]),
         )
       : undefined;
-    dialog.innerHTML = `<div class="dialog-heading"><h2 id="finance-dialog-title">${record && !duplicate ? "Edit" : "Add"} ${e(titles[type])}</h2><button type="button" class="close" aria-label="Close accounting editor">×</button></div><form><p class="form-error finance-error" role="alert"></p><div class="finance-form-grid">${config.map((f) => field(f, values[f.key] ?? ((f.kind === "money" || f.kind === "number" || f.kind === "percent") && !f.nullable ? 0 : ""))).join("")}</div>${lines?.html ?? ""}<div class="finance-preview" role="status"></div><p class="muted">${postingTypes.includes(type) ? "Save a draft, review it, then post. Posting records accounting entries; it never sends money." : "Changes are saved privately. Selling prices need a separate Publish action."}</p><button type="submit">Save ${postingTypes.includes(type) ? "draft" : "changes"}</button></form>`;
+    dialog.innerHTML = `<div class="dialog-heading"><h2 id="finance-dialog-title">${record && !duplicate ? "Edit" : "Add"} ${e(employeePayment ? (String(values.kind) === "advance" ? "Salary advance" : "Salary payment") : titles[type])}</h2><button type="button" class="close" aria-label="Close accounting editor">×</button></div><form><p class="form-error finance-error" role="alert"></p><div class="finance-form-grid">${config.map((f) => field(f, values[f.key] ?? ((f.kind === "money" || f.kind === "number" || f.kind === "percent") && !f.nullable ? 0 : ""))).join("")}</div>${lines?.html ?? ""}${type === "payroll" ? '<section class="employee-hours-source"><button type="button" class="outline small" data-load-employee-hours>Load approved attendance hours</button><p>Hours and rate are saved on this payslip. Review allowances, overtime and deductions separately.</p><small data-employee-hour-source></small></section>' : ""}<div class="finance-preview" role="status"></div><p class="muted">${postingTypes.includes(type) ? "Save a draft, review it, then post. Posting records accounting entries; it never sends money." : "Changes are saved privately. Selling prices need a separate Publish action."}</p><button type="submit">Save ${postingTypes.includes(type) ? "draft" : "changes"}</button></form>`;
     const form = dialog.querySelector("form")!;
+    if (type === "account" && section === "cash" && !record)
+      (form.elements.namedItem("cash") as HTMLInputElement).checked = true;
+    if (
+      type === "document" &&
+      !record &&
+      ["sales", "purchases"].includes(section)
+    ) {
+      const kind = form.elements.namedItem("kind") as HTMLSelectElement;
+      const choices =
+        section === "purchases"
+          ? [["bill", "Supplier bill"]]
+          : [
+              ["invoice", "Customer invoice"],
+              ["credit", "Customer credit"],
+            ];
+      kind.innerHTML = choices
+        .map(
+          ([id, label]) =>
+            '<option value="' +
+            id +
+            '" ' +
+            (values.kind === id ? "selected" : "") +
+            ">" +
+            label +
+            "</option>",
+        )
+        .join("");
+      dialog.querySelector("#finance-dialog-title")!.textContent =
+        "Add " +
+        (section === "purchases"
+          ? "Supplier bill"
+          : "Customer invoice / credit");
+    }
+
+    if (type === "document") {
+      const updateDocumentFields = () => {
+        const kind = (form.elements.namedItem("kind") as HTMLSelectElement)
+          .value;
+        for (const [name, show] of Object.entries({
+          partyId: kind === "bill",
+          performerId: kind === "bill",
+          revenueTreatment: kind === "invoice",
+          performanceConfirmed: kind === "invoice",
+          originalId: kind === "credit",
+        })) {
+          const input = form.elements.namedItem(name) as HTMLInputElement;
+          if (input) input.closest("label")!.hidden = !show;
+        }
+        form
+          .querySelectorAll<HTMLInputElement>("[name=recoverable]")
+          .forEach(
+            (input) => (input.closest("label")!.hidden = kind !== "bill"),
+          );
+        form
+          .querySelectorAll<HTMLElement>("[data-catalogue-line]")
+          .forEach(
+            (input) => (input.closest("label")!.hidden = kind === "bill"),
+          );
+      };
+      form
+        .querySelector("[name=kind]")!
+        .addEventListener("change", updateDocumentFields);
+      updateDocumentFields();
+    }
     const read = () => {
       const fd = new FormData(form);
       const data: Record<string, unknown> = { type };
@@ -901,6 +1049,7 @@ export function mountFinanceDesk(
           lines.lineFields.forEach((f) => (row[f.key] = readValue(f, values)));
           return row;
         });
+      if (type === "payroll") data.workIds = selectedWorkIds;
       return data as FinanceData;
     };
     const preview = () => {
@@ -911,9 +1060,20 @@ export function mountFinanceDesk(
           const t = documentTotals(data, view.records);
           output.textContent = `Net ${money(t.net)} · VAT ${money(t.tax)} · Total ${money(t.total)}`;
         }
+        if (data.type === "work") {
+          const hours = attendanceClockHours(data, state.business.timezone);
+          output.textContent =
+            hours === null
+              ? "Enter reviewed paid hours, or use both clock times to calculate hours after breaks."
+              : hours + " paid hours after breaks · " + state.business.timezone;
+        }
         if (data.type === "payroll") {
           const p = payrollTotal(data);
-          output.textContent = `Gross ${money(p.gross)} · Net pay ${money(p.net)} · Employer cost ${money(p.employerCost)}`;
+          output.textContent =
+            (data.payBasis === "hourly"
+              ? `${data.paidHours} h × ${money(data.hourlyRate)} / h · Calculated basic ${money(hourlyBasic(data.paidHours, data.hourlyRate))} · `
+              : "") +
+            `Gross ${money(p.gross)} · Net pay ${money(p.net)} · Employer cost ${money(p.employerCost)}`;
         }
         if (data.type === "price") {
           const sale = data.salePrice;
@@ -929,7 +1089,35 @@ export function mountFinanceDesk(
     dialog
       .querySelector(".close")!
       .addEventListener("click", () => dialog?.close());
-    form.addEventListener("input", preview);
+    form.addEventListener("input", (event) => {
+      const name = (event.target as HTMLInputElement).name;
+      try {
+        if (
+          type === "work" &&
+          ["startTime", "endTime", "date", "toDate", "breakMinutes"].includes(
+            name,
+          )
+        ) {
+          const data = read() as DataOf<"work">,
+            hours = attendanceClockHours(data, state.business.timezone);
+          if (hours !== null)
+            (form.elements.namedItem("hours") as HTMLInputElement).value =
+              String(hours);
+        }
+        if (
+          type === "payroll" &&
+          ["paidHours", "hourlyRate", "payBasis"].includes(name)
+        ) {
+          const data = read() as DataOf<"payroll">;
+          if (data.payBasis === "hourly")
+            (form.elements.namedItem("basic") as HTMLInputElement).value =
+              String(hourlyBasic(data.paidHours, data.hourlyRate) / 100);
+        }
+      } catch {
+        /* Preview reports incomplete input below. */
+      }
+      preview();
+    });
     form.addEventListener("change", (event) => {
       const target = event.target as HTMLSelectElement;
       if (target.matches("[data-catalogue-line]") && target.value) {
@@ -981,21 +1169,110 @@ export function mountFinanceDesk(
         }
       });
     }
-    if (type === "payroll" && !record) {
+    if (type === "payroll") {
+      const set = (name: string, value: string) =>
+        ((form.elements.namedItem(name) as HTMLInputElement).value = value);
+      const resetEmployee = () => {
+        const employee = view.records.find(
+          (r) =>
+            r.id ===
+            (form.elements.namedItem("employeeId") as HTMLSelectElement).value,
+        );
+        selectedWorkIds = [];
+        set("paidHours", "0");
+        if (employee?.data.type === "employee") {
+          set("payBasis", employee.data.payBasis ?? "monthly");
+          set("hourlyRate", String((employee.data.hourlyRate ?? 0) / 100));
+          set(
+            "basic",
+            String(
+              employee.data.payBasis === "hourly"
+                ? 0
+                : employee.data.salary / 100,
+            ),
+          );
+        }
+        preview();
+      };
       form
         .querySelector("[name=employeeId]")
-        ?.addEventListener("change", () => {
-          const employee = view.records.find(
-            (r) =>
-              r.id ===
-              (form.elements.namedItem("employeeId") as HTMLSelectElement)
-                .value,
-          );
-          if (employee?.data.type === "employee")
-            (form.elements.namedItem("basic") as HTMLInputElement).value =
-              String(employee.data.salary / 100);
-          preview();
+        ?.addEventListener("change", resetEmployee);
+      form.querySelector("[name=period]")?.addEventListener("change", () => {
+        selectedWorkIds = [];
+        set("paidHours", "0");
+        if ((read() as DataOf<"payroll">).payBasis === "hourly")
+          set("basic", "0");
+        preview();
+      });
+      form
+        .querySelector("[data-load-employee-hours]")
+        ?.addEventListener("click", () => {
+          try {
+            const data = read() as DataOf<"payroll">,
+              source = approvedAttendance(
+                view.records,
+                data.employeeId,
+                data.period,
+              );
+            selectedWorkIds = source.ids;
+            set("paidHours", String(source.hours));
+            if (data.payBasis === "hourly")
+              set(
+                "basic",
+                String(hourlyBasic(source.hours, data.hourlyRate) / 100),
+              );
+            form.querySelector("[data-employee-hour-source]")!.textContent =
+              source.ids.length +
+              " approved attendance entries · " +
+              source.hours +
+              " paid hours";
+            preview();
+          } catch (err) {
+            error(err);
+          }
         });
+    }
+    if (employeePayment) {
+      const kind = form.querySelector<HTMLSelectElement>("[name=kind]")!,
+        advance = String(values.kind) === "advance";
+      kind.innerHTML =
+        '<option value="' +
+        (advance ? "advance" : "payment") +
+        '">' +
+        (advance ? "Salary advance" : "Salary payment") +
+        "</option>";
+      for (const name of advance
+        ? ["documentId", "bookingId", "toAccountId", "legacyMoneyId"]
+        : ["employeeId", "bookingId", "toAccountId", "legacyMoneyId"]) {
+        const input = form.querySelector<HTMLInputElement>(
+          "[name=" + name + "]",
+        );
+        if (input) {
+          input.value = "";
+          input.closest("label")!.hidden = true;
+        }
+      }
+      const documents =
+        form.querySelector<HTMLSelectElement>("[name=documentId]");
+      if (!advance && documents) {
+        const selected = String(values.documentId ?? "");
+        documents.innerHTML = view.records
+          .filter(
+            (r) =>
+              r.data.type === "payroll" && r.status === "posted" && !r.archived,
+          )
+          .map(
+            (r) =>
+              '<option value="' +
+              e(r.id) +
+              '" ' +
+              (r.id === selected ? "selected" : "") +
+              ">" +
+              e(r.number ?? r.data.name) +
+              "</option>",
+          )
+          .join("");
+      }
     }
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -1056,6 +1333,16 @@ export function mountFinanceDesk(
               currency: r.data.currency,
             }).format(value / 100)
           : money(value);
+      if (key === "workIds" && Array.isArray(value))
+        return (
+          value
+            .map(
+              (id) =>
+                view.records.find((r) => r.id === id)?.data.name ??
+                "Attendance entry",
+            )
+            .join(", ") || "Manual hours"
+        );
       return (
         f?.options?.find(([id]) => id === value)?.[1] ?? String(value ?? "")
       );
@@ -1066,7 +1353,7 @@ export function mountFinanceDesk(
       .filter(([k]) => k !== "type" && k !== "lines")
       .map(
         ([k, v]) =>
-          `<div><dt>${e(recordFields.find((f) => f.key === k)?.label ?? { name: "Name", notes: "Notes" }[k] ?? k)}</dt><dd>${e(displayValue(k, v))}</dd></div>`,
+          `<div><dt>${e(recordFields.find((f) => f.key === k)?.label ?? { name: "Name", notes: "Notes", workIds: "Linked attendance entries" }[k] ?? k)}</dt><dd>${e(displayValue(k, v))}</dd></div>`,
       )
       .join(
         "",
@@ -1207,7 +1494,7 @@ export function mountFinanceDesk(
     const documents = types.some((type) =>
       ["document", "payroll"].includes(type),
     );
-    return `<section class="panel finance-record-list" data-list-filter="${documents ? e(documentFilter) : "active"}"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${types.map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(titles[type])}</button>`).join("")}</div></div><div class="finance-list-tools"><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}"><div class="finance-list-filters" role="group" aria-label="Filter ${e(title)}">${[
+    return `<section class="panel finance-record-list" data-list-filter="${documents ? e(documentFilter) : "active"}"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${types.map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(section === "employees" && type === "payment" ? "Salary advance" : type === "document" && section === "purchases" ? "Supplier bill" : type === "document" && section === "sales" ? "Customer invoice / credit" : titles[type])}</button>`).join("")}</div></div><div class="finance-list-tools"><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}"><div class="finance-list-filters" role="group" aria-label="Filter ${e(title)}">${[
       ["active", "Active"],
       ...(documents
         ? [
@@ -1245,7 +1532,18 @@ export function mountFinanceDesk(
                 value = money(r.data.cost) + " / " + r.data.unit;
               if (r.data.type === "payment") value = money(r.data.amount);
               if (r.data.type === "payroll") value = money(r.netPay ?? 0);
-              if (r.data.type === "employee") value = money(r.data.salary);
+              if (r.data.type === "employee")
+                value =
+                  r.data.payBasis === "hourly"
+                    ? money(r.data.hourlyRate ?? 0) + " / hour"
+                    : money(r.data.salary) + " / month";
+              if (r.data.type === "work")
+                value =
+                  r.data.date +
+                  " · " +
+                  r.data.hours +
+                  " hours · " +
+                  (r.data.approved ? "Approved" : "Pending approval");
               if (r.data.type === "cost")
                 value =
                   r.data.amount === null
@@ -1283,7 +1581,7 @@ export function mountFinanceDesk(
                         !postingTypes.includes(r.data.type)
                       ? "Saved"
                       : r.status;
-              return `<tr data-finance-row data-record-status="${e(r.status)}" data-record-archived="${r.archived}" data-record-open="${!!paymentState && paymentState.balance > 0}" data-record-overdue="${!!paymentState?.overdue}" data-record-settled="${!!paymentState && paymentState.balance === 0}"><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="finance-state ${paymentState?.overdue ? "is-overdue" : paymentState?.balance ? "is-open" : ""}">${e(status)}</span></td><td>${e(value)}</td>${documents ? `<td>${e(due || "—")}</td><td>${paymentState ? money(paymentState.balance) : "—"}</td>` : ""}<td><button type="button" class="small outline" data-finance-open="${e(r.id)}">Open / edit</button></td></tr>`;
+              return `<tr data-finance-row data-record-status="${e(r.status)}" data-record-archived="${r.archived}" data-record-open="${!!paymentState && paymentState.balance > 0}" data-record-overdue="${!!paymentState?.overdue}" data-record-settled="${!!paymentState && paymentState.balance === 0}"><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="finance-state ${paymentState?.overdue ? "is-overdue" : paymentState?.balance ? "is-open" : ""}">${e(status)}</span></td><td>${e(value)}</td>${documents ? `<td>${e(due || "—")}</td><td>${paymentState ? money(paymentState.balance) : "—"}</td>` : ""}<td><button type="button" class="small outline" data-finance-open="${e(r.id)}">Open / edit</button>${section === "employees" && r.data.type === "payroll" && r.status === "posted" && documentBalance(r, view.records).balance > 0 ? '<button type="button" class="small" data-employee-pay="' + e(r.id) + '">Record salary payment</button>' : ""}</td></tr>`;
             }),
           )
         : `<div class="finance-empty">${e(title)} will appear here. Add your first record above.</div>`
@@ -1466,7 +1764,7 @@ export function mountFinanceDesk(
       <div class="finance-workflow-grid">${card("Invoices & credits", "sales", summary.invoices.due, summary.invoices, "invoice")}${card("Supplier bills", "purchases", summary.bills.due, summary.bills, "bill")}
       <article class="finance-workflow-card"><div class="finance-card-heading"><span>Cash, bank & Whish</span><span class="finance-card-symbol" aria-hidden="true">⇄</span></div><strong class="finance-card-amount">${money(cash)}</strong><small>Balance from posted ledger entries</small><p class="finance-card-note">Record payments and compare accounts with your statements.</p><div class="finance-card-actions"><button class="small" data-finance-add="payment">＋ Money movement</button><button class="small outline" data-finance-section="cash">Accounts & checks ↗</button></div></article>
       <article class="finance-workflow-card finance-operations-card"><div class="finance-card-heading"><span>Event performance</span><span class="finance-card-symbol" aria-hidden="true">✦</span></div><strong class="finance-card-amount">${state.bookings.filter((booking) => !["cancelled", "completed"].includes(booking.status)).length} events</strong><small>Excluding completed and cancelled events</small><p class="finance-card-note">Compare agreed sales with artist costs, stock and expenses.</p><div class="finance-card-actions"><button class="small" data-finance-section="events">Cost sheets ↗</button><button class="small outline" data-finance-section="prices">Prices & costs ↗</button></div></article></div>
-      ${view.canPayroll ? `<div class="finance-payroll-summary"><span><strong>Payroll</strong> · ${summary.payroll.drafts} drafts · ${summary.payroll.open} unpaid · ${summary.payroll.overdue} overdue</span><button class="link" data-finance-section="employees">${money(summary.payroll.due)} due ↗</button></div>` : ""}
+      ${view.canPayroll ? `<div class="finance-payroll-summary"><span><strong>Payroll</strong> · ${summary.payroll.drafts} drafts · ${summary.payroll.open} unpaid · ${summary.payroll.overdue} overdue</span><button class="link" data-finance-section="employees" data-employee-view="payroll">${money(summary.payroll.due)} due ↗</button></div>` : ""}
       <section class="panel finance-next-actions"><div class="section-heading"><div><span class="eyebrow">Next actions</span><h3>Upcoming & overdue</h3></div><button class="small outline" data-finance-section="reports">All reports ↗</button></div>${
         summary.upcoming.length
           ? table(
@@ -1494,6 +1792,116 @@ export function mountFinanceDesk(
       <details class="finance-setup-note"><summary>Setup & accounting scope</summary><p>${e(view.ledgerScope)}</p><p>Use reviewed company details, opening balances, artist rates and tax codes. Payments record money movements; the app does not send money or file government returns. Automatic bank feeds and statutory payroll calculations are not connected.</p><div class="actions"><button class="small outline" data-finance-section="tax">Company & tax setup</button><button class="small outline" data-finance-section="ledger">Journals & period locks</button></div></details>`;
   }
 
+  function employeesWorkspace() {
+    employeeMonth ||= today().slice(0, 7);
+    const employees = active("employee"),
+      person = (r: FinanceRecord) =>
+        !employeeFilter ||
+        (r.data.type === "employee"
+          ? r.id === employeeFilter
+          : "employeeId" in r.data && r.data.employeeId === employeeFilter);
+    const month = (date: string) =>
+      !employeeMonth || date.startsWith(employeeMonth);
+    const work = view.records.filter(
+      (r) =>
+        r.data.type === "work" &&
+        !r.archived &&
+        person(r) &&
+        month(r.data.date),
+    );
+    const hours = work.reduce(
+      (sum, r) =>
+        sum +
+        (r.data.type === "work" &&
+        r.data.kind === "attendance" &&
+        r.data.approved
+          ? r.data.hours
+          : 0),
+      0,
+    );
+    const slips = view.records.filter(
+      (r) =>
+        r.data.type === "payroll" &&
+        !r.archived &&
+        person(r) &&
+        month(r.data.period),
+    );
+    const due = slips
+      .filter((r) => r.status === "posted")
+      .reduce(
+        (sum, r) => sum + Math.max(0, documentBalance(r, view.records).balance),
+        0,
+      );
+    let content = "";
+    if (employeeTab === "directory")
+      content = list("Employee directory", ["employee"], person);
+    if (employeeTab === "attendance")
+      content = list(
+        "Attendance & leave",
+        ["work"],
+        (r) => person(r) && r.data.type === "work" && month(r.data.date),
+      );
+    if (employeeTab === "payroll")
+      content = list(
+        "Payslips & payroll",
+        ["payroll"],
+        (r) => person(r) && r.data.type === "payroll" && month(r.data.period),
+      );
+    if (employeeTab === "advances")
+      content = list(
+        "Salary advances",
+        ["payment"],
+        (r) =>
+          person(r) &&
+          r.data.type === "payment" &&
+          r.data.kind === "advance" &&
+          !!r.data.employeeId &&
+          month(r.data.date),
+      );
+    return (
+      '<section class="panel employee-workspace"><header><span class="eyebrow">Your employees, in one place</span><h2>Employees & payroll</h2><p>Employee records, attendance, monthly or hourly pay, payslips and salary advances. Artist rates and supplier bills have their own sections.</p></header><div class="employee-workspace-tools"><label>Salary month<input type="month" data-employee-month value="' +
+      e(employeeMonth) +
+      '"></label><label>Employee<select data-employee-filter><option value="">All employees</option>' +
+      employees
+        .map(
+          (r) =>
+            '<option value="' +
+            e(r.id) +
+            '" ' +
+            (r.id === employeeFilter ? "selected" : "") +
+            ">" +
+            e(r.data.name) +
+            "</option>",
+        )
+        .join("") +
+      '</select></label></div><div class="finance-kpis"><span>Employees <b>' +
+      employees.length +
+      "</b></span><span>Approved attendance <b>" +
+      Number(hours.toFixed(6)) +
+      " h</b></span><span>Salary balance <b>" +
+      money(due) +
+      '</b></span></div><nav class="employee-workspace-tabs" aria-label="Employee workspace">' +
+      [
+        ["directory", "Employees"],
+        ["attendance", "Attendance & leave"],
+        ["payroll", "Payslips & payroll"],
+        ["advances", "Salary advances"],
+      ]
+        .map(
+          ([key, label]) =>
+            '<button type="button" class="outline small" data-employee-tab="' +
+            key +
+            '" aria-pressed="' +
+            (employeeTab === key) +
+            '">' +
+            label +
+            "</button>",
+        )
+        .join("") +
+      '</nav><p class="muted">Monthly and hourly pay use your entered rates. Tax, NSSF, overtime policy and other deductions require your accountant’s review. Staff login permissions are managed separately in Settings.</p></section>' +
+      content
+    );
+  }
   function draw() {
     const tabs = [
       ["home", "Overview"],
@@ -1538,23 +1946,22 @@ export function mountFinanceDesk(
         list(
           "Custom ledger accounts",
           ["account"],
-          (r) => !r.id.startsWith("account-"),
+          (r) =>
+            r.data.type === "account" &&
+            r.data.cash &&
+            !r.id.startsWith("account-"),
         ) +
         list("Cash / bank statement checks", ["reconciliation"]) +
-        `<section class="panel"><h3>Standard accounts</h3>${table(
+        `<section class="panel"><div class="section-heading"><h3>Cash, bank & Whish accounts</h3><button type="button" class="small outline" data-finance-section="accounts">Full chart of accounts ↗</button></div>${table(
           ["Account", "Category", ""],
           view.accounts
-            .filter((a) => !view.records.some((r) => r.id === a.id))
+            .filter((a) => a.cash && !view.records.some((r) => r.id === a.id))
             .map(
               (a) =>
                 `<tr><td>${e(a.name)}</td><td>${e(a.category)}</td><td><button class="small outline" data-edit-account="${a.id}">Edit name</button></td></tr>`,
             ),
         )}</section>`;
-    if (section === "employees")
-      body =
-        list("Employees", ["employee"]) +
-        list("Attendance & leave", ["work"]) +
-        list("Monthly payroll", ["payroll"]);
+    if (section === "employees") body = employeesWorkspace();
     if (section === "tax")
       body =
         `<section class="panel finance-note"><h3>Government obligations</h3><p>Configure reviewed tax codes and track VAT, salary tax and NSSF filing/payment records. Stamp duty, entertainment-related fees, artists’ fund and nonresident categories are available for accountant-reviewed obligations; applicability is not assumed. Automatic statutory payroll calculations and government filing are not activated.</p><p>Purchase VAT recovery must be reviewed per bill. Attach declarations and payment proof privately to the relevant record. Government amounts retain their selected LBP/USD currency; ledger control balances use the company currency. Statutory currency conversion needs accountant review.</p></section>` +
@@ -1582,7 +1989,7 @@ export function mountFinanceDesk(
       ["Customers", ["sales"]],
       ["Suppliers", ["purchases", "partners"]],
       ["Money", ["cash"]],
-      ["Operations", ["prices", "events", "inventory", "employees"]],
+      ["Operations", ["prices", "events", "inventory"]],
       ["Reporting", ["reports", "review", "tax"]],
       ["Configuration", ["accounts", "ledger"]],
     ] as const;
@@ -1597,7 +2004,7 @@ export function mountFinanceDesk(
             .join("")}</div></details>`,
       )
       .join("");
-    panel.innerHTML = `<div class="finance-error" role="alert"></div><nav class="finance-nav finance-workspace-nav" aria-label="Finance desk sections">${navButton("home", "Overview")}${grouped}<select class="finance-mobile-sections" aria-label="Accounting section">${tabs.map(([id, name]) => `<option value="${id}" ${id === section ? "selected" : ""}>${e(name)}</option>`).join("")}</select></nav><div class="finance-context-row"><span>Accounting <span aria-hidden="true">/</span> <strong>${e(tabs.find(([id]) => id === section)?.[1] || "Overview")}</strong></span><button type="button" class="link" data-finance-refresh>↻ Refresh</button></div>${body}`;
+    panel.innerHTML = `<div class="finance-error" role="alert"></div><nav class="finance-nav finance-workspace-nav" aria-label="Finance desk sections">${navButton("home", "Overview")}${view.canPayroll ? navButton("employees", "Employees & payroll") : ""}${grouped}<select class="finance-mobile-sections" aria-label="Accounting section">${tabs.map(([id, name]) => `<option value="${id}" ${id === section ? "selected" : ""}>${e(name)}</option>`).join("")}</select></nav><div class="finance-context-row"><span>Accounting <span aria-hidden="true">/</span> <strong>${e(tabs.find(([id]) => id === section)?.[1] || "Overview")}</strong></span><button type="button" class="link" data-finance-refresh>↻ Refresh</button></div>${body}`;
     panel
       .querySelector<HTMLSelectElement>(".finance-mobile-sections")
       ?.addEventListener("change", (event) => {
@@ -1608,6 +2015,7 @@ export function mountFinanceDesk(
     panel.querySelectorAll<HTMLElement>("[data-finance-section]").forEach((b) =>
       b.addEventListener("click", () => {
         section = b.dataset.financeSection!;
+        if(b.dataset.employeeView)employeeTab=b.dataset.employeeView;
         documentFilter = b.dataset.financePreset || "active";
         draw();
       }),
@@ -1623,7 +2031,29 @@ export function mountFinanceDesk(
             b.dataset.financeAdd === "document" &&
               (section === "purchases" || b.dataset.financeKind)
               ? { kind: b.dataset.financeKind || "bill" }
-              : {},
+              : section === "employees" && b.dataset.financeAdd === "payment"
+                ? {
+                    kind: "advance",
+                    employeeId:
+                      employeeFilter || active("employee")[0]?.id || "",
+                    documentId: "",
+                  }
+                : section === "employees" &&
+                    ["work", "payroll"].includes(b.dataset.financeAdd ?? "")
+                  ? {
+                      employeeId:
+                        employeeFilter || active("employee")[0]?.id || "",
+                      ...(b.dataset.financeAdd === "payroll"
+                        ? { period: employeeMonth || today().slice(0, 7) }
+                        : {
+                            date:
+                              employeeMonth &&
+                              employeeMonth !== today().slice(0, 7)
+                                ? employeeMonth + "-01"
+                                : today(),
+                          }),
+                    }
+                  : {},
           ),
         ),
       );
@@ -1638,6 +2068,42 @@ export function mountFinanceDesk(
         b.addEventListener("click", () =>
           edit("cost", undefined, false, { bookingId: b.dataset.costEvent }),
         ),
+      );
+    panel
+      .querySelectorAll<HTMLElement>("[data-employee-tab]")
+      .forEach((button) =>
+        button.addEventListener("click", () => {
+          employeeTab = button.dataset.employeeTab!;
+          documentFilter = "active";
+          draw();
+        }),
+      );
+    panel
+      .querySelector<HTMLInputElement>("[data-employee-month]")
+      ?.addEventListener("change", (event) => {
+        employeeMonth = (event.target as HTMLInputElement).value;
+        draw();
+      });
+    panel
+      .querySelector<HTMLSelectElement>("[data-employee-filter]")
+      ?.addEventListener("change", (event) => {
+        employeeFilter = (event.target as HTMLSelectElement).value;
+        draw();
+      });
+    panel
+      .querySelectorAll<HTMLElement>("[data-employee-pay]")
+      .forEach((button) =>
+        button.addEventListener("click", () => {
+          const record = view.records.find(
+            (r) => r.id === button.dataset.employeePay,
+          )!;
+          edit("payment", undefined, false, {
+            kind: "payment",
+            documentId: record.id,
+            employeeId: "",
+            amount: Math.max(0, documentBalance(record, view.records).balance),
+          });
+        }),
       );
     panel.querySelectorAll<HTMLElement>("[data-edit-account]").forEach((b) =>
       b.addEventListener("click", () => {
