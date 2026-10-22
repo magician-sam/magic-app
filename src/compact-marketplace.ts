@@ -1,3 +1,4 @@
+import {occasionIllustration} from './discovery-illustrations.js';
 import { h, copy, setCopy, t, customerLanguage } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
 import { mountHeaderRewards } from './customer-rewards.js';
@@ -117,31 +118,12 @@ export function mountCompactMarketplace({
   root.querySelectorAll('a[href="#how"]').forEach((el) => el.remove());
   const hero = root.querySelector(".world-hero")!;
   hero.innerHTML = h(
-    '<div class="compact-welcome"><span class="bundle-discount-badge" aria-hidden="true">%</span><div><span class="bundle-discount-label">Bundle discount</span><h1>Your event. A little magic.</h1><p>Choose your services. Request a bundle discount.</p></div><button type="button" data-make-bundle>Make a bundle <span aria-hidden="true">↗</span></button></div>',
+    '<div class="compact-welcome"><span class="bundle-discount-badge" aria-hidden="true">%</span><div><h1><span>Make a bundle.</span> <strong class="bundle-discount-copy">Request a discount.</strong></h1><p>Choose your services. We’ll review your bundle and send you a special price.</p></div><button type="button" data-make-bundle>Make a bundle <span aria-hidden="true">↗</span></button></div>',
   );
   hero.querySelector("button")!.addEventListener("click", bundle);
   const occasions = root.querySelector("#marketplace-occasions");
   occasions?.before(hero);
-  const occasionArt: Record<string, string> = {
-    Birthday: '<path d="M5 12h22v15H5zM4 18h24M9 12V8m7 4V8m7 4V8M9 4v1m7-1v1m7-1v1"/>',
-    "School event": '<path d="M16 8C11 4 5 5 3 6v20c4-2 9-1 13 2 4-3 9-4 13-2V6c-2-1-8-2-13 2Zm0 0v20M7 11l5 1M7 16l5 1m8-5 5-1m-5 6 5-1"/>',
-    Festival: '<path d="m16 3 13 13H3L16 3Zm-11 13v12h22V16M12 28V18h8v10M16 3V1m0 0h7l-3 3"/>',
-    "Corporate event": '<rect x="4" y="10" width="24" height="18" rx="3"/><path d="M11 10V5h10v5M4 17c8 5 16 5 24 0m-12 1v5"/>',
-    Wedding: '<circle cx="11" cy="20" r="8"/><circle cx="22" cy="20" r="8"/><path d="m8 4 3-3 3 3-3 4-3-4Zm11 1 3-3 3 3-3 4-3-4Z"/>',
-    Christmas: '<path d="m16 4-8 9h4l-7 8h7l-4 5h16l-4-5h7l-7-8h4L16 4Zm0 22v4M3 7h4M5 5v4m21 0h4m-2-2v4"/>',
-    Baptism: '<path d="M16 28S3 20 3 11C3 3 12 2 16 9c4-7 13-6 13 2 0 9-13 17-13 17Z"/>',
-    "First Communion": '<path d="M12 13h8v15h-8zM8 28h16M16 10c-5-1-4-5 0-9 4 4 5 8 0 9Zm-4 8h8"/>',
-  };
-  occasions
-    ?.querySelectorAll<HTMLButtonElement>("[data-mp-occasion]")
-    .forEach((button) => {
-      const art = occasionArt[button.dataset.mpOccasion || ""];
-      if (art)
-        button.insertAdjacentHTML(
-          "afterbegin",
-          `<svg class="occasion-art" aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${art}</svg>`,
-        );
-    });
+  occasions?.querySelectorAll<HTMLButtonElement>('[data-mp-occasion]').forEach(button=>{const illustration=occasionIllustration(button.dataset.mpOccasion??'');if(illustration)button.insertAdjacentHTML('afterbegin',illustration);});
   mountHeaderRewards(root, rewards, signal);
   const offers = root.querySelector<HTMLElement>("#offers");
   if (offers) {
