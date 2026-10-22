@@ -1,3 +1,4 @@
+import {mountQuickSelection,type QuickSelectionOptions} from './quick-selection-client.js';
 import {mountInflatableBrowser} from './inflatables-client.js';
 import {occasionIllustration} from './discovery-illustrations.js';
 import {mountChristmasMarket} from './christmas-market.js';
@@ -12,6 +13,7 @@ import {catalogueName} from './catalogue-settings.js';
 import type {Business} from './models.js';
 
 type Options = {
+  quickSelection?:QuickSelectionOptions;
   seasonalTheme?:SeasonalTheme;
   root: HTMLElement;
   bundle: () => void;
@@ -50,6 +52,7 @@ const focused = new Set([
 /** A single catalogue on the homepage, with addressable focused category views. */
 export function mountCompactMarketplace({
   seasonalTheme,
+  quickSelection,
   root,
   bundle,
   rewards,
@@ -86,7 +89,9 @@ export function mountCompactMarketplace({
     closeSearch.className = 'close-search';
     closeSearch.innerHTML = h('<span aria-hidden="true">×</span><span class="search-toggle-label">Close dialog</span>');
     searchPanel.prepend(closeSearch);
+    const quick=quickSelection?mountQuickSelection(searchPanel,quickSelection,signal):undefined;
     const close = () => {
+      quick?.reset();
       catalogueInput.value = '';
       catalogueInput.dispatchEvent(new Event('input', { bubbles: true }));
       searchPanel.hidden = true;
@@ -99,6 +104,7 @@ export function mountCompactMarketplace({
         history.pushState(null, '', location.pathname + location.search + '#main');
         window.dispatchEvent(new HashChangeEvent('hashchange'));
       }
+      quick?.reset();
       searchPanel.hidden = false;
       searchToggle.setAttribute('aria-expanded', 'true');
       searchPanel.scrollIntoView({ block: 'start' });

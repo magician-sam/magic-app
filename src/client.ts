@@ -1,3 +1,4 @@
+import {planQuickSelection,type QuickChoice} from './quick-selection.js';
 import {inflatableItem,inflatablePhoto,inflatableSearchTerms,inflatableCatalogue} from './inflatable-catalogue.js';
 import {inflatableCard,inflatableSizeBlock} from './inflatables-client.js';
 import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
@@ -883,6 +884,34 @@ function renderBox() {
   });
   on(node, "#request", "click", () => requestForm());
 }
+function quickChoices():QuickChoice[]{
+  const choices=new Map<string,QuickChoice>(),services=new Set(moreShowNames());
+  const genericInflatables=new Set(['Inflatable Castles','Inflatable Slides','Climbing Towers','Inflatable Obstacle Courses']);
+  for(const card of app.querySelectorAll<HTMLElement>('#shows .show-card,#offers .show-card')){
+    const showId=card.querySelector<HTMLElement>('[data-add]')?.dataset.add;
+    const service=card.querySelector<HTMLElement>('[data-add-guest]')?.dataset.addGuest;
+    const title=card.querySelector('h3')?.textContent?.trim();if(!title)continue;
+    const group=card.closest('.show-group')?.querySelector(':scope > h3')?.textContent?.trim()||t('Offers & bundles');
+    if(showId){
+      const show=catalog.packages.find(p=>p.id===showId&&p.active);if(!show)continue;
+      const key='show:'+showId;choices.set(key,{key,kind:'show',title,group,terms:[show.name,show.category,...catalogueSearchTerms(catalog.business,'show:'+show.id)],includes:show.bundleIds?.length?show.bundleIds:[show.id]});
+    }else if(service&&services.has(service)){
+      if(genericInflatables.has(service)&&inflatableCatalogue.length&&!guestBasket.includes(service))continue;
+      const key='service:'+service;choices.set(key,{key,kind:'service',title,group,terms:[service,...catalogueSearchTerms(catalog.business,'service:'+service),...(inflatableItem(service)?inflatableSearchTerms(inflatableItem(service)!,catalog.business.catalogueAppearance?.['service:'+service]):[])]});
+    }
+  }
+  return [...choices.values()];
+}
+function quickSelected(){return [...basket.map(id=>'show:'+id),...guestBasket.map(name=>'service:'+name)];}
+function addQuickSelection(keys:string[]){
+  const plan=planQuickSelection(quickChoices(),quickSelected(),keys);if(plan.error)return false;
+  basket=plan.keys.filter(key=>key.startsWith('show:')).map(key=>key.slice(5));
+  guestBasket=plan.keys.filter(key=>key.startsWith('service:')).map(key=>key.slice(8));
+  for(const key of plan.added)trackInterest(key.startsWith('show:')?'show_add':'service_add',key.slice(key.indexOf(':')+1));
+  renderPublic();notify('Added to your event.');
+  app.querySelector<HTMLButtonElement>('.header-search-toggle')?.focus({preventScroll:true});
+  return true;
+}
 function togglePackage(key: string) {
   const added = catalog.packages.find((p) => p.id === key);
   if (!added) return false;
@@ -1298,7 +1327,7 @@ function renderPublic() {
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, business: catalog.business, phone: contactPhone,
     reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
-  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,business:catalog.business,seasonalTheme:catalog.seasonalTheme,design:occasion=>helpChoose(occasion),
+  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,quickSelection:{items:quickChoices,selected:quickSelected,apply:addQuickSelection},business:catalog.business,seasonalTheme:catalog.seasonalTheme,design:occasion=>helpChoose(occasion),
     account:()=>{void customerAccount();},
     bundle:()=>{requestBundleDiscount=true;saveEventBox();helpChoose();},
     rewards:()=>{openDialog('Earn a free magic show',rewardsDialogContent());modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},
