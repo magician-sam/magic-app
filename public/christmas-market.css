@@ -1,0 +1,43 @@
+/* Christmas Market 2026. Scoped to public discovery; no Backstage or price rules. */
+body.customer-surface.christmas-market{--paper:#fbf8f1;--ink:#253d34;--deep:#173f34;--purple:#245740;--muted:#687267;--line:#e2dece;--font-display:"Young Serif",Georgia,serif;background:#fbf8f1;color:#253d34}
+.christmas-market .site-header{background:#fffcf6f5;border-bottom:1px solid #e9e2d5}
+.christmas-market .world-brand-mark{background:#173f34}.christmas-market .world-brand-mark>span{color:#e4c27b}
+.christmas-market .mp-brand-note{color:#657162}.christmas-market .site-nav a,.christmas-market .header-search-toggle{color:#234b3a}
+.christmas-market .header-rewards-toggle{background:#fff1ed;border-color:#ebc5bd;color:#a82439}
+.christmas-market .cm-tree-line{display:flex;align-items:center;justify-content:space-around;gap:18px;height:28px;overflow:clip;margin:0 10px;pointer-events:none}
+.christmas-market .cm-tree-line>span{position:relative;display:block;flex:none;width:13px;height:19px;opacity:.77}
+.christmas-market .cm-tree-line>span::before{content:'';position:absolute;inset:0 0 3px;background:#3c7254;clip-path:polygon(50% 0,79% 37%,66% 37%,95% 70%,77% 70%,100% 100%,0 100%,23% 70%,5% 70%,34% 37%,21% 37%)}
+.christmas-market .cm-tree-line i{position:absolute;bottom:0;left:5px;width:3px;height:5px;background:#a47a40}
+.christmas-market .cm-tree-line>span:nth-child(3n){transform:scale(.72);opacity:.5}.christmas-market .cm-tree-line>span:nth-child(even){transform:scale(.88)}
+.christmas-market .mp-categories{margin-top:8px}.christmas-market .mp-section-intro{margin-bottom:15px;gap:5px}
+.christmas-market .mp-section-intro h2{font-family:var(--font-display);font-size:clamp(24px,3vw,34px);font-weight:400;color:#214837}
+.christmas-market .cm-intro{flex-basis:100%;font-size:13px;color:#687163;margin:0;line-height:1.5}
+.christmas-market .mp-category{border-bottom:3px solid #6b9780}.christmas-market .mp-category::after{content:'';position:absolute;inset-inline-end:12px;top:10px;width:7px;height:7px;border-radius:50%;background:#bc3445;box-shadow:5px 3px 0 -1px #d8515e,-4px 4px 0 -1px #9d2336;pointer-events:none}
+.christmas-market .mp-category-icon{color:#28503c}.christmas-market .mp-category strong{color:#253d34}
+.christmas-market .category-preview-toggle{background:#edf3e8;color:#315440;border-color:#cedcc8}
+.christmas-market.customer-surface .world-hero{background:radial-gradient(ellipse at 90% 0,#65815b66,transparent 65%),#173f34;border:1px solid #39614a;border-radius:23px;overflow:clip;padding:22px 26px 0}
+.christmas-market .world-hero::before{display:none}.christmas-market .cm-welcome{grid-template-columns:minmax(0,1fr) auto;padding-inline-end:105px;min-height:100px;gap:18px}
+.christmas-market .cm-welcome h1{font-family:var(--font-display);font-size:clamp(23px,2.6vw,32px);line-height:1.35;color:#fff3da;font-weight:400}
+.christmas-market .cm-welcome .bundle-discount-copy{display:block;width:fit-content;margin:7px auto 0;font-family:var(--font-body);font-size:14px;line-height:1.4;color:#a91f36;background:#fff0e9;padding:4px 9px;border-color:#f1c4b2;font-weight:700}
+.christmas-market .cm-welcome p{color:#eee6d1;font-size:12px;line-height:1.5;max-width:55ch}
+.christmas-market .cm-welcome>button{background:#f3db9f;color:#263e31;border:1px solid #efd09c;border-radius:13px;font-weight:700;white-space:normal}
+.christmas-market .cm-welcome>.bundle-discount-badge{position:absolute;inset-inline-start:auto;inset-inline-end:0;top:6px;width:77px;height:89px;z-index:auto;opacity:1;border:1px solid #e3777f;border-radius:12px;background:#b72c40;box-shadow:4px 5px 0 #0c30235c;transform:rotate(6deg);font:700 49px/1 var(--font-body);display:grid;place-items:center;pointer-events:none}
+.christmas-market .cm-welcome>.bundle-discount-badge::before{content:'';position:absolute;top:-6px;width:11px;height:11px;border:2px solid #e6c27b;border-radius:50%;background:#173f34}
+.christmas-market .cm-companion-controls{display:flex;align-items:center;justify-content:center;gap:5px;margin:7px 0 0;min-height:36px}
+.christmas-market .cm-companion-controls button{min-height:36px;padding:5px 9px;background:transparent;border:1px solid #ffffff36;border-radius:9px;color:#f7dfab;font-size:11px;line-height:1.35;box-shadow:none}
+.christmas-market .cm-companion-controls .cm-dismiss{width:36px;font-size:21px;padding:0;flex:none}.christmas-market .cm-companion-controls button:disabled{opacity:.85;border:0}
+.christmas-market .cm-parade{height:66px;position:relative;margin:0 -26px;overflow:clip;pointer-events:none;border-bottom:3px solid #e5cd9233;background:linear-gradient(transparent 92%,#f0dda91c 92%)}
+.christmas-market .cm-travellers{position:absolute;left:0;bottom:-1px;width:142px;height:71px;visibility:hidden;direction:ltr}.christmas-market .cm-travellers svg{width:100%;height:100%;overflow:visible}
+.christmas-market .cm-parade.is-playing .cm-travellers{visibility:visible}.christmas-market .cm-parade.is-reversed{transform:scaleX(-1)}
+.christmas-market .cm-parade.is-playing .cm-santa,.christmas-market .cm-parade.is-playing .cm-reindeer{animation:cm-bounce .55s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+.christmas-market .cm-parade.is-playing .cm-leg{animation:cm-step .55s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center top}.christmas-market .cm-parade .cm-leg-b{animation-delay:-.55s!important}
+.christmas-market .cm-parade.is-waving .cm-santa,.christmas-market .cm-parade.is-waving .cm-reindeer,.christmas-market .cm-parade.is-waving .cm-leg{animation:none;transform:none}
+.christmas-market .cm-parade.is-waving .cm-wave{animation:cm-wave .6s ease-in-out 5 alternate;transform-box:fill-box;transform-origin:0 90%}
+.christmas-market .mp-occasion-options button[data-mp-occasion="Christmas"]{--occasion-bg:#214d39;--occasion-ink:#ffe1a1;border-color:#c6a362;box-shadow:0 3px 10px #173f3428}
+.christmas-market .mp-occasions h2,.christmas-market .section-heading h2{color:#254b38}
+.christmas-market .footer{border-color:#dfd9c7;color:#5a6c5b}
+@keyframes cm-bounce{50%{transform:translateY(-2px)}}@keyframes cm-step{from{transform:rotate(-17deg)}to{transform:rotate(17deg)}}@keyframes cm-wave{to{transform:rotate(-26deg)}}
+@media(max-width:700px){.christmas-market .cm-welcome{grid-template-columns:minmax(0,1fr);gap:10px;padding-inline-end:86px;min-height:110px}.christmas-market .cm-welcome>button{justify-self:center;margin:0}.christmas-market .cm-welcome>.bundle-discount-badge{width:66px;height:80px;font-size:42px;top:18px}.christmas-market .cm-welcome p{display:none}}
+@media(max-width:600px){.christmas-market.customer-surface .world-hero{padding:15px 14px 0;margin-block:12px}.christmas-market .cm-welcome h1{font-size:20px;line-height:1.25}.christmas-market .cm-welcome .bundle-discount-copy{font-size:12px;margin-top:5px}.christmas-market .cm-welcome>button{min-height:44px;padding:9px 12px;font-size:13px}.christmas-market .cm-parade{height:58px;margin-inline:-14px}.christmas-market .cm-travellers{width:128px;height:64px}.christmas-market .cm-companion-controls button{min-height:44px}.christmas-market .cm-companion-controls .cm-dismiss{width:44px}.christmas-market .cm-intro{font-size:12px}.christmas-market .cm-tree-line{gap:23px;height:25px;justify-content:space-between}.christmas-market .cm-tree-line>span:nth-child(n+10){display:none}.christmas-market .cm-companion-controls{margin-top:6px}}
+@media(prefers-reduced-motion:reduce){.christmas-market .cm-parade{display:none!important}.christmas-market .cm-travellers,.christmas-market .cm-travellers *{animation:none!important}.christmas-market .cm-welcome>.bundle-discount-badge{transform:none}}
+@media print{.christmas-market .cm-tree-line,.christmas-market .cm-parade,.christmas-market .cm-companion-controls{display:none!important}}

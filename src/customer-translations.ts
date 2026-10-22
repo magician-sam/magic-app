@@ -2,6 +2,14 @@
 import {serviceRequirementsTranslations} from './service-requirements-translations.js';
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
   ...serviceRequirementsTranslations,
+  "Find a little Christmas magic.": {fr:"Un peu de magie pour Noël.",ar:"شويّة سحر لعيد الميلاد."},
+  "Your favourite people, places and festive finishing touches.": {fr:"Vos artistes, vos lieux et les petits détails qui font la fête.",ar:"فنّانينك وأماكنك المفضّلة، ولمسات بتكمّل فرحة العيد."},
+  "Wrap up a little wonder.": {fr:"Offrez un peu d’émerveillement.",ar:"خلّي العيد مليان دهشة."},
+  "Request a Christmas discount.": {fr:"Demandez une remise de Noël.",ar:"اطلب حسم لعيد الميلاد."},
+  "Santa & his little helper": {fr:"Le Père Noël et son petit renne",ar:"بابا نويل وصاحبه الغزال"},
+  "Hide Santa and reindeer": {fr:"Masquer le Père Noël et son renne",ar:"إخفاء بابا نويل والغزال"},
+  "Show Santa & reindeer": {fr:"Voir le Père Noël et son renne",ar:"إظهار بابا نويل والغزال"},
+  "A little Christmas magic": {fr:"Un peu de magie de Noël",ar:"شويّة سحر العيد"},
   "Make a bundle.": {fr:"Composez votre formule.",ar:"ركّب باقتك."},
   "Request a discount.": {fr:"Demandez une remise.",ar:"اطلب حسم."},
   "Choose your services. We’ll review your bundle and send you a special price.": {fr:"Choisissez vos services. Nous étudierons votre formule et vous proposerons un tarif spécial.",ar:"اختار خدماتك. منراجع باقتك ومنبعتلك سعر خاص."},

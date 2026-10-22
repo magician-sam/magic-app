@@ -1,4 +1,5 @@
 import {occasionIllustration} from './discovery-illustrations.js';
+import {mountChristmasMarket} from './christmas-market.js';
 import { h, copy, setCopy, t, customerLanguage } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
 import { mountHeaderRewards } from './customer-rewards.js';
@@ -355,5 +356,6 @@ export function mountCompactMarketplace({
   );
   paint();
   mountCategoryPreview(root,signal);
+  mountChristmasMarket(root);
   if (location.hash.startsWith("#booking/")) account();
 }
