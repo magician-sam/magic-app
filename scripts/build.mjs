@@ -10,6 +10,7 @@ await cp('node_modules/leaflet/LICENSE','dist/public/vendor/leaflet/LICENSE.txt'
 await build({entryPoints:['src/venue-map-runtime.ts'],outfile:'dist/public/venue-map.js',bundle:true,minify:true,format:'esm',platform:'browser',target:'es2023',logLevel:'silent'});
 await build({ entryPoints: ["src/client.ts"], outfile: "dist/public/client.js", bundle: true, minify: true, format: "esm", platform: "browser", target: "es2023", logLevel: "silent" });
 await build({ entryPoints: ["src/partner-client.ts"], outfile: "dist/public/partner.js", bundle: true, minify: true, format: "esm", platform: "browser", target: "es2023", logLevel: "silent" });
+await build({entryPoints:['src/supplier-portal-client.ts'],outfile:'dist/public/supplier-portal.js',bundle:true,minify:true,format:'esm',platform:'browser',target:'es2023',logLevel:'silent'});
 await cp("dist/calendar.js", "dist/public/calendar.js");
 await cp("dist/reports.js", "dist/public/reports.js");
 await cp("dist/guest-services.js", "dist/public/guest-services.js");
@@ -19,6 +20,7 @@ if (process.env.VERCEL) {
   await cp('dist/public/vendor/leaflet','public/vendor/leaflet',{recursive:true});
   await cp("dist/public/client.js", "public/client.js");
   await cp("dist/public/partner.js", "public/partner.js");
+  await cp('dist/public/supplier-portal.js','public/supplier-portal.js');
   for (const file of ["calendar.js", "reports.js", "guest-services.js"])
     await cp(`dist/${file}`, `public/${file}`);
 }

@@ -1,5 +1,7 @@
 import { writeRoutes } from "./write-routes.js";
-import type { Express, Request, Response } from "express";
+import {agreementAcceptance,acceptRegistrationAgreement} from './registration-agreements.js';
+import type { Express, Request, Response, RequestHandler } from "express";
+import {createSupplierApplication,supplierSelections} from './supplier-portal.js';
 import { z } from "zod";
 import {DateTime} from 'luxon';
 import {familyChildren,familyVersion,familyAges,familySaveSchema} from './family-profiles.js';
@@ -63,13 +65,16 @@ export function customerAccounts(
       path: "/",
     });
   };
-  writes.post("/api/customer/:slug/register", async (req, res) => {
+  const registerAccount:RequestHandler=async (req, res) => {
+    const supplierSignup=req.path.startsWith('/api/supplier/');
     const b = await business(req);
     const input = customerSchema
       .pick({ name: true, phone: true, email: true, offersConsent: true })
       .extend({
         password: z.string().min(7).max(200),
         rememberMe: z.boolean().default(false),
+        agreement: agreementAcceptance.optional(),
+        supplierTypes:supplierSelections.optional(),
         username: z
           .string()
           .trim()
@@ -89,6 +94,8 @@ export function customerAccounts(
     const username = input.username ?? `guest-${token().slice(0, 12)}`;
     const customerId = id();
     await store.transaction(async () => {
+      await acceptRegistrationAgreement(store,b.id,accountId,supplierSignup?'supplier':'customer',input.agreement,supplierSignup);
+      if(supplierSignup)await createSupplierApplication(store,b.id,accountId,{name:input.name,phone:input.phone,email:input.email??''},input.supplierTypes);
       requireThat(
         !(await store.db
           .prepare(
@@ -127,7 +134,9 @@ export function customerAccounts(
     });
     await signIn(res, accountId, input.rememberMe);
     res.status(201).json({ username });
-  });
+  };
+  writes.post('/api/customer/:slug/register',registerAccount);
+  writes.post('/api/supplier/:slug/register',registerAccount);
   writes.post("/api/customer/:slug/login", async (req, res) => {
     const b = await business(req);
     const input = z
@@ -417,6 +426,11 @@ export function customerAccounts(
       return path;
     });
     res.json({ path });
+  });
+  app.get('/api/customer/:slug/agreements',async(req,res)=>{
+    const b=await business(req),account=await session(req,b.id);
+    const receipts=await store.all<{id:string;accountId:string;version:string;audience:string;language:string;digest:string;acceptedAt:string}>(b.id,'registrationAgreementAcceptances');
+    res.set('Cache-Control','no-store').json({receipts:receipts.filter(r=>r.accountId===account.id).map(({id,version,audience,language,digest,acceptedAt})=>({id,version,audience,language,digest,acceptedAt}))});
   });
   return session;
 }

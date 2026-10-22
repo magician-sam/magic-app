@@ -1,0 +1,18 @@
+.signup-agreement{padding:16px;border:1px solid #d9c9ea;border-radius:16px;background:#faf7ff;min-width:0;grid-column:1/-1}
+.signup-agreement p{line-height:1.6;font-size:14px;white-space:pre-line}
+.signup-agreement .agreement-links{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.signup-agreement-check{display:flex;align-items:flex-start;gap:10px;min-height:44px;padding:8px 0;cursor:pointer}
+.signup-agreement-check input{flex:0 0 20px;width:20px;height:20px;margin-top:3px;accent-color:#6239a3}
+.signup-agreement-check span{font-size:14px;line-height:1.6}
+.signup-agreement a{color:#4e287f;text-decoration:underline;text-underline-offset:3px}
+.signup-agreement :is(a,input):focus-visible{outline:3px solid #5a348b;outline-offset:3px}
+.agreement-editor{max-width:100%;min-width:0}
+.agreement-editor form{display:block}
+.agreement-editor details{padding:14px 0;border-bottom:1px solid #e4dced}
+.agreement-editor summary{cursor:pointer;min-height:44px;overflow-wrap:anywhere}
+.agreement-editor label:not(.check){display:grid;gap:7px;margin-block:12px;font-size:14px}
+.agreement-editor textarea{width:100%;box-sizing:border-box;resize:vertical;line-height:1.6}
+.agreement-editor .check{display:flex;align-items:flex-start;line-height:1.6;margin:18px 0}
+.agreement-editor .check input{flex:0 0 20px;width:20px;height:20px;margin-top:3px}
+.agreement-editor strong{overflow-wrap:anywhere}
+.agreement-editor button{min-height:44px;white-space:normal}

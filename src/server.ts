@@ -15,6 +15,8 @@ import { messaging } from "./messaging.js";
 import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
 import {supplierOfficeRoutes} from './supplier-office.js';
+import {publicAgreementRoutes,manageAgreementRoutes,agreementRecordKinds} from './registration-agreements.js';
+import {supplierPortalRoutes,manageSupplierPortal,supplierPortalKinds} from './supplier-portal.js';
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
 import { snapshot, businessBackupScope, snapshotTables } from "./snapshots.js";
@@ -433,7 +435,9 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     ).run(business.id, kind, key, new Date().toISOString().slice(0, 10));
     res.json({ ok: true });
   });
+  publicAgreementRoutes(app,store);
   const customerSession = customerAccounts(app, store, origin, issueLink);
+  supplierPortalRoutes(app,store,customerSession);
   writes.post("/api/public/:slug/enquiries", async (req, res) => {
     const business = await businessBySlug(String(req.params.slug));
     const input = z.object({
@@ -931,6 +935,8 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   staffNotices(app, store);
   officeTasks(app, store);
   supplierOfficeRoutes(app, store);
+  manageAgreementRoutes(app,store);
+  manageSupplierPortal(app,store);
   financeRoutes(app, store);
   catalogueRoutes(app, store);
   customerRecovery(app, store, canManage);
@@ -1842,6 +1848,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     );
     const bookings = await store.all<Booking>(req.business.id, "bookings");
     const account = kind === "customers" ? await store.db.prepare("SELECT id FROM customer_accounts WHERE business_id=? AND customer_id=?").get(req.business.id, key) : undefined;
+    if(account) requireThat(!(await store.get(req.business.id,'supplierApplications',String(account.id))),'This account also owns a supplier application. Review its supplier records before removing the account.',409);
     if (kind === "customers") {
       requireThat(
         !bookings.some((b) => b.customerId === key) &&
@@ -2872,7 +2879,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         "birthdayProfiles",
         "birthdayDrafts",
         "customFields",
-        ...(['owner','admin'].includes(req.user.role) ? ['supplierOfficeDrafts','supplierOfficePhotos'] : []),
+        ...(['owner','admin'].includes(req.user.role) ? ['supplierOfficeDrafts','supplierOfficePhotos',...agreementRecordKinds,...supplierPortalKinds] : []),
       ].map(async (kind) => {
         data[kind] = await store.all(req.business.id, kind);
       }),
@@ -2897,6 +2904,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   );
   app.use(express.static(resolve("dist/public"), { index: false }));
   app.get("/partner", (_req, res) => res.sendFile(resolve("public/partner.html")));
+  app.get('/supplier/:slug',(_req,res)=>res.set('Cache-Control','no-store').sendFile(resolve('public/supplier.html')));
   app.get("/providers/:slug", async (req, res) => {
     const { partner } = await new MarketplacePublic(store).profile(String(req.params.slug));
     const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
