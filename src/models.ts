@@ -275,6 +275,7 @@ export interface Dashboard {
   interest: { kind: string; key: string; count: number }[];
 }
 export interface Catalog {
+  seasonalTheme?: import('./seasonal-themes.js').SeasonalTheme;
   publicPrices?: {serviceId:string;priceMode:'fixed'|'from'|'quote';price:number;inclusive:boolean;taxApplied:boolean}[];
   guestGalleries?: GuestGallery[];
   customFields?: CustomField[];

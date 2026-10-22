@@ -2,6 +2,8 @@
 import {serviceRequirementsTranslations} from './service-requirements-translations.js';
 export const customerTranslations: Readonly<Record<string, Readonly<{fr: string; ar: string; en?: string}>>> = Object.freeze({
   ...serviceRequirementsTranslations,
+  "Theme preview — the live theme has not changed.": {fr:"Aperçu du thème — le thème en ligne reste inchangé.",ar:"معاينة للمظهر — المظهر المباشر ما تغيّر."},
+  "Return to live theme": {fr:"Revenir au thème en ligne",ar:"العودة للمظهر المباشر"},
   "Find a little Christmas magic.": {fr:"Un peu de magie pour Noël.",ar:"شويّة سحر لعيد الميلاد."},
   "Your favourite people, places and festive finishing touches.": {fr:"Vos artistes, vos lieux et les petits détails qui font la fête.",ar:"فنّانينك وأماكنك المفضّلة، ولمسات بتكمّل فرحة العيد."},
   "Wrap up a little wonder.": {fr:"Offrez un peu d’émerveillement.",ar:"خلّي العيد مليان دهشة."},

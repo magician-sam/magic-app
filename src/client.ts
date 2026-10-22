@@ -4,6 +4,7 @@ import { mountFinanceDesk, openCatalogueSellingPrice } from './finance-client.js
 import { mountBackstageWorkspace } from './backstage-workspace.js';
 import {mountSupplierOffice} from './supplier-office-client.js';
 import {mountRegistrationAgreements} from './registration-agreements-client.js';
+import {mountSeasonalThemes} from './seasonal-theme-client.js';
 import {mountSignupAgreement} from './signup-agreement-control.js';
 import {mountSupplierReview} from './supplier-review-client.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
@@ -96,7 +97,7 @@ const empty = (title: string, description: string) =>
   h`<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${copy(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
 let state: Dashboard | undefined;
-let currentView = location.hash === '#supplier-applications' ? 'supplier-applications' : location.hash === '#registration-agreements' ? 'registration-agreements' : location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
+let currentView = location.hash === '#themes' ? 'themes' : location.hash === '#supplier-applications' ? 'supplier-applications' : location.hash === '#registration-agreements' ? 'registration-agreements' : location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
 let calendarMonth = "",
   calendarDay = "",
   calendarStatus = "all",
@@ -1289,7 +1290,7 @@ function renderPublic() {
   );
   mountMarketplaceDiscovery({ root: app, businessSlug: catalog.business.slug, business: catalog.business, phone: contactPhone,
     reserve: kind => { void requestPlaytown(kind); }, design: occasion => helpChoose(occasion), account: () => customerAccount(), open: openDialog, photoSearchTags: catalog.business.photoSearchTags });
-  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,business:catalog.business,design:occasion=>helpChoose(occasion),
+  if(catalog.business.slug==='magic-by-sam') mountCompactMarketplace({root:app,business:catalog.business,seasonalTheme:catalog.seasonalTheme,design:occasion=>helpChoose(occasion),
     account:()=>{void customerAccount();},
     bundle:()=>{requestBundleDiscount=true;saveEventBox();helpChoose();},
     rewards:()=>{openDialog('Earn a free magic show',rewardsDialogContent());modal.querySelector('#referral-account')?.addEventListener('click',()=>customerAccount());},
@@ -2496,6 +2497,7 @@ const navItems = [
   ["supplier-desks", "◈", "Supplier desks"],
   ["supplier-applications", "◇", "Online supplier registrations"],
   ["registration-agreements", "▤", "Registration agreements"],
+  ["themes", "◐", "Themes"],
   ["guest-shows", "✶", "Categories & services"],
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
@@ -2570,7 +2572,7 @@ function wireStudio() {
 function renderDashboard() {
   if (!state) return;
   if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
-  if (['supplier-desks','supplier-applications','registration-agreements'].includes(currentView) && !['owner','admin'].includes(state.user.role)) currentView = 'today';
+  if (['themes','supplier-desks','supplier-applications','registration-agreements'].includes(currentView) && !['owner','admin'].includes(state.user.role)) currentView = 'today';
   const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
@@ -2579,7 +2581,7 @@ function renderDashboard() {
       (n) =>
         (!views || views.includes(n[0])) &&
         (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")) &&
-        (!["whatsapp", "messaging", "supplier-desks", "supplier-applications", "registration-agreements"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
+        (n[0]!=="themes"||state!.business.slug==='magic-by-sam') && (!["whatsapp", "messaging", "themes", "supplier-desks", "supplier-applications", "registration-agreements"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -2640,6 +2642,7 @@ function renderDashboard() {
   else if (currentView === "whatsapp") void renderWhatsAppCustomers(content, api, async () => { state = await api<Dashboard>("/manage/state"); });
   else if (currentView === "messaging") void renderMessaging(content, api);
   else if (currentView === 'registration-agreements') void mountRegistrationAgreements(content as HTMLElement,api);
+  else if (currentView === 'themes') void mountSeasonalThemes(content as HTMLElement,api);
   else if (currentView === 'supplier-applications') void mountSupplierReview(content as HTMLElement,api);
   else if (currentView === 'supplier-desks') void mountSupplierOffice(content as HTMLElement,api,async file=>{const data=new FormData();data.set('inspiration-photo',file);const photo=await readInspiration(data);if(!photo)throw Error('Choose a photo.');return {...photo,mime:'image/jpeg' as const};});
   else if (currentView === "packages" || currentView === "performers")

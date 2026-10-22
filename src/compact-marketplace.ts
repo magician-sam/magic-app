@@ -1,5 +1,6 @@
 import {occasionIllustration} from './discovery-illustrations.js';
 import {mountChristmasMarket} from './christmas-market.js';
+import type {SeasonalTheme} from './seasonal-themes.js';
 import { h, copy, setCopy, t, customerLanguage } from "./customer-i18n.js";
 import { mountCategoryPreview } from './category-preview.js';
 import { mountHeaderRewards } from './customer-rewards.js';
@@ -10,6 +11,7 @@ import {catalogueName} from './catalogue-settings.js';
 import type {Business} from './models.js';
 
 type Options = {
+  seasonalTheme?:SeasonalTheme;
   root: HTMLElement;
   bundle: () => void;
   rewards: () => void;
@@ -46,6 +48,7 @@ const focused = new Set([
 
 /** A single catalogue on the homepage, with addressable focused category views. */
 export function mountCompactMarketplace({
+  seasonalTheme,
   root,
   bundle,
   rewards,
@@ -356,6 +359,6 @@ export function mountCompactMarketplace({
   );
   paint();
   mountCategoryPreview(root,signal);
-  mountChristmasMarket(root);
+  mountChristmasMarket(root,seasonalTheme);
   if (location.hash.startsWith("#booking/")) account();
 }

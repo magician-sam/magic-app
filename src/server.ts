@@ -16,6 +16,7 @@ import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
 import {supplierOfficeRoutes} from './supplier-office.js';
 import {publicAgreementRoutes,manageAgreementRoutes,agreementRecordKinds} from './registration-agreements.js';
+import {seasonalThemeRoutes,publicSeasonalTheme} from './seasonal-theme-routes.js';
 import {supplierPortalRoutes,manageSupplierPortal,supplierPortalKinds} from './supplier-portal.js';
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
@@ -381,6 +382,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       }));
     res.json({
       business,
+      seasonalTheme:await publicSeasonalTheme(store,business.id,business.slug),
       publicPrices: await publicFinancePrices(store,business.id),
       guestGalleries: await store.all(business.id, "guestGalleries"),
       packages: (await store.all<Package>(business.id, "packages")).filter(
@@ -936,6 +938,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   officeTasks(app, store);
   supplierOfficeRoutes(app, store);
   manageAgreementRoutes(app,store);
+  seasonalThemeRoutes(app,store);
   manageSupplierPortal(app,store);
   financeRoutes(app, store);
   catalogueRoutes(app, store);
@@ -2879,7 +2882,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         "birthdayProfiles",
         "birthdayDrafts",
         "customFields",
-        ...(['owner','admin'].includes(req.user.role) ? ['supplierOfficeDrafts','supplierOfficePhotos',...agreementRecordKinds,...supplierPortalKinds] : []),
+        ...(['owner','admin'].includes(req.user.role) ? ['seasonalThemes','supplierOfficeDrafts','supplierOfficePhotos',...agreementRecordKinds,...supplierPortalKinds] : []),
       ].map(async (kind) => {
         data[kind] = await store.all(req.business.id, kind);
       }),

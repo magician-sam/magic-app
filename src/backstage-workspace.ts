@@ -3,7 +3,7 @@ const groups: [string,string[]][] = [
   ['People',['customers','whatsapp','performers']],
   ['Marketplace',['supplier-desks','supplier-applications','packages','guest-shows','guest-photos','offers']],
   ['Marketing',['messaging','reviews']],
-  ['Finance',['money']],['Administration',['registration-agreements','settings']],
+  ['Finance',['money']],['Administration',['themes','registration-agreements','settings']],
 ];
 let lifecycle = new AbortController();
 export function mountBackstageWorkspace(root: HTMLElement, view: string) {

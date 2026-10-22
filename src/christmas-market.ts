@@ -1,12 +1,12 @@
 import {h, setCopy} from './customer-i18n.js';
+import {defaultSeasonalTheme,effectiveTheme,isThemeKey,themePresets,type SeasonalTheme} from './seasonal-themes.js';
 
 let lifecycle: AbortController | undefined;
 const dismissalKey = 'magic-app:christmas-companions:2026';
 
 /** A seasonal presentation only: no price, tax, booking or discount rules change. */
 export function christmasMarketActive(now = new Date()) {
-  const day = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Beirut',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
-  return day >= '2026-10-01' && day < '2027-01-07';
+  return effectiveTheme(defaultSeasonalTheme(),now)==='christmas';
 }
 
 // Original small vector characters. No remote image, animation library or tracking.
@@ -32,14 +32,31 @@ const companions = `<svg viewBox="0 0 190 95" aria-hidden="true" focusable="fals
   </g>
 </svg>`;
 
-export function mountChristmasMarket(root: HTMLElement) {
+export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme = defaultSeasonalTheme()) {
   lifecycle?.abort(); lifecycle = new AbortController();
   const {signal} = lifecycle;
-  document.body.classList.remove('christmas-market');
-  if (!christmasMarketActive() || !document.body.classList.contains('customer-surface')) return;
+  document.body.classList.remove('christmas-market','seasonal-market');
+  if (!document.body.classList.contains('customer-surface')) return;
   const hero = root.querySelector<HTMLElement>('.world-hero');
   const categories = root.querySelector<HTMLElement>('#marketplace-categories');
   if (!hero || !categories) return;
+  const params=new URLSearchParams(location.search),preview=params.get('theme-preview');
+  const chosen=isThemeKey(preview)?preview:effectiveTheme(settings);
+  document.body.dataset.seasonalTheme=chosen;
+  if(isThemeKey(preview)){
+    const message=document.createElement('div');message.className='theme-preview-notice';
+    message.innerHTML=h('<span>Theme preview — the live theme has not changed.</span><a href="#">Return to live theme</a>');
+    const link=message.querySelector<HTMLAnchorElement>('a')!,url=new URL(location.href);url.searchParams.delete('theme-preview');url.searchParams.delete('theme-motion');link.href=url.href;
+    root.prepend(message);
+  }
+  if(chosen==='standard')return;
+  const preset=themePresets.find(p=>p.key===chosen)!;
+  document.body.classList.add('seasonal-market');document.body.dataset.seasonalTheme=chosen;
+  for(const [key,value]of Object.entries({paper:preset.paper,ink:preset.ink,accent:preset.accent,soft:preset.soft,trim:preset.trim}))document.body.style.setProperty('--season-'+key,value);
+  if(chosen!=='christmas'){
+    const border=document.createElement('div');border.className='cm-seasonal-line';border.setAttribute('aria-hidden','true');
+    border.innerHTML=Array.from({length:18},()=>`<span>${preset.symbol}</span>`).join('');root.querySelector('.site-header')?.after(border);return;
+  }
   document.body.classList.add('christmas-market');
   const trees = document.createElement('div'); trees.className = 'cm-tree-line'; trees.setAttribute('aria-hidden','true');
   trees.innerHTML = Array.from({length:18}, () => '<span><i></i></span>').join('');
@@ -65,13 +82,14 @@ export function mountChristmasMarket(root: HTMLElement) {
   const travellers = road.querySelector<HTMLElement>('.cm-travellers')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const phone = matchMedia('(max-width: 600px)');
+  const animationAllowed=(isThemeKey(preview)?params.get('theme-motion')!=='false':settings.animations)&&typeof travellers.animate==='function';
   let dismissed = false, animation: Animation | undefined, timer: ReturnType<typeof setTimeout> | undefined;
   try { dismissed = sessionStorage.getItem(dismissalKey) === 'hidden'; } catch { /* Optional device preference. */ }
   const stop = () => { clearTimeout(timer); animation?.cancel(); animation=undefined; road.classList.remove('is-playing','is-waving'); };
   const blocked = () => document.hidden || !root.isConnected || !!document.querySelector('dialog[open]') || document.body.classList.contains('category-focused') || document.body.classList.contains('site-menu-open') || !!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
   function play(manual = false) {
     stop();
-    if (dismissed || reduced.matches || blocked()) { if(!manual) schedule(); return; }
+    if (dismissed || reduced.matches || !animationAllowed || blocked()) { if(!manual) schedule(); return; }
     const distance = Math.max(road.clientWidth, 240), reverse = Math.random() > .5;
     road.classList.add('is-playing'); road.classList.toggle('is-reversed', reverse);
     animation = travellers.animate([
@@ -87,16 +105,16 @@ export function mountChristmasMarket(root: HTMLElement) {
     animation.onfinish = () => { stop(); if(!phone.matches) schedule(); };
   }
   function schedule(initial = false) {
-    if (dismissed || reduced.matches) return;
+    if (dismissed || reduced.matches || !animationAllowed) return;
     timer = setTimeout(() => play(), initial ? 2800 + Math.random()*2500 : 80000 + Math.random()*40000);
   }
   function paintPreference() {
-    stop(); road.hidden = dismissed || reduced.matches;
-    closeButton.hidden = dismissed || reduced.matches;
-    setCopy(playButton, reduced.matches ? 'A little Christmas magic' : dismissed ? 'Show Santa & reindeer' : 'Santa & his little helper');
-    playButton.disabled = reduced.matches;
-    playButton.setAttribute('aria-pressed',String(!dismissed && !reduced.matches));
-    if (!dismissed && !reduced.matches) schedule(true);
+    stop(); road.hidden = dismissed || reduced.matches || !animationAllowed;
+    closeButton.hidden = dismissed || reduced.matches || !animationAllowed;
+    setCopy(playButton, reduced.matches || !animationAllowed ? 'A little Christmas magic' : dismissed ? 'Show Santa & reindeer' : 'Santa & his little helper');
+    playButton.disabled = reduced.matches || !animationAllowed;
+    playButton.setAttribute('aria-pressed',String(!dismissed && !reduced.matches && animationAllowed));
+    if (!dismissed && !reduced.matches && animationAllowed) schedule(true);
   }
   playButton.addEventListener('click', () => { dismissed=false;try{sessionStorage.removeItem(dismissalKey);}catch{/* Optional. */}paintPreference();play(true); }, {signal});
   closeButton.addEventListener('click', () => { dismissed=true;try{sessionStorage.setItem(dismissalKey,'hidden');}catch{/* Optional. */}paintPreference();playButton.focus({preventScroll:true}); }, {signal});
