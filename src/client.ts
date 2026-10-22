@@ -2,6 +2,7 @@ import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js
 import { mountAccounting } from './accounting-workspace.js';
 import { mountFinanceDesk, openCatalogueSellingPrice } from './finance-client.js';
 import { mountBackstageWorkspace } from './backstage-workspace.js';
+import {mountSupplierOffice} from './supplier-office-client.js';
 import { mountCompactMarketplace } from './compact-marketplace.js';
 import { noticeTitleView, noticeBodyView } from "./customer-notice-view.js";
 import { installMediaPlayback, stopMediaWithin } from "./media-playback.js";
@@ -92,7 +93,7 @@ const empty = (title: string, description: string) =>
   h`<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${copy(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
 let state: Dashboard | undefined;
-let currentView = location.hash === "#whatsapp" ? "whatsapp" : "today";
+let currentView = location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
 let calendarMonth = "",
   calendarDay = "",
   calendarStatus = "all",
@@ -2488,6 +2489,7 @@ const navItems = [
   ["whatsapp", "◈", "WhatsApp customers"],
   ["messaging", "✉", "SMS & WhatsApp"],
   ["packages", "✧", "Shows & packages"],
+  ["supplier-desks", "◈", "Supplier desks"],
   ["guest-shows", "✶", "Categories & services"],
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
@@ -2562,6 +2564,7 @@ function wireStudio() {
 function renderDashboard() {
   if (!state) return;
   if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
+  if (currentView === 'supplier-desks' && !['owner','admin'].includes(state.user.role)) currentView = 'today';
   const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
@@ -2570,7 +2573,7 @@ function renderDashboard() {
       (n) =>
         (!views || views.includes(n[0])) &&
         (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")) &&
-        (!["whatsapp", "messaging"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
+        (!["whatsapp", "messaging", "supplier-desks"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -2630,6 +2633,7 @@ function renderDashboard() {
   else if (currentView === "customers") renderCustomers(content);
   else if (currentView === "whatsapp") void renderWhatsAppCustomers(content, api, async () => { state = await api<Dashboard>("/manage/state"); });
   else if (currentView === "messaging") void renderMessaging(content, api);
+  else if (currentView === 'supplier-desks') void mountSupplierOffice(content as HTMLElement,api,async file=>{const data=new FormData();data.set('inspiration-photo',file);const photo=await readInspiration(data);if(!photo)throw Error('Choose a photo.');return {...photo,mime:'image/jpeg' as const};});
   else if (currentView === "packages" || currentView === "performers")
     renderCatalogAdmin(content, currentView);
   else if (currentView === "offers") renderCatalogAdmin(content, "packages");

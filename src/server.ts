@@ -14,6 +14,7 @@ import { marketplacePublicRoutes, MarketplacePublic } from "./marketplace-public
 import { messaging } from "./messaging.js";
 import { auditContext, deviceContext } from "./audit-context.js";
 import { officeTasks } from "./office-tasks.js";
+import {supplierOfficeRoutes} from './supplier-office.js';
 import { experienceFor } from "./visitor-experience.js";
 import { readFile } from "node:fs/promises";
 import { snapshot, businessBackupScope, snapshotTables } from "./snapshots.js";
@@ -929,6 +930,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   });
   staffNotices(app, store);
   officeTasks(app, store);
+  supplierOfficeRoutes(app, store);
   financeRoutes(app, store);
   catalogueRoutes(app, store);
   customerRecovery(app, store, canManage);
@@ -2870,6 +2872,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         "birthdayProfiles",
         "birthdayDrafts",
         "customFields",
+        ...(['owner','admin'].includes(req.user.role) ? ['supplierOfficeDrafts','supplierOfficePhotos'] : []),
       ].map(async (kind) => {
         data[kind] = await store.all(req.business.id, kind);
       }),
