@@ -85,9 +85,9 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
     const width=document.documentElement.clientWidth,height=window.innerHeight,size=phone.matches?{width:100,height:140}:{width:144,height:192};
     const visible=(n:HTMLElement)=>!stage.contains(n)&&!!n.getClientRects().length;
     const inView=(r:DOMRect)=>r.width>0&&r.height>0&&r.bottom>0&&r.top<height&&r.right>0&&r.left<width;
-    const protectedAreas=[...document.querySelectorAll<HTMLElement>('.site-header,.marketplace-phone-nav,.customer-phone-nav,.floating-whatsapp,.phone-event-bar,.event-selection-tray,#notice,label,input,select,textarea,button,a:not(.mp-category)')].filter(visible).filter(n=>!n.matches('button,a')||!n.querySelector('img')).map(n=>n.getBoundingClientRect()).filter(inView);
+    const protectedAreas=[...document.querySelectorAll<HTMLElement>('.site-header,.mp-mobile-nav,.mobile-event-bar,.marketplace-phone-nav,.customer-phone-nav,.floating-whatsapp,.phone-event-bar,.event-selection-tray,#notice,label,input,select,textarea,button,a:not(.mp-category)')].filter(visible).filter(n=>!n.matches('button,a')||!n.querySelector('img')).map(n=>n.getBoundingClientRect()).filter(inView);
     const readingAreas=[...document.querySelectorAll<HTMLElement>('h1,h2,h3,p,.mp-category strong,.mp-category-icon,.mp-category-arrow')].filter(visible).map(n=>{const r=n.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,weight:n.matches('.mp-category-icon,.mp-category-arrow')?1:10};}).filter(r=>r.width&&r.height&&r.bottom>0&&r.top<height);
-    const result=festivePosition(width,height,size.width,size.height,protectedAreas,previous,Math.random,readingAreas);
+    const result=festivePosition(width,height,size.width,size.height,protectedAreas,previous,Math.random,readingAreas,phone.matches);
     if(result){stage.style.setProperty('--cm-x',result.x+'px');stage.style.setProperty('--cm-y',result.y+'px');previous=result;}
     return result;
   }

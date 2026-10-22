@@ -13,3 +13,27 @@ test('floating visitors stay inside viewport, avoid controls and find a differen
   const readable=festivePosition(390,844,112,100,[],undefined,()=>0,[{left:0,top:0,right:220,bottom:844,weight:10}]);
   assert.ok(readable.x>=220,'prefer a clear space instead of a text column');
 });
+
+test('phone appearances explore both sides and different heights despite a tempting central text gap',()=>{
+  for(const width of [320,390]){
+    const height=844,spriteWidth=100,spriteHeight=140;
+    const controls=[{left:0,top:0,right:width,bottom:80},{left:0,top:height-100,right:width,bottom:height},{left:width*.4,top:350,right:width,bottom:400}];
+    const reading=[{left:0,top:80,right:110,bottom:height-100,weight:10},{left:width-110,top:80,right:width,bottom:height-100,weight:10}];
+    let seed=42,previous;
+    const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/2**32);
+    const positions=[];
+    for(let i=0;i<150;i++){
+      const point=festivePosition(width,height,spriteWidth,spriteHeight,controls,previous,random,reading,true);
+      assert.ok(point);
+      assert.ok(point.x>=10&&point.x+spriteWidth<=width-10&&point.y>=10&&point.y+spriteHeight<=height-10);
+      assert.ok(!controls.some(r=>point.x<r.right+6&&point.x+spriteWidth>r.left-6&&point.y<r.bottom+6&&point.y+spriteHeight>r.top-6),'never cover phone controls');
+      if(previous)assert.ok(Math.hypot(point.x-previous.x,point.y-previous.y)>=width*.25);
+      positions.push(point);previous=point;
+    }
+    assert.ok(positions.filter(p=>p.x<width*.25).length>=15,'appear on the left, not only in the centre');
+    assert.ok(positions.filter(p=>p.x>width*.5).length>=15,'appear on the right');
+    assert.ok(positions.filter(p=>p.y<height*.35).length>=15,'use upper available space');
+    assert.ok(positions.filter(p=>p.y>height*.5).length>=15,'use lower available space');
+    assert.equal(festivePosition(width,height,spriteWidth,spriteHeight,[{left:0,top:0,right:width,bottom:height}],undefined,random,reading,true),null);
+  }
+});
