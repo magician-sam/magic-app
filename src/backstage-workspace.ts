@@ -2,7 +2,7 @@ const groups: [string,string[]][] = [
   ['Work',['today','notices','bookings','enquiries','calendar','reminders']],
   ['People',['customers','whatsapp','performers']],
   ['Marketplace',['supplier-desks','supplier-applications','packages','guest-shows','guest-photos','offers']],
-  ['Marketing',['messaging','reviews']],
+  ['Marketing',['occasions','messaging','reviews']],
   ['Finance',['money']],['Administration',['themes','registration-agreements','settings']],
 ];
 let lifecycle = new AbortController();

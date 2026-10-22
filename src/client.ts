@@ -1,3 +1,4 @@
+import {mountOccasions,mountOccasionReminders} from './occasions-client.js';
 import {isQuickActService,planQuickSelection,type QuickChoice} from './quick-selection.js';
 import {inflatableItem,inflatablePhoto,inflatableSearchTerms,inflatableCatalogue} from './inflatable-catalogue.js';
 import {inflatableCard,inflatableSizeBlock} from './inflatables-client.js';
@@ -100,7 +101,8 @@ const empty = (title: string, description: string) =>
   h`<div class="empty"><span class="spark" aria-hidden="true">✧</span><h3>${copy(title)}</h3><p>${e(description)}</p></div>`;
 let catalog: Catalog;
 let state: Dashboard | undefined;
-let currentView = location.hash === '#themes' ? 'themes' : location.hash === '#supplier-applications' ? 'supplier-applications' : location.hash === '#registration-agreements' ? 'registration-agreements' : location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
+let occasionToOpen='';
+let currentView = location.hash === '#occasions' ? 'occasions' : location.hash === '#themes' ? 'themes' : location.hash === '#supplier-applications' ? 'supplier-applications' : location.hash === '#registration-agreements' ? 'registration-agreements' : location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
 let calendarMonth = "",
   calendarDay = "",
   calendarStatus = "all",
@@ -2536,6 +2538,7 @@ const navItems = [
   ["supplier-applications", "◇", "Online supplier registrations"],
   ["registration-agreements", "▤", "Registration agreements"],
   ["themes", "◐", "Themes"],
+  ["occasions", "✦", "Occasions"],
   ["guest-shows", "✶", "Categories & services"],
   ["guest-photos", "▧", "Photos & videos"],
   ["offers", "✦", "Offers & bundles"],
@@ -2610,7 +2613,7 @@ function wireStudio() {
 function renderDashboard() {
   if (!state) return;
   if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
-  if (['themes','supplier-desks','supplier-applications','registration-agreements'].includes(currentView) && !['owner','admin'].includes(state.user.role)) currentView = 'today';
+  if (['occasions','themes','supplier-desks','supplier-applications','registration-agreements'].includes(currentView) && !['owner','admin'].includes(state.user.role)) currentView = 'today';
   const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
@@ -2619,7 +2622,7 @@ function renderDashboard() {
       (n) =>
         (!views || views.includes(n[0])) &&
         (!["guest-photos", "guest-shows"].includes(n[0]) || staffCan("catalog")) &&
-        (n[0]!=="themes"||state!.business.slug==='magic-by-sam') && (!["whatsapp", "messaging", "themes", "supplier-desks", "supplier-applications", "registration-agreements"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
+        (n[0]!=="themes"||state!.business.slug==='magic-by-sam') && (!["whatsapp", "messaging", "occasions", "themes", "supplier-desks", "supplier-applications", "registration-agreements"].includes(n[0]) || ["owner", "admin"].includes(state!.user.role)),
     )
     .map(
       ([key, icon, label]) =>
@@ -2630,6 +2633,7 @@ function renderDashboard() {
     )}</nav><div class="sidebar-bottom"><b>${e(state.business.name)}</b><p>${e(state.user.name)} · ${e(state.user.role)}</p><button id="logout" class="link">Sign out</button></div></aside><main class="dash-main" id="main"><header class="dash-top"><div><span class="eyebrow">Backstage · Event studio</span><h1>${currentView === "today" ? "Today" : e(title)}</h1></div><a href="/b/${e(state.business.slug)}" class="button outline small" target="_blank" rel="noopener">View website ↗</a></header><div class="studio-actions"><button type="button" class="outline small" id="studio-search">⌕ Search workspace</button><button type="button" class="outline small" id="studio-create">＋ Create</button></div><div id="dash-content"></div><button id="mobile-logout" class="link mobile-only">Sign out</button></main></div>`;
   on(app, "[data-nav]", "click", (ev) => {
     currentView = (ev.currentTarget as HTMLElement).dataset.nav!;
+    if(currentView==='occasions')occasionToOpen='';
     renderDashboard();
   });
   on(app, "#logout,#mobile-logout", "click", async () => {
@@ -2681,6 +2685,7 @@ function renderDashboard() {
   else if (currentView === "messaging") void renderMessaging(content, api);
   else if (currentView === 'registration-agreements') void mountRegistrationAgreements(content as HTMLElement,api);
   else if (currentView === 'themes') void mountSeasonalThemes(content as HTMLElement,api);
+  else if (currentView === 'occasions') void mountOccasions(content as HTMLElement,api,()=>{currentView='offers';renderDashboard();},occasionToOpen);
   else if (currentView === 'supplier-applications') void mountSupplierReview(content as HTMLElement,api);
   else if (currentView === 'supplier-desks') void mountSupplierOffice(content as HTMLElement,api,async file=>{const data=new FormData();data.set('inspiration-photo',file);const photo=await readInspiration(data);if(!photo)throw Error('Choose a photo.');return {...photo,mime:'image/jpeg' as const};});
   else if (currentView === "packages" || currentView === "performers")
@@ -2690,6 +2695,7 @@ function renderDashboard() {
   else if (currentView === "reminders") renderReminders(content);
   else if (currentView === "reviews") renderReviews(content);
   else renderSettings(content);
+  if(currentView==='today'&&['owner','admin'].includes(state.user.role))void mountOccasionReminders(content as HTMLElement,api,openOccasionDesk);
   wireDashboard(content);
   mountBackstageWorkspace(app, currentView);
   wireStudio();
@@ -2890,6 +2896,7 @@ function renderNotifications(root: Element) {
     });
   }
 }
+function openOccasionDesk(id=''){occasionToOpen=id;currentView='occasions';renderDashboard();}
 function renderCalendar(root: Element) {
   const today = localToday();
   calendarMonth ||= today.slice(0, 7);
@@ -2953,6 +2960,7 @@ function renderCalendar(root: Element) {
     const visible = companyEvents.filter((b) => !calendarDay || b.date === calendarDay);
     root.insertAdjacentHTML("beforeend", `<section class="panel"><h3>Company calendar</h3><p class="muted">Other bookings appear as dates and status only. Open your assigned jobs above for details.</p>${visible.map((b) => `<div class="row"><strong>${e(day(b.date))} · ${e(b.time)}</strong>${badge(b.status)}</div>`).join("") || '<p class="muted">No other events in this view.</p>'}</section>`);
   }
+  if(['owner','admin'].includes(state!.user.role))void mountOccasionReminders(root as HTMLElement,api,openOccasionDesk,calendarMonth,calendarDay);
   const move = (month: string) => {
     monthDays(month);
     calendarMonth = month;

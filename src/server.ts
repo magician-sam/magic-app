@@ -1,3 +1,4 @@
+import {occasionRoutes,occasionKind} from './occasion-routes.js';
 import { createHash } from 'node:crypto';
 import { financeRoutes, publicFinancePrices } from './finance-routes.js';
 import { FinanceValidationError } from './finance-math.js';
@@ -939,6 +940,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
   supplierOfficeRoutes(app, store);
   manageAgreementRoutes(app,store);
   seasonalThemeRoutes(app,store);
+  occasionRoutes(app,store);
   manageSupplierPortal(app,store);
   financeRoutes(app, store);
   catalogueRoutes(app, store);
@@ -2882,7 +2884,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
         "birthdayProfiles",
         "birthdayDrafts",
         "customFields",
-        ...(['owner','admin'].includes(req.user.role) ? ['seasonalThemes','supplierOfficeDrafts','supplierOfficePhotos',...agreementRecordKinds,...supplierPortalKinds] : []),
+        ...(['owner','admin'].includes(req.user.role) ? [occasionKind,'seasonalThemes','supplierOfficeDrafts','supplierOfficePhotos',...agreementRecordKinds,...supplierPortalKinds] : []),
       ].map(async (kind) => {
         data[kind] = await store.all(req.business.id, kind);
       }),
