@@ -60,7 +60,7 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
   hero.append(controls,home);document.body.append(stage);
   const playButton = controls.querySelector<HTMLButtonElement>('.cm-play')!;
   const closeButton = controls.querySelector<HTMLButtonElement>('.cm-dismiss')!;
-  const art=stage.querySelector<HTMLElement>('.cm-flight-art')!,santa=stage.querySelector<SVGElement>('.cm-santa-figure')!;
+  const art=stage.querySelector<HTMLElement>('.cm-flight-art')!,portrait=stage.querySelector<HTMLImageElement>('.cm-realistic-companions')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const phone = matchMedia('(max-width: 600px)');
   const animationAllowed=(isThemeKey(preview)?params.get('theme-motion')!=='false':settings.animations)&&typeof art.animate==='function';
@@ -81,6 +81,7 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
   function play(manual = false) {
     stop();
     if (dismissed || reduced.matches || !animationAllowed || blocked()) { if(!manual) schedule(); return; }
+    if(!portrait.complete||portrait.naturalWidth===0){schedule(false,true);return;}
     if(!position()){
       if(!manual){schedule();return;}
       // A crowded phone gets a dedicated preview space instead of covered controls.
@@ -96,11 +97,12 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
       {opacity:1,transform:'translateY(0) scale(1) rotate(0)',offset:.82},
       {opacity:0,transform:'translateY(-28px) scale(.2) rotate(18deg)',filter:'blur(5px)',offset:1},
     ],{duration:7600,easing:'ease-in-out'});
-    animations=[appearance,santa.animate([
-      {transform:'perspective(450px) rotateY(0deg) translateY(0)'},
-      {transform:'perspective(450px) rotateY(180deg) translateY(-8px)',offset:.5},
-      {transform:'perspective(450px) rotateY(360deg) translateY(0)'},
-    ],{delay:1700,duration:1500,easing:'ease-in-out'}),stage.querySelector('.cm-reindeer-figure')!.animate([{transform:'translateY(0)'},{transform:'translateY(-8px)'},{transform:'translateY(0)'}],{delay:2800,duration:650,iterations:2,easing:'ease-in-out'})];
+    // A restrained turn keeps the realistic portrait dimensional without showing a mirrored flat back.
+    animations=[appearance,portrait.animate([
+      {transform:'perspective(600px) rotateY(-10deg) rotateZ(-1deg) translateY(0)'},
+      {transform:'perspective(600px) rotateY(10deg) rotateZ(1deg) translateY(-4px)',offset:.5},
+      {transform:'perspective(600px) rotateY(0deg) rotateZ(0deg) translateY(0)'},
+    ],{delay:1400,duration:3600,easing:'ease-in-out'})];
     endTimer=setTimeout(()=>{stop();schedule();},7600);
   }
   function schedule(initial=false,quiet=false) {

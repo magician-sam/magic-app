@@ -56,3 +56,7 @@ body.customer-surface.christmas-market{--paper:#fbf8f1;--ink:#253d34;--deep:#173
 @media(max-width:600px){.christmas-market .cm-floating-companions{width:112px;height:100px}.christmas-market .cm-companion-controls{margin-bottom:10px}.christmas-market .cm-character-home{height:110px}}
 @media(prefers-reduced-motion:reduce){.christmas-market .cm-floating-companions{display:none!important}.christmas-market .cm-floating-companions *{animation:none!important}}
 @media print{.christmas-market .cm-floating-companions,.christmas-market .cm-character-home{display:none!important}}
+
+/* Photorealistic 3D-rendered companions retain the same safe floating footprint. */
+.christmas-market .cm-realistic-companions{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;transform-origin:center 75%;pointer-events:none;user-select:none}
+.christmas-market .cm-companion-controls[hidden]{display:none}
