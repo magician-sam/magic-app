@@ -2,6 +2,7 @@ import {h, setCopy} from './customer-i18n.js';
 import {defaultSeasonalTheme,effectiveTheme,isThemeKey,themePresets,type SeasonalTheme} from './seasonal-themes.js';
 import {christmasCompanions} from './christmas-companions.js';
 import {festivePosition} from './festive-position.js';
+import {santaPoses,santaSheetOffset,type SantaGesture} from './santa-animation.js';
 
 let lifecycle: AbortController | undefined;
 const dismissalKey = 'magic-app:christmas-companions:2026';
@@ -53,23 +54,35 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
   const badge = welcome?.querySelector('.bundle-discount-badge');
   if (badge) badge.innerHTML = '<span>%</span>';
   const controls = document.createElement('div'); controls.className = 'cm-companion-controls';
-  controls.innerHTML = h('<button type="button" class="cm-play">Santa & his little helper <span aria-hidden="true">↗</span></button><button type="button" class="cm-dismiss" aria-label="Hide Santa and reindeer">×</button>');
+  controls.innerHTML = h('<button type="button" class="cm-play">Meet Santa <span aria-hidden="true">✦</span></button><button type="button" class="cm-dismiss" aria-label="Hide Santa">×</button>');
   const home = document.createElement('div');home.className='cm-character-home';home.hidden=true;
-  const stage=document.createElement('div');stage.className='cm-floating-companions';stage.hidden=true;
-  stage.innerHTML=`<div class="cm-magic-aura" aria-hidden="true"></div><div class="cm-flight-art">${christmasCompanions}</div>`+h('<button type="button" class="cm-float-dismiss" aria-label="Hide Santa and reindeer">×</button>');
+  const stage=document.createElement('div');stage.className='cm-floating-companions cm-solo-santa';stage.hidden=true;
+  const stars='<div class="cm-star-burst" aria-hidden="true">'+Array.from({length:12},()=>'<i></i>').join('')+'</div>';
+  stage.innerHTML='<div class="cm-magic-aura" aria-hidden="true"></div><div class="cm-flight-art">'+christmasCompanions+'</div>'+stars+h('<button type="button" class="cm-santa-greet" aria-label="Say hello to Santa"></button><button type="button" class="cm-float-dismiss" aria-label="Hide Santa">×</button>');
   hero.append(controls,home);document.body.append(stage);
   const playButton = controls.querySelector<HTMLButtonElement>('.cm-play')!;
   const closeButton = controls.querySelector<HTMLButtonElement>('.cm-dismiss')!;
-  const art=stage.querySelector<HTMLElement>('.cm-flight-art')!,portrait=stage.querySelector<HTMLImageElement>('.cm-realistic-companions')!;
+  const greet=stage.querySelector<HTMLButtonElement>('.cm-santa-greet')!;
+  const art=stage.querySelector<HTMLElement>('.cm-flight-art')!,portrait=stage.querySelector<HTMLImageElement>('.cm-santa-sheet')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const phone = matchMedia('(max-width: 600px)');
   const animationAllowed=(isThemeKey(preview)?params.get('theme-motion')!=='false':settings.animations)&&typeof art.animate==='function';
-  let dismissed=false,timer:ReturnType<typeof setTimeout>|undefined,phaseTimer:ReturnType<typeof setTimeout>|undefined,endTimer:ReturnType<typeof setTimeout>|undefined,animations:Animation[]=[],previous:{x:number;y:number}|undefined;
+  let dismissed=false,timer:ReturnType<typeof setTimeout>|undefined,poseTimer:ReturnType<typeof setInterval>|undefined;
+  let animations:Animation[]=[],previous:{x:number;y:number}|undefined,departing=false,visit=0;
+  const pending=new Set<ReturnType<typeof setTimeout>>();
+  const later=(fn:()=>void,delay:number)=>{const id=setTimeout(()=>{pending.delete(id);fn();},delay);pending.add(id);};
   try { dismissed = sessionStorage.getItem(dismissalKey) === 'hidden'; } catch { /* Optional device preference. */ }
-  const stop=()=>{clearTimeout(timer);clearTimeout(phaseTimer);clearTimeout(endTimer);endTimer=undefined;timer=undefined;phaseTimer=undefined;const active=animations;animations=[];for(const animation of active){animation.onfinish=null;animation.cancel();}stage.hidden=true;stage.dataset.phase='hidden';stage.classList.remove('is-playing','is-home');home.hidden=true;if(stage.parentElement!==document.body)document.body.append(stage);};
+  function pose(frame:number){const {x,y}=santaSheetOffset(frame);portrait.style.transform='translate('+x+'%,'+y+'%)';stage.dataset.pose=String(frame);}
+  function gesture(kind:SantaGesture){
+    if(departing&&kind!=='jump')return;
+    clearInterval(poseTimer);const sequence=santaPoses[kind];let index=0;pose(sequence[0]);stage.dataset.gesture=kind;
+    poseTimer=setInterval(()=>{index++;if(index>=sequence.length){clearInterval(poseTimer);poseTimer=undefined;stage.dataset.gesture='idle';return;}pose(sequence[index]);},kind==='turn'?135:kind==='jump'?110:145);
+  }
+  const clearMotion=()=>{for(const id of pending)clearTimeout(id);pending.clear();clearInterval(poseTimer);poseTimer=undefined;for(const animation of animations){animation.onfinish=null;animation.cancel();}animations=[];};
+  const stop=()=>{clearTimeout(timer);timer=undefined;clearMotion();departing=false;stage.hidden=true;stage.dataset.phase='hidden';stage.classList.remove('is-playing','is-home');home.hidden=true;if(stage.parentElement!==document.body)document.body.append(stage);};
   const blocked=()=>document.hidden||!root.isConnected||!!document.querySelector('dialog[open]')||document.body.classList.contains('site-menu-open')||!!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
   function position(){
-    const width=document.documentElement.clientWidth,height=window.innerHeight,size=phone.matches?{width:112,height:100}:{width:180,height:154};
+    const width=document.documentElement.clientWidth,height=window.innerHeight,size=phone.matches?{width:100,height:140}:{width:144,height:192};
     const visible=(n:HTMLElement)=>!stage.contains(n)&&!!n.getClientRects().length;
     const inView=(r:DOMRect)=>r.width>0&&r.height>0&&r.bottom>0&&r.top<height&&r.right>0&&r.left<width;
     const protectedAreas=[...document.querySelectorAll<HTMLElement>('.site-header,.marketplace-phone-nav,.customer-phone-nav,.floating-whatsapp,.phone-event-bar,.event-selection-tray,#notice,label,input,select,textarea,button,a:not(.mp-category)')].filter(visible).filter(n=>!n.matches('button,a')||!n.querySelector('img')).map(n=>n.getBoundingClientRect()).filter(inView);
@@ -78,59 +91,64 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
     if(result){stage.style.setProperty('--cm-x',result.x+'px');stage.style.setProperty('--cm-y',result.y+'px');previous=result;}
     return result;
   }
-  function play(manual = false) {
-    stop();
-    if (dismissed || reduced.matches || !animationAllowed || blocked()) { if(!manual) schedule(); return; }
+  function starBurst(arriving=false){
+    stage.querySelectorAll<HTMLElement>('.cm-star-burst i').forEach((star,i)=>{
+      const angle=i*Math.PI*2/12,radius=phone.matches?22+(i%3)*8:30+(i%3)*12;
+      const point='translate('+Math.cos(angle)*radius+'px,'+Math.sin(angle)*radius+'px) rotate('+(i*53)+'deg)';
+      const frames=[{opacity:0,transform:'translate(0,0) scale(.15)'},{opacity:1,transform:point+' scale(1)',offset:.35},{opacity:0,transform:point+' scale(.1)'}];
+      animations.push(star.animate(arriving?frames.toReversed():frames,{duration:720,delay:i%3*35,easing:'ease-out',fill:'both'}));
+    });
+  }
+  function depart(){
+    if(departing||stage.hidden)return;
+    clearMotion();departing=true;stage.dataset.phase='jump';gesture('jump');
+    animations.push(art.animate([{opacity:1,transform:'translateY(0) scale(1)'},{opacity:1,transform:'translateY(-14px) scale(1.02)',offset:.38},{opacity:0,transform:'translateY(-24px) scale(.12)',offset:.8},{opacity:0,transform:'translateY(-24px) scale(.12)'}],{duration:800,easing:'ease-in',fill:'forwards'}));
+    later(()=>{stage.dataset.phase='stars';starBurst();},480);
+    later(()=>{const next=visit+1;stop();if(next<3&&!blocked())showVisit(false,next);else schedule();},1320);
+  }
+  function showVisit(manual:boolean,index:number){
+    if(dismissed||reduced.matches||!animationAllowed||blocked()){schedule();return;}
     if(!portrait.complete||portrait.naturalWidth===0){schedule(false,true);return;}
+    visit=index;departing=false;
     if(!position()){
       if(!manual){schedule();return;}
-      // A crowded phone gets a dedicated preview space instead of covered controls.
+      // A crowded phone gets a temporary, dedicated stage instead of covered controls.
       home.hidden=false;home.append(stage);stage.classList.add('is-home');
     }
-    stage.hidden=false;stage.classList.add('is-playing');stage.dataset.phase='enter';
-    phaseTimer=setTimeout(()=>{stage.dataset.phase='visible';},2200);
-    const appearance=art.animate([
-      {opacity:0,transform:'translateY(20px) scale(.3) rotate(-12deg)',filter:'blur(6px)',offset:0},
-      {opacity:1,transform:'translateY(-3px) scale(1.05) rotate(3deg)',filter:'blur(0)',offset:.1},
-      {opacity:1,transform:'translateY(0) scale(1) rotate(0)',offset:.15},
-      {opacity:1,transform:'translateY(-5px) scale(1) rotate(0)',offset:.7},
-      {opacity:1,transform:'translateY(0) scale(1) rotate(0)',offset:.82},
-      {opacity:0,transform:'translateY(-28px) scale(.2) rotate(18deg)',filter:'blur(5px)',offset:1},
-    ],{duration:7600,easing:'ease-in-out'});
-    // A restrained turn keeps the realistic portrait dimensional without showing a mirrored flat back.
-    animations=[appearance,portrait.animate([
-      {transform:'perspective(600px) rotateY(-10deg) rotateZ(-1deg) translateY(0)'},
-      {transform:'perspective(600px) rotateY(10deg) rotateZ(1deg) translateY(-4px)',offset:.5},
-      {transform:'perspective(600px) rotateY(0deg) rotateZ(0deg) translateY(0)'},
-    ],{delay:1400,duration:3600,easing:'ease-in-out'})];
-    endTimer=setTimeout(()=>{stop();schedule();},7600);
+    stage.hidden=false;stage.classList.add('is-playing');stage.dataset.phase='enter';pose(4);starBurst(true);
+    animations.push(art.animate([{opacity:0,transform:'translateY(14px) scale(.2)'},{opacity:1,transform:'translateY(-3px) scale(1.04)',offset:.7},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:550,easing:'ease-out'}));
+    later(()=>{stage.dataset.phase='visible';gesture('wave');},600);
+    later(()=>gesture('turn'),2200);
+    later(depart,3500);
   }
-  function schedule(initial=false,quiet=false) {
-    if (dismissed || reduced.matches || !animationAllowed) return;
-    clearTimeout(timer);timer=setTimeout(()=>play(),initial?1600+Math.random()*1800:quiet?6000+Math.random()*3000:phone.matches?45000+Math.random()*30000:25000+Math.random()*20000);
+  function play(manual=false){stop();showVisit(manual,0);}
+  function schedule(initial=false,quiet=false){
+    if(dismissed||reduced.matches||!animationAllowed)return;
+    clearTimeout(timer);timer=setTimeout(()=>{timer=undefined;play();},initial?1800+Math.random()*1200:quiet?6000+Math.random()*3000:phone.matches?50000+Math.random()*30000:35000+Math.random()*20000);
   }
-  function paintPreference() {
-    stop();
-    closeButton.hidden = dismissed || reduced.matches || !animationAllowed;
-    setCopy(playButton, reduced.matches || !animationAllowed ? 'A little Christmas magic' : dismissed ? 'Show Santa & reindeer' : 'Santa & his little helper');
-    playButton.disabled = reduced.matches || !animationAllowed;
-    playButton.setAttribute('aria-pressed',String(!dismissed && !reduced.matches && animationAllowed));
-    if (!dismissed && !reduced.matches && animationAllowed) schedule(true);
+  function paintPreference(){
+    stop();closeButton.hidden=dismissed||reduced.matches||!animationAllowed;
+    setCopy(playButton,reduced.matches||!animationAllowed?'A little Christmas magic':dismissed?'Show Santa':'Meet Santa');
+    playButton.disabled=reduced.matches||!animationAllowed;playButton.setAttribute('aria-pressed',String(!dismissed&&!reduced.matches&&animationAllowed));
+    if(!dismissed&&!reduced.matches&&animationAllowed)schedule(true);
   }
-  playButton.addEventListener('click', () => { dismissed=false;try{sessionStorage.removeItem(dismissalKey);}catch{/* Optional. */}paintPreference();play(true); }, {signal});
-  closeButton.addEventListener('click', () => { dismissed=true;try{sessionStorage.setItem(dismissalKey,'hidden');}catch{/* Optional. */}paintPreference();playButton.focus({preventScroll:true}); }, {signal});
+  playButton.addEventListener('click',()=>{dismissed=false;try{sessionStorage.removeItem(dismissalKey);}catch{/* Optional. */}paintPreference();play(true);},{signal});
+  closeButton.addEventListener('click',()=>{dismissed=true;try{sessionStorage.setItem(dismissalKey,'hidden');}catch{/* Optional. */}paintPreference();playButton.focus({preventScroll:true});},{signal});
   stage.querySelector('.cm-float-dismiss')!.addEventListener('click',()=>closeButton.click(),{signal});
-  reduced.addEventListener('change', paintPreference, {signal});
-  document.addEventListener('visibilitychange', () => { stop(); if(!document.hidden) schedule(false,true); }, {signal});
-  document.addEventListener('focusin', () => { if(blocked()) stop(); }, {signal});
+  greet.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse'&&!departing){stage.dataset.phase='greeting';gesture('wave');}},{signal});
+  greet.addEventListener('focus',()=>{if(!departing)gesture('wave');},{signal});
+  greet.addEventListener('click',()=>{if(departing)return;clearMotion();stage.dataset.phase='greeting';gesture('wave');later(depart,1450);},{signal});
+  reduced.addEventListener('change',paintPreference,{signal});
+  document.addEventListener('visibilitychange',()=>{stop();if(!document.hidden)schedule(false,true);},{signal});
+  document.addEventListener('focusin',()=>{if(blocked())stop();},{signal});
   document.addEventListener('focusout',()=>{if(stage.hidden)schedule(false,true);},{signal});
-  window.addEventListener('hashchange', () => { stop();schedule(false,true); }, {signal});
+  window.addEventListener('hashchange',()=>{stop();schedule(false,true);},{signal});
   window.addEventListener('scroll',()=>{stop();schedule(false,true);},{signal,passive:true});
   window.addEventListener('resize',()=>{stop();schedule(false,true);},{signal,passive:true});
-  const observer = new MutationObserver(() => { if(blocked())stop();else if(stage.hidden&&timer===undefined)schedule(false,true); });
-  const modal = document.querySelector('#modal'); if(modal) observer.observe(modal,{attributes:true,attributeFilter:['open']});
+  const observer=new MutationObserver(()=>{if(blocked())stop();else if(stage.hidden&&timer===undefined)schedule(false,true);});
+  const modal=document.querySelector('#modal');if(modal)observer.observe(modal,{attributes:true,attributeFilter:['open']});
   observer.observe(document.body,{attributes:true,attributeFilter:['class']});
-  signal.addEventListener('abort', () => { stop();observer.disconnect();stage.remove(); }, {once:true});
+  signal.addEventListener('abort',()=>{stop();observer.disconnect();stage.remove();},{once:true});
+  portrait.addEventListener('error',()=>{stop();controls.hidden=true;},{signal});
   paintPreference();
 }
-

@@ -1,2 +1,2 @@
-/** Original AI-generated 3D-rendered artwork, optimized with transparent alpha. */
-export const christmasCompanions = '<img class="cm-realistic-companions" src="/seasonal/santa-reindeer-realistic-2026.webp" width="640" height="640" alt="" aria-hidden="true" decoding="async" draggable="false">';
+/** Original transparent Santa poses: four columns by three rows; no external runtime service. */
+export const christmasCompanions = '<div class="cm-santa-viewport" aria-hidden="true"><img class="cm-santa-sheet" src="/seasonal/santa-solo-poses-2026.webp" width="1024" height="1024" alt="" decoding="async" draggable="false"></div>';
