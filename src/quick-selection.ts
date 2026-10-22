@@ -1,8 +1,17 @@
 import {multilingualMatchScore} from './multilingual-search.js';
 
-export type QuickChoice={key:string;kind:'show'|'service';title:string;group:string;terms:readonly string[];includes?:readonly string[]};
+export type QuickChoice={key:string;kind:'show'|'service';title:string;group:string;terms:readonly string[];includes?:readonly string[];quick?:boolean};
+/** Stable service identities: renaming a card does not change eligibility. */
+const individualActs=new Set([
+  'Animation','Face Painting & Glitter','Balloon Twisting','Clown','Close-up Magic',
+  'Kids Theatre','Dance Show','Dog Show','Acrobat','Juggling','Stilt Walker',
+  'BMX Show','Breakdance','Aerial Show','Fire Show','LED Dancing Suits',
+  'Caricaturist','Mime','Human Statues','Football Show','Chair Balance',
+].map(name=>name.toLowerCase()));
+export function isQuickActService(name:string){return individualActs.has(name.toLowerCase());}
+
 export function quickSelectionMatches(items:readonly QuickChoice[],query:string){
-  const scored=items.map(item=>({item,score:multilingualMatchScore([item.title,...item.terms],query)}));
+  const scored=items.filter(item=>item.quick!==false).map(item=>({item,score:multilingualMatchScore([item.title,...item.terms],query)}));
   const exact=scored.some(row=>row.score===0);
   return scored.filter(row=>row.score!==null&&(!exact||row.score===0)).map(row=>row.item);
 }
@@ -13,7 +22,7 @@ export function planQuickSelection(items:readonly QuickChoice[],existing:readonl
   const keys=[...new Set(existing)],added:string[]=[];
   for(const key of new Set(requested)){
     if(keys.includes(key))continue;
-    const item=available.get(key);if(!item)return{error:'unavailable'};
+    const item=available.get(key);if(!item||item.quick===false)return{error:'unavailable'};
     if(item.kind==='show'){
       const included=item.includes??[key];
       if(keys.some(selected=>{const other=available.get(selected);return other?.kind==='show'&&(other.includes??[other.key]).some(part=>included.includes(part));}))return{error:'overlap'};

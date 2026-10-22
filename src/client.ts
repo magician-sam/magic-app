@@ -1,4 +1,4 @@
-import {planQuickSelection,type QuickChoice} from './quick-selection.js';
+import {isQuickActService,planQuickSelection,type QuickChoice} from './quick-selection.js';
 import {inflatableItem,inflatablePhoto,inflatableSearchTerms,inflatableCatalogue} from './inflatable-catalogue.js';
 import {inflatableCard,inflatableSizeBlock} from './inflatables-client.js';
 import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
@@ -886,7 +886,6 @@ function renderBox() {
 }
 function quickChoices():QuickChoice[]{
   const choices=new Map<string,QuickChoice>(),services=new Set(moreShowNames());
-  const genericInflatables=new Set(['Inflatable Castles','Inflatable Slides','Climbing Towers','Inflatable Obstacle Courses']);
   for(const card of app.querySelectorAll<HTMLElement>('#shows .show-card,#offers .show-card')){
     const showId=card.querySelector<HTMLElement>('[data-add]')?.dataset.add;
     const service=card.querySelector<HTMLElement>('[data-add-guest]')?.dataset.addGuest;
@@ -894,10 +893,9 @@ function quickChoices():QuickChoice[]{
     const group=card.closest('.show-group')?.querySelector(':scope > h3')?.textContent?.trim()||t('Offers & bundles');
     if(showId){
       const show=catalog.packages.find(p=>p.id===showId&&p.active);if(!show)continue;
-      const key='show:'+showId;choices.set(key,{key,kind:'show',title,group,terms:[show.name,show.category,...catalogueSearchTerms(catalog.business,'show:'+show.id)],includes:show.bundleIds?.length?show.bundleIds:[show.id]});
+      const key='show:'+showId;choices.set(key,{key,kind:'show',quick:!show.bundleIds?.length,title,group,terms:[show.name,show.category,...catalogueSearchTerms(catalog.business,'show:'+show.id)],includes:show.bundleIds?.length?show.bundleIds:[show.id]});
     }else if(service&&services.has(service)){
-      if(genericInflatables.has(service)&&inflatableCatalogue.length&&!guestBasket.includes(service))continue;
-      const key='service:'+service;choices.set(key,{key,kind:'service',title,group,terms:[service,...catalogueSearchTerms(catalog.business,'service:'+service),...(inflatableItem(service)?inflatableSearchTerms(inflatableItem(service)!,catalog.business.catalogueAppearance?.['service:'+service]):[])]});
+      const key='service:'+service;choices.set(key,{key,kind:'service',quick:isQuickActService(service),title,group,terms:[service,...catalogueSearchTerms(catalog.business,'service:'+service),...(inflatableItem(service)?inflatableSearchTerms(inflatableItem(service)!,catalog.business.catalogueAppearance?.['service:'+service]):[])]});
     }
   }
   return [...choices.values()];

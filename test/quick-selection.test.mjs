@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {planQuickSelection,quickSelectionMatches} from '../dist/quick-selection.js';
+import {isQuickActService,planQuickSelection,quickSelectionMatches} from '../dist/quick-selection.js';
 
 const show=(id,includes=[id])=>({key:'show:'+id,kind:'show',title:id,group:'Shows',terms:[],includes});
 const service=id=>({key:'service:'+id,kind:'service',title:id,group:'Services',terms:[]});
@@ -37,4 +37,20 @@ test('quick search handles spelling, translated and edited names, with direct ma
   assert.deepEqual(quickSelectionMatches([service('Clown'),service('Clowny')],'clowny').map(x=>x.key),['service:Clowny']);
   assert.deepEqual(quickSelectionMatches(items,'zzzzzzz'),[]);
   assert.equal(quickSelectionMatches(items,'').length,items.length);
+});
+
+
+test('the shortcut exposes individual acts only and preserves other event choices without re-adding them',()=>{
+  for(const name of ['BMX Show','Juggling','Face Painting & Glitter','Close-up Magic','Clown'])assert.equal(isQuickActService(name),true,name);
+  for(const name of ['Food & Beverages','Cakes','Cotton Candy Station','Characters','Carnival Games',"Children's Workshops",'Photography','Decoration','Inflatable Slides','DJ','Sound System'])assert.equal(isQuickActService(name),false,name);
+  const food={...service('Food & Beverages'),quick:false};
+  const bundle={...show('duo',['magic','science']),quick:false};
+  const magic=show('magic'),juggling={...service('Juggling'),title:'My renamed act',quick:isQuickActService('Juggling')};
+  const items=[food,bundle,magic,juggling];
+  assert.deepEqual(quickSelectionMatches(items,'').map(x=>x.key),['show:magic','service:Juggling']);
+  assert.deepEqual(quickSelectionMatches(items,'food'),[]);
+  assert.deepEqual(planQuickSelection(items,[],[food.key]),{error:'unavailable'});
+  assert.deepEqual(planQuickSelection(items,[],[bundle.key]),{error:'unavailable'});
+  assert.deepEqual(planQuickSelection(items,[food.key,bundle.key],[juggling.key]),{keys:[food.key,bundle.key,juggling.key],added:[juggling.key]});
+  assert.deepEqual(planQuickSelection(items,[bundle.key],[magic.key]),{error:'overlap'});
 });
