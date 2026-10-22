@@ -211,6 +211,7 @@ export function mountFinanceDesk(
       ...guestServiceNames(
         state.business.otherShowNames ?? [],
         state.business.hiddenGuestServices ?? [],
+        state.business.slug,
       ).map((n) => [n, catalogueName(state.business, "service:" + n, n)]),
     ] as [string, string][];
   const error = (err: unknown) => {

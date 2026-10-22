@@ -1,3 +1,4 @@
+import {inflatableItem} from './inflatable-catalogue.js';
 import type { Express } from "express";
 import { z } from "zod";
 import type { Store } from "./store.js";
@@ -9,6 +10,7 @@ import { guestServiceNames } from "./guest-services.js";
 import { marketplaceCategoryCards } from "./catalogue-settings.js";
 export const catalogueAppearanceInput = z
   .object({
+    dimensions:z.object({length:z.number().positive().max(1000),width:z.number().positive().max(1000),height:z.number().positive().max(1000)}).strict().nullable().optional(),
     revision: z.number().int().min(0),
     name: z.string().trim().max(100),
     nameFr: z.string().trim().max(100).default(""),
@@ -47,8 +49,9 @@ export function catalogueRoutes(app: Express, store: Store) {
         403,
       );
       const key = String(req.params.key),
-        data = catalogueAppearanceInput.parse(req.body),
-        business = (await store.business(req.business.id))!;
+        data = catalogueAppearanceInput.parse(req.body);
+      const result=await store.transaction(async()=>{
+        const business = (await store.business(req.business.id))!;
       const [kind, ...parts] = key.split(":"),
         id = parts.join(":");
       const valid =
@@ -57,8 +60,9 @@ export function catalogueRoutes(app: Express, store: Store) {
           : kind === "show"
             ? !!(await store.get<Package>(business.id, "packages", id))
             : kind === "service" &&
-              guestServiceNames(business.otherShowNames).includes(id);
+              guestServiceNames(business.otherShowNames,[],business.slug).includes(id);
       requireThat(valid, "Category or service not found.", 404);
+      requireThat(data.dimensions===undefined||!!inflatableItem(id),'Equipment dimensions are for inflatable catalogue items.');
       const before = business.catalogueAppearance?.[key];
       requireThat(
         data.revision === (before?.revision ?? 0),
@@ -85,7 +89,9 @@ export function catalogueRoutes(app: Express, store: Store) {
         before ?? null,
         next,
       );
-      res.json(next);
+      return next;
+      });
+      res.json(result);
     },
   );
 }

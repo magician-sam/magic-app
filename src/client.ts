@@ -1,3 +1,5 @@
+import {inflatableItem,inflatablePhoto,inflatableSearchTerms,inflatableCatalogue} from './inflatable-catalogue.js';
+import {inflatableCard,inflatableSizeBlock} from './inflatables-client.js';
 import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
 import { mountAccounting } from './accounting-workspace.js';
 import { mountFinanceDesk, openCatalogueSellingPrice } from './finance-client.js';
@@ -446,6 +448,10 @@ const guestPhotoGroups = [
   { match: /circus parade/i, photos: [["circus-parade", "Circus parade"]] },
 ] as const;
 function guestBuiltInPhotos(name: string) {
+  const representative:Record<string,string>={'Inflatable Castles':'white-pastel-castle','Inflatable Slides':'sea-slide','Climbing Towers':'climbing-tower','Inflatable Obstacle Courses':'kids-island'};
+  const original=representative[name]?inflatableCatalogue.find(item=>item.id===representative[name]):undefined;
+  if(original)return [{url:inflatablePhoto(original),caption:name}];
+  const equipment=inflatableItem(name);if(equipment)return [{url:inflatablePhoto(equipment),caption:equipment.name}];
   if (/character/i.test(name)) return characterPhotos;
   if (/floral|flower decor|flower arrang/i.test(name)) return [];
   const group = guestPhotoGroups.find((entry) => entry.match.test(name));
@@ -467,6 +473,7 @@ function guestPhotos(name: string) {
   return (cover ? [{url:cover,caption:publicGuestName(name)},...all.filter(p=>p.url!==cover)] : all).slice(0,30);
 }
 function guestBuiltInVideos(name: string) {
+  if(inflatableItem(name))return [];
   return /football|soccer/i.test(name) ? ["/portfolio/guest/football-show-live.mp4"] : [];
 }
 function guestVideos(name: string) {
@@ -796,7 +803,7 @@ function showDetails(p: Package, inline = false) {
   enhanceShowDetail(root, publicShowName(p), "show", p.id);
 }
 function publicGuestName(name: string) { return catalogueName(catalog.business,"service:"+name,name,customerLanguage()); }
-function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices); }
+function moreShowNames() { return guestServiceNames(catalog.business.otherShowNames, catalog.business.hiddenGuestServices,catalog.business.slug); }
 function siteMediaUrl(key: string) {
   return catalog.business.siteMedia?.[key] ?? siteMediaSlots.find((slot) => slot.key === key)?.defaultUrl ?? "";
 }
@@ -913,7 +920,7 @@ function samProfile() {
 function guestCatalogGroups() {
   const names = moreShowNames();
   const party = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
-  const extras = names.filter((name) => !isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
+  const extras = names.filter((name) => !isInflatableService(name)&&!isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
   const styling = names.filter(name => /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name));
   const capture = names.filter(name => /photograph|videograph|video coverage|event film/i.test(name));
   const gifts = names.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
@@ -950,7 +957,7 @@ function mobileMenuMarkup() {
   const partyNames = ["Characters", "Animation", "Carnival Games", "Children's Workshops", "Face Painting & Glitter", "Balloon Twisting", "Clown"];
   const services = moreShowNames();
   const party = services.filter((name) => partyNames.includes(name));
-  const extras = services.filter((name) => !isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
+  const extras = services.filter((name) => !isInflatableService(name)&&!isFoodStationService(name)&&/food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name));
   const styling = services.filter(name => /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name));
   const capture = services.filter(name => /photograph|videograph|video coverage|event film/i.test(name));
   const gifts = services.filter(name => /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name));
@@ -965,7 +972,7 @@ function mobileMenuMarkup() {
     styling.length ? branch("Decoration & flowers", serviceButtons(styling), true) : "",
     capture.length ? branch("Photography & video", serviceButtons(capture), true) : "",
     gifts.length ? branch("Favours & keepsakes", serviceButtons(gifts), true) : "",
-    branch("Inflatables & Attractions",serviceButtons(services.filter(isInflatableService)),true),
+    branch("Inflatables & Attractions",h('<a href="#category/inflatables">Browse all inflatables ↗</a>')+serviceButtons(services.filter(name=>isInflatableService(name)&&!inflatableItem(name))),true),
     branch("Popcorn, Candy & More",serviceButtons(services.filter(isFoodStationService)),true),
     extras.length ? branch("The finishing touches", serviceButtons(extras), true) : "",
     h('<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>'),
@@ -1065,8 +1072,8 @@ function polishVisitorCatalog() {
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
     card.dataset.categoryService = key ?? (show ? show.category + ' ' + publicShowName(show) : '');
-    if(key){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
-    if(key&&selectedRequirementGroups([key]).length&&!card.querySelector('.published-service-price')){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=copy('Price Upon Request');card.querySelector('.show-body')?.append(label);}
+    if(key&&!inflatableItem(key)){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
+    if(key&&!inflatableItem(key)&&selectedRequirementGroups([key]).length&&!card.querySelector('.published-service-price')){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=copy('Price Upon Request');card.querySelector('.show-body')?.append(label);}
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
   const groups = [
@@ -1233,6 +1240,7 @@ function renderPublic() {
   searchEmpty.querySelector('button')!.addEventListener('click',()=>{const input=app.querySelector<HTMLInputElement>('#find-show')!;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));});
   on(app, "#find-show", "input", (ev) => {
     const query = (ev.currentTarget as HTMLInputElement).value.trim();
+    document.body.classList.toggle("catalog-search-active",!!query);
     const cards = [...app.querySelectorAll<HTMLElement>("#shows .show-card, #offers .show-card")];
     const matches=cards.map(card=>{
       const id=card.querySelector<HTMLElement>('[data-show-details]')?.dataset.showDetails;
@@ -1245,7 +1253,7 @@ function renderPublic() {
       for(const [slot,label] of Object.entries(sitePhotoServices))if(name&&matchesMultilingual([label],name)){
         const url=siteMediaUrl(slot);if(url)photoTerms.push(...(catalog.business.photoSearchTags?.[url]??[]));
       }
-      return {card,score:values.length?multilingualMatchScore([...values,...photoTerms,...catalogueSearchTerms(catalog.business,show?"show:"+show.id:"service:"+service)],query):null};
+      return {card,score:values.length?multilingualMatchScore([...values,...photoTerms,...(service&&inflatableItem(service)?inflatableSearchTerms(inflatableItem(service)!,catalog.business.catalogueAppearance?.["service:"+service]):[]),...catalogueSearchTerms(catalog.business,show?"show:"+show.id:"service:"+service)],query):null};
     });
     const exact=matches.some(item=>item.score===0);let found=0;
     for(const {card,score} of matches){card.hidden=score===null||(exact&&score!==0);if(!card.hidden)found++;}
@@ -1310,6 +1318,8 @@ function enquiryLinks(name: string) {
 function serviceEnquiry(name: string) { toggleGuest(name); modal.close(); }
 
 function enquiryCard(name: string) {
+  const equipment=inflatableItem(name);
+  if(equipment)return inflatableCard(equipment,catalog.business,guestPhotos(name),catalog.publicPrices?.find(p=>p.serviceId===name),guestBasket.includes(name));
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
   const hasVideo = guestVideos(name).length > 0;
@@ -1357,16 +1367,17 @@ function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
   const photos = guestPhotos(name);
   const videos = guestVideos(name);
+  const equipment=inflatableItem(name);
   const isActivity = /carnival games?|children.?s workshops?|kids.? workshops?/i.test(name);
   const isDecoration = /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name);
   const isCapture = /photograph|videograph|video coverage|event film/i.test(name);
   const isGift = /favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name);
   const isEventExtra = /food|beverage|f&b|cake|\bdj\b|sound system|audio equipment/i.test(name);
-  const intro = catalogueDescriptionCopy(catalog.business,"service:"+name,experienceFor(name).experience);
+  const intro = catalogueDescriptionCopy(catalog.business,"service:"+name,equipment?'Choose this attraction for your event. We’ll confirm availability, setup and price.':experienceFor(name).experience);
   const gallery = /character/i.test(name)
     ? characterGallery()
     : photos.length
-      ? h`<section><h3>${isGift ? copy("Gift ideas") : isCapture ? copy("Portfolio") : isActivity ? copy("Activity ideas") : isDecoration ? copy("Decoration portfolio") : copy("Past event photos")}</h3><p class="show-demo-note">${isGift ? copy("Examples only. Personalisation and delivery agreed in your quote.") : isCapture ? copy("Portfolio examples. Coverage, delivery and sharing permissions agreed separately.") : isActivity ? copy("Activity ideas. Your final programme is agreed together.") : isDecoration ? copy("Past setups. Your design and materials are agreed in your quote.") : copy("Past performances. Your performer and setup may vary.")}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
+      ? h`<section><h3>${equipment?copy("Equipment photos"):isGift ? copy("Gift ideas") : isCapture ? copy("Portfolio") : isActivity ? copy("Activity ideas") : isDecoration ? copy("Decoration portfolio") : copy("Past event photos")}</h3><p class="show-demo-note">${equipment?copy("Catalogue photo. The final equipment and setup will be confirmed with your quote."):isGift ? copy("Examples only. Personalisation and delivery agreed in your quote.") : isCapture ? copy("Portfolio examples. Coverage, delivery and sharing permissions agreed separately.") : isActivity ? copy("Activity ideas. Your final programme is agreed together.") : isDecoration ? copy("Past setups. Your design and materials are agreed in your quote.") : copy("Past performances. Your performer and setup may vary.")}</p><div class="show-detail-gallery">${photos.map((photo) => zoomableFigure(photo)).join("")}</div></section>`
       : h('<p class="show-media-empty">Tell us your ideas.</p>');
   const publicPrice=catalog.publicPrices?.find(p=>p.serviceId===name);
   const servicePrice=publicPrice&&publicPrice.priceMode!=='quote'?`<p class="published-service-price">${publicPrice.priceMode==='from'?copy('From')+' ':''}${money(publicPrice.price)}${publicPrice.taxApplied?' · '+copy('VAT included'):''}</p>`:selectedRequirementGroups([name]).length?h('<p class="published-service-price">Price Upon Request</p>'):'';
@@ -1374,7 +1385,7 @@ function enquiryDetails(name: string, inline = false) {
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     publicGuestName(name),
-    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Popcorn, Candy & More"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Popcorn, Candy & More"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${equipment?inflatableSizeBlock(equipment,catalog.business,true):""}${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -3170,7 +3181,7 @@ function editContactEntry(customerId: string, entry?: ContactEntry) {
 }
 
 function renderGuestPhotosAdmin(root: Element) {
-  const names = guestServiceNames(state!.business.otherShowNames);
+  const names = guestServiceNames(state!.business.otherShowNames,[],state!.business.slug);
   const visibleHeroPhotos = siteMediaSlots.slice(0, 3).filter((slot) => (state!.business.siteMedia?.[slot.key] ?? slot.defaultUrl) !== "").length;
   const siteCards = siteMediaSlots.map((slot) => {
     const url = state!.business.siteMedia?.[slot.key] ?? slot.defaultUrl;
@@ -3244,7 +3255,7 @@ function editSiteMedia(key: string) {
   });
 }
 function renderGuestShowsAdmin(root: Element) {
-  const names = guestServiceNames(state!.business.otherShowNames);
+  const names = guestServiceNames(state!.business.otherShowNames,[],state!.business.slug);
   const hidden = state!.business.hiddenGuestServices ?? [];
   root.innerHTML = `<section class="panel"><div class="toolbar"><div><h2>Guest shows & party services</h2><p class="muted">Add an act, or remove one from the website. Customers can ask about visible services; you confirm availability and price personally.</p></div><button class="small" id="add-guest-show">＋ Add guest show</button></div><label class="guest-show-search" for="guest-show-search">Find a guest show<input id="guest-show-search" type="search" placeholder="Search by name…" autocomplete="off"></label></section><div class="profile-grid">${names.map((name) => {
     const isHidden = hidden.some((entry) => entry.toLowerCase() === name.toLowerCase());

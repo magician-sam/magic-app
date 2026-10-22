@@ -405,6 +405,7 @@ export function financeRoutes(app: Express, store: Store) {
           guestServiceNames(
             req.business.otherShowNames ?? [],
             req.business.hiddenGuestServices ?? [],
+        req.business.slug,
           ).includes(data.serviceId),
         "Choose an existing service.",
       );

@@ -1,4 +1,5 @@
-export function guestServiceNames(otherShowNames: string[] = [], hidden: string[] = []) {
+import {inflatableCatalogue} from './inflatable-catalogue.js';
+export function guestServiceNames(otherShowNames: string[] = [], hidden: string[] = [], businessSlug?:string) {
   const names = ["Characters", ...otherShowNames.filter((name) => !/character/i.test(name)).map((name) => /^LED Robots$/i.test(name) ? "LED Dancing Suits" : name)];
   for (const [name, match] of [
     ["Animation", /animation/i],
@@ -47,5 +48,6 @@ export function guestServiceNames(otherShowNames: string[] = [], hidden: string[
   ] as const) {
     if (!names.some((existing) => match.test(existing))) names.push(name);
   }
+  if(businessSlug==='magic-by-sam') names.push(...inflatableCatalogue.map(item=>item.service).filter(name=>!names.includes(name)));
   return names.filter((name) => !hidden.some((entry) => entry.toLowerCase() === name.toLowerCase()));
 }

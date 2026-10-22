@@ -1,3 +1,4 @@
+import {mountInflatableBrowser} from './inflatables-client.js';
 import {occasionIllustration} from './discovery-illustrations.js';
 import {mountChristmasMarket} from './christmas-market.js';
 import type {SeasonalTheme} from './seasonal-themes.js';
@@ -212,6 +213,7 @@ export function mountCompactMarketplace({
   emptyCategory.querySelector('button')!.addEventListener('click', () => design(), {signal});
   root.querySelector('#shows')?.prepend(emptyCategory);
   const collections=marketplaceCollections;
+  const paintInflatables=mountInflatableBrowser(root,business,signal);
   let wasFocused = document.body.classList.contains("category-focused");
   function paint(restore = false, navigate = true) {
     const hash = location.hash,
@@ -230,6 +232,8 @@ export function mountCompactMarketplace({
       }
     }
     document.body.classList.toggle("category-focused", active);
+    const inflatableView=page?.key==='inflatables'||hash==='#browse-inflatables';
+    document.body.classList.toggle('inflatables-focused',inflatableView);
     document.body.classList.toggle("offer-focused", !!offerId);
     for (const section of [...main.children] as HTMLElement[]) {
       if (section === routeHeader) continue;
@@ -274,6 +278,7 @@ export function mountCompactMarketplace({
           ),
         );
     }
+    paintInflatables(inflatableView);
     emptyCategory.hidden = !(page?.section === 'shows' && !allCards.some(card => !card.classList.contains('category-excluded')));
     offers?.querySelector(".offer-unavailable")?.remove();
     if (offers && (page?.section === 'offers' || hash === "#offers" || offerId)) {

@@ -1,3 +1,4 @@
+import {inflatableItem,type EquipmentDimensions} from './inflatable-catalogue.js';
 export const marketplaceCategoryCards = [
   [
     "Playgrounds & venues",
@@ -87,6 +88,7 @@ export const marketplaceCategoryCards = [
   ],
 ] as const;
 export interface CatalogueAppearance {
+  dimensions?: EquipmentDimensions | null;
   revision: number;
   name: string;
   nameFr: string;
@@ -104,6 +106,7 @@ export function catalogueName(
   lang = "en",
 ) {
   const v = b.catalogueAppearance?.[key];
+  if(key.startsWith('service:'))fallback=inflatableItem(key.slice(8))?.name??fallback;
   return (
     (lang === "fr" ? v?.nameFr : lang === "ar" ? v?.nameAr : "") ||
     v?.name ||

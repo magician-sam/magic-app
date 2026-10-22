@@ -1,3 +1,4 @@
+import {inflatableItem} from './inflatable-catalogue.js';
 import type { Business } from "./models.js";
 import { catalogueName, catalogueDescription } from "./catalogue-settings.js";
 import { copy, customerLanguage } from "./customer-i18n.js";
@@ -17,6 +18,7 @@ function marked(
   field: "name" | "description",
 ) {
   current = b;
+  if(field==='name'&&key.startsWith('service:'))fallback=inflatableItem(key.slice(8))?.name??fallback;
   const value =
     field === "name"
       ? catalogueName(b, key, fallback, customerLanguage())

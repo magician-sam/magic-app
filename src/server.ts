@@ -429,7 +429,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const valid = kind.startsWith("show_")
       ? (await store.all<Package>(business.id, "packages")).some((item) => item.active && item.id === key)
       : kind.startsWith("service_")
-        ? guestServiceNames(business.otherShowNames, business.hiddenGuestServices).includes(key)
+        ? guestServiceNames(business.otherShowNames, business.hiddenGuestServices,business.slug).includes(key)
         : ["Birthday", "School event", "Wedding", "Corporate event", "Festival", "Christmas"].includes(key);
     requireThat(valid, "Unknown public choice.", 400);
     await store.db.prepare(
@@ -504,7 +504,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       .object({ event: eventSchema.extend({ packageIds: z.array(short.min(1)).max(12), requestedServices: z.array(short.min(1)).max(30).default([]) }), inspiration:inspirationPhotoSchema.optional(), customAnswers: z.unknown().optional() })
       .parse(req.body);
     requireThat(input.event.packageIds.length + input.event.requestedServices.length > 0, "Choose at least one show.");
-    const services = guestServiceNames(business.otherShowNames, business.hiddenGuestServices);
+    const services = guestServiceNames(business.otherShowNames, business.hiddenGuestServices,business.slug);
     requireThat(input.event.requestedServices.every((name) => services.includes(name)), "A selected guest act is unavailable.");
     requireThat(new Set(input.event.requestedServices).size === input.event.requestedServices.length, "Choose each guest act once.");
     requireThat(serviceRequirementsMatch(input.event.serviceRequirements,input.event.requestedServices),'Service details must match the selected services.');
@@ -1363,7 +1363,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       z.object({ action: z.literal("hide"), name: short.min(2).max(80) }),
       z.object({ action: z.literal("restore"), name: short.min(2).max(80) }),
     ]).parse(req.body);
-    const allNames = guestServiceNames(req.business.otherShowNames);
+    const allNames = guestServiceNames(req.business.otherShowNames,[],req.business.slug);
     const existing = allNames.find((name) => name.toLowerCase() === input.name.toLowerCase());
     const hidden = [...(req.business.hiddenGuestServices ?? [])];
     const others = [...(req.business.otherShowNames ?? [])];
@@ -1434,7 +1434,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const req = request as Authed;
     canManage(req);
     const name = String(req.params.name);
-    requireThat(guestServiceNames(req.business.otherShowNames).includes(name), "Show not found", 404);
+    requireThat(guestServiceNames(req.business.otherShowNames,[],req.business.slug).includes(name), "Show not found", 404);
     const id = name.toLocaleLowerCase("en");
     const input = z.object({
       gallery: z.array(z.object({
@@ -2923,7 +2923,7 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
     const kind = String(req.params.kind), key = String(req.params.key);
     requireThat(kind === "show" || kind === "service", "Show page not found", 404);
     const show = kind === "show" ? (await store.all<Package>(business.id, "packages")).find((item) => item.active && item.id === key) : undefined;
-    const service = kind === "service" && guestServiceNames(business.otherShowNames, business.hiddenGuestServices).includes(key);
+    const service = kind === "service" && guestServiceNames(business.otherShowNames, business.hiddenGuestServices,business.slug).includes(key);
     requireThat(show || service, "Show page not found", 404);
     const name = show ? (show.bundleIds?.length ? show.name : ({ magic: "Magic Show", science: "Science Show", bubbles: "Bubble Show" } as Record<string, string>)[show.category.toLowerCase()] ?? show.name) : key;
     const description = (show?.description || experienceFor(name).experience).slice(0, 240);

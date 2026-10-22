@@ -1,3 +1,4 @@
+import {inflatableItem,inflatableDimensions} from './inflatable-catalogue.js';
 import type { Dashboard, Package } from "./models.js";
 import {
   catalogueName,
@@ -98,7 +99,7 @@ export function mountCatalogueEditing(root: Element, o: Options) {
         " " + catalogueName(b, key, id).toLowerCase();
       button.insertAdjacentHTML(
         "beforebegin",
-        `<p data-catalogue-current-price="${e(id)}">Loading price…</p><div class="actions"><button type="button" class="small" data-appearance-key="${e(key)}" data-fallback-name="${e(id)}">Edit name & cover</button><button type="button" class="small outline" data-catalogue-gallery="${e(id)}">Photos & videos</button>${canPrice ? `<button type="button" class="small outline" data-catalogue-price="${e(id)}">Edit price</button>` : ""}</div>`,
+        `<p data-catalogue-current-price="${e(id)}">Loading price…</p><div class="actions"><button type="button" class="small" data-appearance-key="${e(key)}" data-fallback-name="${e(id)}">${inflatableItem(id)?"Edit details & size":"Edit name & cover"}</button><button type="button" class="small outline" data-catalogue-gallery="${e(id)}">Photos & videos</button>${canPrice ? `<button type="button" class="small outline" data-catalogue-price="${e(id)}">Edit price</button>` : ""}</div>`,
       );
     });
   root
@@ -172,6 +173,7 @@ export function mountCatalogueEditing(root: Element, o: Options) {
         ),
     );
   function edit(key: string, fallback: string) {
+    const equipment=inflatableItem(key.slice(8));fallback=equipment?.name??fallback;
     const saved = b.catalogueAppearance?.[key],
       dialog = document.createElement("dialog");
     dialog.className = "finance-dialog catalogue-editor";
@@ -186,8 +188,12 @@ export function mountCatalogueEditing(root: Element, o: Options) {
     ];
     dialog.innerHTML = `<div class="dialog-heading"><h2>Edit ${key.startsWith("category:") ? "category" : "service"}</h2><button type="button" class="close" aria-label="Close category editor">×</button></div><form><p class="form-error" role="alert"></p><div class="finance-form-grid">${fields.map(([field, label]) => `<label>${label}${field.startsWith("description") ? `<textarea name="${field}" aria-label="${label}" maxlength="1500" rows="2">${e(saved?.[field as keyof CatalogueAppearance] ?? "")}</textarea>` : `<input name="${field}" aria-label="${label}" maxlength="${field === "cover" ? 2000 : 100}" value="${e(saved?.[field as keyof CatalogueAppearance] ?? (field === "name" ? fallback : ""))}" placeholder="${field === "name" ? e(fallback) : ""}" ${field === "nameAr" ? 'dir="auto"' : ""}>`}</label>`).join("")}</div><div class="catalogue-cover-preview">${saved?.cover ? `<img src="${e(saved.cover)}" alt="Cover preview">` : ""}</div>${o.state.uploadsEnabled ? '<label>Upload a cover photo<input type="file" name="photo" accept="image/*"></label>' : ""}<p class="catalogue-upload-status" role="status"></p><p class="muted">Blank fields use the original name, description or photo. Existing bookings and links keep working.</p><div class="actions"><button type="submit">Save changes</button><button type="button" class="outline" data-original>Use original</button></div></form>`;
     document.body.append(dialog);
+    const size=equipment?inflatableDimensions(equipment,saved):undefined;
+    let resetDimensions=false;
+    if(equipment)dialog.querySelector('.finance-form-grid')!.insertAdjacentHTML('beforeend',`<fieldset class="wide"><legend>Equipment size (metres)</legend><p>Equipment measurements only. Required safety clearance is confirmed separately. Leave all three empty for Size to confirm.</p>${(['length','width','height'] as const).map(k=>`<label>${k[0].toUpperCase()+k.slice(1)}<input type="number" name="size-${k}" min="0.01" max="1000" step="any" value="${size?.[k]??''}"></label>`).join('')}</fieldset>`);
     const form = dialog.querySelector("form")!,
       cover = form.elements.namedItem("cover") as HTMLInputElement;
+    if(equipment)for(const key of ['length','width','height'])(form.elements.namedItem('size-'+key) as HTMLInputElement).addEventListener('input',()=>{resetDimensions=false;});
     const preview = () => {
       dialog.querySelector(".catalogue-cover-preview")!.innerHTML = cover.value
         ? `<img src="${e(cover.value)}" alt="Cover preview">`
@@ -201,6 +207,7 @@ export function mountCatalogueEditing(root: Element, o: Options) {
     dialog.querySelector("[data-original]")!.addEventListener("click", () => {
       for (const [field] of fields)
         (form.elements.namedItem(field) as HTMLInputElement).value = "";
+      if(equipment){resetDimensions=true;for(const k of ['length','width','height'])(form.elements.namedItem('size-'+k) as HTMLInputElement).value=String(equipment.dimensions?.[k as 'length'|'width'|'height']??'');}
       preview();
     });
     (
@@ -236,6 +243,11 @@ export function mountCatalogueEditing(root: Element, o: Options) {
           data: Record<string, unknown> = { revision: saved?.revision ?? 0 };
         for (const [field] of fields)
           data[field] = String(fd.get(field) ?? "").trim();
+        if(equipment&&!resetDimensions){
+          const values=['length','width','height'].map(k=>String(fd.get('size-'+k)??'').trim());
+          if(values.some(Boolean)&&!values.every(v=>v&&Number(v)>0&&Number(v)<=1000))throw Error('Enter all three positive dimensions, or leave all three empty.');
+          data.dimensions=values.every(Boolean)?{length:Number(values[0]),width:Number(values[1]),height:Number(values[2])}:null;
+        }
         await o.api(
           "/manage/catalogue-appearance/" + encodeURIComponent(key),
           "PUT",
