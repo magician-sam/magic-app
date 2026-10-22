@@ -853,3 +853,10 @@
 .compact-marketplace .discovery-search:has(.quick-selection-tabs) .discovery-intro{text-align:center}
 .compact-marketplace .discovery-search:has(.quick-selection-tabs) form{padding-top:0}
 .quick-select-panel,#quick-normal-results{width:100%;max-width:680px;box-sizing:border-box;margin-inline:auto}
+
+/* Collection entrances retain individual services inside their category and search. */
+body:not(.category-focused):not(.catalog-search-active) .service-collection-items{display:none!important}
+body.category-focused .service-collection-overview,body.catalog-search-active .service-collection-overview{display:none!important}
+.service-collection-overview{max-width:380px;border:1px solid #d8c9e8;border-radius:22px;overflow:hidden;background:var(--surface,#fffdf9);box-shadow:0 8px 20px #3f285408;text-align:center}.service-collection-cover{height:170px;display:block;position:relative;overflow:hidden;background:linear-gradient(135deg,#f7dbef,#e1eac9)}.service-collection-cover img{width:100%;height:100%;object-fit:cover}.service-collection-cover svg{height:130px;max-width:85%;margin:12px auto;display:block}.service-collection-cover span{position:absolute;inset:auto 12px 10px;background:#fffffff0;border-radius:20px;padding:7px 12px;color:#35214a;font-size:12px;font-weight:700}.service-collection-overview>div{padding:18px}.service-collection-overview h3{margin:0 0 8px}.service-collection-overview p{line-height:1.6;font-size:13px}.service-collection-overview .button{width:100%;justify-content:center}@media(max-width:600px){.service-collection-overview{max-width:none}.service-collection-cover{height:145px}}
+
+.compact-marketplace .show-body>button[data-service-options]{display:flex!important;align-items:center;justify-content:center;margin-top:auto;width:100%;min-height:44px}

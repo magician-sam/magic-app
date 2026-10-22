@@ -1,3 +1,4 @@
+import {snapshot,restoreSnapshot} from '../dist/snapshots.js';
 import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
 import {TestStore} from './store-fixture.mjs';import {createApp} from '../dist/server.js';import {createUser} from '../dist/auth.js';
 import {serviceRequirementsSchema,serviceRequirementsMatch} from '../dist/service-requirements-schema.js';
@@ -13,7 +14,7 @@ test('food machines and inflatables have separate discovery, typed inquiries and
   const names=guestServiceNames();assert.equal(names.filter(isInflatableService).length,4);assert.equal(names.filter(isFoodStationService).length,7);
   assert.equal(names.filter(name=>name==='Slush Machine').length,1,'Frisco is an alias of the existing slush offering, not duplicate inventory');
   assert.notEqual(marketplaceCategoryCards.find(c=>c[3]==='food-stations')[2],marketplaceCategoryCards.find(c=>c[3]==='inflatables')[2]);
-  const treats=marketplaceCategoryCards.find(c=>c[3]==='food-stations');assert.equal(treats[0],'Popcorn, Candy & More');assert.equal(treats[2],'#browse-treats');
+  const treats=marketplaceCategoryCards.find(c=>c[3]==='food-stations');assert.equal(treats[0],'Popcorn & more');assert.equal(treats[2],'#browse-treats');
   for(const [, , target] of marketplaceCategoryCards)if(target.startsWith('#browse-'))assert.ok(Object.hasOwn(marketplaceCollections,target),'focused category has an explicit route');
   for(const name of names.filter(isFoodStationService)){assert.equal(marketplaceCollections['#browse-treats'].match.test(name),true);assert.equal(marketplaceCollections['#browse-food'].match.test(name),false);assert.equal(marketplaceCollections['#browse-inflatables'].match.test(name),false);}
   assert.equal(marketplaceCollections['#browse-food'].match.test('Food & Beverages'),true);assert.equal(marketplaceCollections['#browse-food'].match.test('Cakes'),true);
@@ -31,6 +32,27 @@ test('food machines and inflatables have separate discovery, typed inquiries and
   assert.equal(matchesMultilingual(multilingualTerms(['Popcorn Station']),'popcron'),true);
   for(const query of ['frisco','sluch','فريسكو'])assert.equal(matchesMultilingual(multilingualTerms(['Slush Machine']),query),true);
   assert.equal(inspirationPhotoSchema.safeParse({mime:'image/jpeg',data:Buffer.from([255,216,255,1,255,217]).toString('base64')}).success,false,'a JPEG prefix alone is not an image frame');
+});
+
+test('separate service enquiries retain structured specifications privately and reject unrelated options',async()=>{
+ const store=new TestStore(':memory:'),b=await store.createBusiness('Options fixture','options-fixture');
+ await createUser(store,b.id,'options-owner@example.test','Synthetic-options-42!','Test owner');
+ const origin='https://options.test',server=createApp(store,origin).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+ const base='http://127.0.0.1:'+server.address().port;
+ const post=async body=>{const response=await fetch(base+'/api/public/options-fixture/enquiries',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});return{status:response.status,data:await response.json()};};
+ try{
+   const input={service:'Food & Beverages',name:'Fictional parent',phone:'+12025550123',date:'2026-12-10',location:'Synthetic venue',notes:'Fictional enquiry only',serviceRequirements:{catering:{guests:'60',menu:'Vegetarian buffet',dietary:'Discuss nut allergies',timing:'Lunch'}}};
+   const saved=await post(input);assert.equal(saved.status,201);
+   const row=await store.get(b.id,'enquiries',saved.data.id);assert.deepEqual(row.serviceRequirements,input.serviceRequirements);
+   const login=await fetch(base+'/api/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({email:'options-owner@example.test',password:'Synthetic-options-42!'})});const cookie=login.headers.get('set-cookie').split(';')[0];
+   const edit=await fetch(base+'/api/manage/enquiries/'+row.id,{method:'PUT',headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify({...input,revision:0,serviceRequirements:{catering:{guests:'80',menu:'Updated fictional buffet'}}})});assert.equal(edit.status,200);assert.equal((await edit.json()).serviceRequirements.catering.guests,'80');
+   assert.equal(row.status,'new');assert.equal((await store.all(b.id,'bookings')).length,0);
+   assert.equal((await post({...input,serviceRequirements:{inflatables:{surface:'Grass'}}})).status,400);
+   assert.equal((await post({...input,serviceRequirements:{catering:{guests:'-1'}}})).status,400);
+   assert.equal((await post({...input,serviceRequirements:{catering:{guaranteedPrice:'1'}}})).status,400);
+   const publicResponse=await fetch(base+'/api/public/options-fixture');assert.equal((await publicResponse.text()).includes('Vegetarian buffet'),false);
+   const restored=new TestStore(':memory:');try{await restoreSnapshot(restored,await snapshot(store));assert.equal((await restored.get(b.id,'enquiries',saved.data.id)).serviceRequirements.catering.guests,'80');}finally{await restored.db.close();}
+ }finally{await new Promise(r=>server.close(r));await store.db.close();}
 });
 
 test('combined inquiries preserve private requirements and reference image, enforce scope, and invalidate old quotes on scope edits',async()=>{

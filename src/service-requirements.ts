@@ -14,13 +14,41 @@ export const serviceRequirementGroups = [
     {key:'supervision',label:'Supervision arrangement',type:'select',choices:['Please advise','Staff required','Venue staff — needs provider approval']},
     {key:'access',label:'Access, setup & transport details (optional)',type:'textarea'},
   ]},
-  { key:'foodStations',title:'Party machine details',match:/food station|party machine|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream/i,fields:[
+  { key:'foodStations',title:'Popcorn & more details',match:/food station|party machine|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream/i,fields:[
     {key:'serviceMode',label:'Service arrangement',type:'select',choices:['Please advise','Machine rental only','Staffed station with ingredients','Staffed station — ingredients to confirm']},
     {key:'servings',label:'Estimated number of servings (optional)',type:'number'},
     {key:'hours',label:'Serving duration or time window (optional)',type:'text'},
     {key:'dietary',label:'Dietary needs or allergies to discuss (optional)',type:'textarea'},
     {key:'utilities',label:'Water, power & station space (optional)',type:'textarea'},
     {key:'access',label:'Delivery, setup & collection (optional)',type:'textarea'},
+  ]},
+  {key:'catering',title:'Food & beverage details',match:/^(?!.*(?:station|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream)).*(?:food|beverage|f&b)/i,fields:[
+    {key:'guests',label:'Estimated number of guests',type:'number'},
+    {key:'menu',label:'Menu, drinks & serving style',type:'textarea'},
+    {key:'dietary',label:'Dietary needs or allergies to discuss',type:'textarea'},
+    {key:'timing',label:'Serving time & venue facilities',type:'textarea'},
+  ]},
+  {key:'cakes',title:'Cake details',match:/cake/i,fields:[
+    {key:'servings',label:'Estimated number of servings',type:'number'},
+    {key:'design',label:'Theme, colours & design ideas',type:'textarea'},
+    {key:'flavour',label:'Flavour & dietary needs to discuss',type:'textarea'},
+    {key:'delivery',label:'Delivery or collection preferences',type:'text'},
+  ]},
+  {key:'music',title:'Music & sound details',match:/\bdj\b|sound system|audio equipment/i,fields:[
+    {key:'audience',label:'Estimated audience size',type:'number'},
+    {key:'duration',label:'Duration & timing',type:'text'},
+    {key:'style',label:'Music style or sound equipment needed',type:'textarea'},
+    {key:'venue',label:'Indoor or outdoor setup & available power',type:'textarea'},
+  ]},
+  {key:'capture',title:'Photo & video details',match:/photograph|videograph|video coverage|event film/i,fields:[
+    {key:'coverage',label:'Coverage duration & event moments',type:'textarea'},
+    {key:'style',label:'Preferred style & final deliverables',type:'textarea'},
+    {key:'privacy',label:'Image privacy or sharing preferences',type:'textarea'},
+  ]},
+  {key:'gifts',title:'Guest gift details',match:/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i,fields:[
+    {key:'quantity',label:'Estimated quantity',type:'number'},
+    {key:'design',label:'Gift style, theme & personalisation ideas',type:'textarea'},
+    {key:'delivery',label:'Packaging & delivery preferences',type:'textarea'},
   ]},
 ] as const;
 export type ServiceRequirementKind=typeof serviceRequirementGroups[number]['key'];
@@ -30,3 +58,4 @@ export function selectedRequirementGroups(services:readonly string[]){
 }
 export function isInflatableService(name:string){return serviceRequirementGroups[1].match.test(name);}
 export function isFoodStationService(name:string){return serviceRequirementGroups[2].match.test(name);}
+export function serviceNeedsOptions(name:string){return selectedRequirementGroups([name]).length>0;}

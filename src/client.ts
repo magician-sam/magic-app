@@ -42,7 +42,7 @@ import { upload } from "@vercel/blob/client";
 import type { CustomField } from "./custom-fields.js";
 import type { RewardSettings } from "./rewards.js";
 import type { FamilyChild } from "./family-profiles.js";
-import {selectedRequirementGroups,isInflatableService,isFoodStationService,type ServiceRequirements} from './service-requirements.js';
+import {selectedRequirementGroups,isInflatableService,isFoodStationService,serviceNeedsOptions,type ServiceRequirements} from './service-requirements.js';
 import { rewardsDialogContent } from './customer-rewards.js';
 import type { RewardAward } from "./reward-ledger.js";
 import type {
@@ -636,9 +636,10 @@ function enhanceShowDetail(root: ParentNode, name: string, kind: "show" | "servi
   const questions = document.createElement("section");
   questions.className = "show-questions";
   questions.innerHTML = h('<h3>Before you choose</h3><details><summary>Can I combine this with another show?</summary><p>Yes. Add your favourites to the same event box. We review the whole selection together before sending your proposal.</p></details><details><summary>Can we adapt it to our celebration?</summary><p>Tell us about your audience, theme and the feeling you want. We discuss the available options and agree the exact format with you.</p></details><details><summary>When is the booking confirmed?</summary><p>Adding a show or sending a request does not reserve a date. We confirm the arrangements and agreed payment terms with you before confirming your booking.</p></details>');
-  if (/photograph|videograph|video coverage|event film/i.test(name)) questions.innerHTML=h('<h3>Before the first frame</h3><details><summary>Can I choose photography and video together?</summary><p>Yes. Add both to your event box. We agree the team and coverage with you before confirmation.</p></details><details><summary>What photos or videos will I receive?</summary><p>Tell us the coverage and style you want. We agree the edited deliverables, format and delivery schedule in your proposal.</p></details><details><summary>Will my pictures be posted publicly?</summary><p>Publication and image-use permissions are discussed separately from booking. Tell us your preferences, especially for children’s images.</p></details>');
+  if(serviceNeedsOptions(name))questions.innerHTML=h('<h3>Before you choose</h3><details><summary>How do I request this service?</summary><p>Choose the options and tell us your requirements. We review the setup, availability and price before sending a proposal.</p></details><details><summary>Can it be tailored to my event?</summary><p>Share your preferences, guest numbers and venue details. The final specification and any alternatives are agreed with you.</p></details><details><summary>When is the reservation confirmed?</summary><p>An enquiry does not reserve equipment or a date. The booking is confirmed separately after the details and payment terms are agreed.</p></details>');
+  if (/photograph|videograph|video coverage|event film/i.test(name)) questions.innerHTML=h('<h3>Before the first frame</h3><details><summary>Can I choose photography and video together?</summary><p>Yes. Request both in your coverage preferences. We agree the team and coverage with you before confirmation.</p></details><details><summary>What photos or videos will I receive?</summary><p>Tell us the coverage and style you want. We agree the edited deliverables, format and delivery schedule in your proposal.</p></details><details><summary>Will my pictures be posted publicly?</summary><p>Publication and image-use permissions are discussed separately from booking. Tell us your preferences, especially for children’s images.</p></details>');
   if (/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name)) questions.innerHTML=h('<h3>Thoughtful down to the details</h3><details><summary>Can the gifts be personalised?</summary><p>Share the names, date, colours and idea you have in mind. We confirm the available options and ask you to approve spelling and design before production.</p></details><details><summary>How many should I order?</summary><p>Tell us whether you want one per guest, child or family. Quantity, packaging, lead time and delivery are agreed before confirmation.</p></details><details><summary>Can I order only the guest gifts?</summary><p>Yes. You can request keepsakes on their own or combine them with decoration, flowers and other services.</p></details>');
-  const extras = (/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name) ? ["Floral Decoration", "Balloon Decoration", "Photography"] : /photograph|videograph|video coverage|event film/i.test(name) ? ["Photography", "Videography", "Decoration"] : /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name) ? ["Decoration", "Balloon Decoration", "Floral Decoration"] : kind === "show" ? ["Characters", "Face Painting & Glitter", "Decoration"] : ["Balloon Twisting", "Animation", "Characters"]).filter((service) => service !== name && moreShowNames().includes(service));
+  const extras = (serviceNeedsOptions(name)?[]:/favou?rs?|keepsakes?|giveaways?|guest gifts?|souvenirs?/i.test(name) ? ["Floral Decoration", "Balloon Decoration", "Photography"] : /photograph|videograph|video coverage|event film/i.test(name) ? ["Photography", "Videography", "Decoration"] : /decoration|balloon decor|balloons? styling|event styling|floral|flower decor|flower arrang/i.test(name) ? ["Decoration", "Balloon Decoration", "Floral Decoration"] : kind === "show" ? ["Characters", "Face Painting & Glitter", "Decoration"] : ["Balloon Twisting", "Animation", "Characters"]).filter((service) => service !== name && moreShowNames().includes(service));
   if (extras.length) questions.insertAdjacentHTML("beforeend", h`<h4>Explore a little extra</h4><div class="related-extras">${extras.map((service) => h`<a href="${e(detailPageLink("service", service))}">${copy(service)} ↗</a>`).join("")}</div>`);
   detail.querySelector(".show-detail-footer")?.before(questions);
   const share = document.createElement("div");
@@ -958,13 +959,17 @@ function guestCatalogGroups() {
     { id: "party-shows", title: "Characters & party fun", names: names.filter((name) => party.includes(name)) },
     { id: "special-acts", title: "Big moments & special acts", names: names.filter((name) => !party.includes(name) && !extras.includes(name) && !styling.includes(name) && !capture.includes(name) && !gifts.includes(name) && !inflatables.includes(name) && !foodStations.includes(name)) },
     { id:"inflatables",title:"Inflatables & Attractions",names:inflatables },
-    { id:"party-machines",title:"Popcorn, Candy & More",names:foodStations },
+    { id:"party-machines",title:"Popcorn & more",names:foodStations },
     { id: "event-styling", title: "Decoration & flowers", names: styling },
     { id: "photography-video", title: "Photography & video", names: capture },
     { id: "favours-keepsakes", title: "Favours & keepsakes", names: gifts },
     { id: "event-extras", title: "The finishing touches", names: extras },
   ];
-  return groups.filter((group) => group.names.length).map((group) => h`<section class="show-group" id="${group.id}"><h3>${copy(group.title)}</h3><div class="cards">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
+  return groups.filter((group) => group.names.length).map((group) => h`<section class="show-group" id="${group.id}"><h3>${copy(group.title)}</h3>${["inflatables","party-machines"].includes(group.id)?serviceCollectionCard(group.id,group.title,group.names):""}<div class="cards${["inflatables","party-machines"].includes(group.id)?" service-collection-items":""}">${group.names.map(enquiryCard).join("")}</div></section>`).join("");
+}
+function serviceCollectionCard(id:string,title:string,names:string[]){
+  const photo=names.flatMap(guestPhotos)[0];const target=id==='inflatables'?'inflatables':'food-stations';
+  return h`<article class="service-collection-overview"><a class="service-collection-cover" href="#category/${target}">${photo?h`<img src="${e(photo.url)}" alt="" loading="lazy">`:serviceArtwork(names[0])}<span>${copy('Explore the collection')} ↗</span></a><div><h3>${copy(title)}</h3><p>${copy(id==='inflatables'?'Choose an attraction, compare sizes and tell us about your space.':'Popcorn, cotton candy, crêpes, slush & more. Choose your station and serving options.')}</p><a class="button outline" href="#category/${target}">${copy('View options')} ↗</a></div></article>`;
 }
 function adultMagicFeature() {
   const show = catalog.packages.find((p) => p.active && !p.bundleIds?.length && p.category.toLowerCase() === "magic");
@@ -1002,7 +1007,7 @@ function mobileMenuMarkup() {
     capture.length ? branch("Photography & video", serviceButtons(capture), true) : "",
     gifts.length ? branch("Favours & keepsakes", serviceButtons(gifts), true) : "",
     branch("Inflatables & Attractions",h('<a href="#category/inflatables">Browse all inflatables ↗</a>')+serviceButtons(services.filter(name=>isInflatableService(name)&&!inflatableItem(name))),true),
-    branch("Popcorn, Candy & More",serviceButtons(services.filter(isFoodStationService)),true),
+    branch("Popcorn & more",serviceButtons(services.filter(isFoodStationService)),true),
     extras.length ? branch("The finishing touches", serviceButtons(extras), true) : "",
     h('<a class="mobile-menu-leaf" href="#shows"><span>Browse all shows on the page</span><b aria-hidden="true">↗</b></a>'),
   ].join("");
@@ -1101,7 +1106,7 @@ function polishVisitorCatalog() {
     const show = catalog.packages.find(p => p.id === id);
     const name = key ?? (show ? publicShowName(show) : "");
     card.dataset.categoryService = key ?? (show ? show.category + ' ' + publicShowName(show) : '');
-    if(key&&!inflatableItem(key)){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest]');if(add)add.before(label);else body?.append(label);}}
+    if(key&&!inflatableItem(key)){const published=catalog.publicPrices?.find(row=>row.serviceId===key);if(published&&published.priceMode!=='quote'){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=(published.priceMode==='from'?copy('From')+' ':'')+e(money(published.price))+(published.taxApplied?' · '+copy('VAT included'):'');const body=card.querySelector('.show-body');const add=body?.querySelector('[data-add-guest],[data-service-options]');if(add)add.before(label);else body?.append(label);}}
     if(key&&!inflatableItem(key)&&selectedRequirementGroups([key]).length&&!card.querySelector('.published-service-price')){const label=document.createElement('p');label.className='published-service-price';label.innerHTML=copy('Price Upon Request');card.querySelector('.show-body')?.append(label);}
     card.dataset.experienceTheme = experienceFor(name).theme;
   });
@@ -1110,7 +1115,7 @@ function polishVisitorCatalog() {
     ["special-acts", "Special acts"], ["event-styling", "Decoration & flowers"],
     ["photography-video", "Photography & video"], ["favours-keepsakes", "Favours & keepsakes"],
     ["event-extras", "Food, cakes & music"],
-    ["inflatables","Inflatables & Attractions"],["party-machines","Popcorn, Candy & More"],
+    ["inflatables","Inflatables & Attractions"],["party-machines","Popcorn & more"],
   ];
   for (const [id, title] of groups) {
     const group = app.querySelector<HTMLElement>(`#${id}`);
@@ -1342,13 +1347,28 @@ function renderPublic() {
 function enquiryLinks(name: string) {
   const phone = catalog.business.whatsapp?.replace(/\D/g, "").replace(/^00/, "") ?? "";
   const help = /^\d{7,16}$/.test(phone) ? h`<a class="button outline small" href="https://wa.me/${e(phone)}?text=${encodeURIComponent(`Hello! I’d like help with ${name} for my event. I’m looking at ${detailPageLink("service", name)}`)}" target="_blank" rel="noopener noreferrer">Ask about this service ↗</a>` : "";
-  return h`<button type="button" data-service-enquiry="${e(name)}">${guestBasket.includes(name) ? "✓ In your event box · remove" : copy("＋ Add to my event")}</button>${help}`;
+  return h`<button type="button" data-service-enquiry="${e(name)}">${serviceNeedsOptions(name)?copy("Choose options & enquire"):guestBasket.includes(name) ? "✓ In your event box · remove" : copy("＋ Add to my event")}</button>${help}`;
 }
-function serviceEnquiry(name: string) { toggleGuest(name); modal.close(); }
+function serviceEnquiry(name: string) {
+  if(!serviceNeedsOptions(name)){toggleGuest(name);modal.close();return;}
+  openDialog(publicGuestName(name),formBody([
+    ...requirementFields([name]),
+    {key:'name',label:'Your name',required:true},
+    {key:'phone',label:'Phone / WhatsApp with country code',type:'tel',required:true},
+    {key:'date',label:'Event date',type:'date'},
+    {key:'location',label:'Area or venue',wide:true},
+    {key:'notes',label:'Other requirements or questions',type:'textarea',wide:true},
+  ],h('<p>Choose your preferences. We will review the specifications, availability and price with you. This is a separate service enquiry, not a confirmed reservation.</p>'),'Send service enquiry →'));
+  submit(modal.querySelector('form')!,async data=>{
+    const notes=String(data.get('notes')??'').trim();if(notes.length>1500)throw Error(t('Please keep your notes under 1,500 characters.'));
+    await api('/public/'+encodeURIComponent(catalog.business.slug)+'/enquiries','POST',{service:name,name:String(data.get('name')),phone:String(data.get('phone')),date:String(data.get('date')??''),location:String(data.get('location')??''),notes,serviceRequirements:readRequirements(data,[name])});
+    modal.close();notify('Your service enquiry was sent. We will confirm the details and price with you.');
+  });
+}
 
 function enquiryCard(name: string) {
   const equipment=inflatableItem(name);
-  if(equipment)return inflatableCard(equipment,catalog.business,guestPhotos(name),catalog.publicPrices?.find(p=>p.serviceId===name),guestBasket.includes(name));
+  if(equipment)return inflatableCard(equipment,catalog.business,guestPhotos(name),catalog.publicPrices?.find(p=>p.serviceId===name));
   const characters = /character/i.test(name);
   const photos = characters ? characterPhotos : guestPhotos(name);
   const hasVideo = guestVideos(name).length > 0;
@@ -1390,7 +1410,7 @@ function enquiryCard(name: string) {
     [/robot/i, "🤖"],
     [/animation/i, "🎉"],
   ] as const).find(([match]) => match.test(name))?.[1] ?? "✦";
-  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(isInflatableService(name)?"Attractions · by request":isFoodStationService(name)?"Food stations · by request":serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${catalogueNameCopy(catalog.business,"service:"+name,name)}</button></h3><p>${specialDescription}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" data-enquiry-details="${e(name)}">See details</button><button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button></div></article>`;
+  return h`<article ${name === "Characters" ? 'id="characters"' : ""} class="show-card" data-guest-name="${e(name.toLocaleLowerCase())}"><button type="button" class="show-art other${photos.length ? " has-cover" : ""}" data-enquiry-details="${e(name)}" aria-label="Explore ${e(name)}">${photos.length ? h`<img class="show-cover" src="${e(photos[0].url)}" alt="" loading="lazy">` : serviceArtwork(name) || h`<span class="art-icon" aria-hidden="true">${icon}</span>`}<span class="show-art-label">Explore this service ↗</span></button><div class="show-body"><span class="eyebrow">${copy(isInflatableService(name)?"Attractions · by request":isFoodStationService(name)?"Food stations · by request":serviceType)}</span><h3><button type="button" class="show-title" data-enquiry-details="${e(name)}">${catalogueNameCopy(catalog.business,"service:"+name,name)}</button></h3><p>${specialDescription}</p>${photos.length || hasVideo ? h`<p class="show-media-note">${photos.length ? copy(`${photos.length} portfolio ${photos.length === 1 ? "photo" : "photos"}`) : ""}${hasVideo ? `${photos.length ? " · " : ""}${copy("Video")}` : ""}</p>` : ""}<button type="button" class="outline" ${serviceNeedsOptions(name)?'data-service-options="true"':""} data-enquiry-details="${e(name)}">${copy(serviceNeedsOptions(name)?"View options":"See details")}</button>${serviceNeedsOptions(name)?"":h`<button type="button" class="${guestBasket.includes(name) ? "secondary" : "outline"}" data-add-guest="${e(name)}">${guestBasket.includes(name) ? copy("✓ In your event box") : copy("＋ Add to my event")}</button>`}</div></article>`;
 }
 function enquiryDetails(name: string, inline = false) {
   if (!inline) trackInterest("service_open", name);
@@ -1414,7 +1434,7 @@ function enquiryDetails(name: string, inline = false) {
     ? h('<button type="button" id="choose-character" class="outline">Choose a character ↗</button>') : '';
   presentShowDetail(
     publicGuestName(name),
-    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Popcorn, Candy & More"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${equipment?inflatableSizeBlock(equipment,catalog.business,true):""}${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
+    h`<div class="show-detail"><p class="eyebrow">${isInflatableService(name)?copy("Inflatables & Attractions"):isFoodStationService(name)?copy("Popcorn & more"):isGift ? copy("Favours & keepsakes") : isCapture ? copy("Photography & video") : isDecoration ? copy("Event styling") : isActivity ? copy("Games & workshops") : isEventExtra ? copy("Event services") : copy("Guest entertainment")} · by request</p><p>${intro}</p>${equipment?inflatableSizeBlock(equipment,catalog.business,true):""}${servicePrice}<div class="show-detail-cta">${enquiryLinks(name)}${characterChoice}</div>${gallery}${videos.length ? h`<section><h3>Videos</h3><div class="show-video-gallery">${videos.map((link, index) => videoTile(link, name, index, link.startsWith("/portfolio/guest/") ? "/portfolio/guest/football-stage-live.jpg" : undefined)).join("")}</div></section>` : ""}<div class="show-detail-footer">${enquiryLinks(name)}</div></div>`,
     inline,
   );
   const root = inline ? app : modal;
@@ -2700,9 +2720,10 @@ function renderDashboard() {
   mountBackstageWorkspace(app, currentView);
   wireStudio();
 }
+function serviceOptionsSummary(service:string,requirements?:ServiceRequirements){return selectedRequirementGroups([service]).map(group=>{const answers=requirements?.[group.key];return answers?'<h4>'+e(group.title)+'</h4><dl>'+group.fields.filter(f=>answers[f.key]).map(f=>'<dt>'+e(f.label)+'</dt><dd>'+e(answers[f.key])+'</dd>').join('')+'</dl>':'';}).join('');}
 function renderEnquiries(root: Element, showArchived = false) {
   const enquiries = [...state!.enquiries].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  root.innerHTML = `<p class="hint">These are enquiries, not confirmed bookings. Archive keeps a request for later; permanent deletion removes it.</p><div class="actions"><button id="enquiry-archive-filter" class="outline small">${showArchived ? "Show active enquiries" : "Show archived enquiries"} (${enquiries.filter((item) => showArchived ? !item.archivedAt : !!item.archivedAt).length})</button></div>${enquiries.filter((item) => !!item.archivedAt === showArchived).map((item) => `<article class="panel service-enquiry"><div class="section-heading"><div><span class="eyebrow">${e(item.archivedAt ? "Archived" : item.status === "new" ? "New enquiry" : "Handled")}</span><h3>${e(item.service)}</h3></div><small>${e(new Date(item.createdAt).toLocaleString("en-GB"))}</small></div><p><strong>${e(item.name)}</strong> · <a href="tel:${e(item.phone.replace(/[^\d+]/g, ""))}">${e(item.phone)}</a></p>${item.date || item.location ? `<p>${item.date ? e(day(item.date)) : "Date to confirm"} · ${e(item.location || "Location to confirm")}</p>` : ""}${item.notes ? `<p>${e(item.notes)}</p>` : ""}<div class="actions"><button class="outline small" data-enquiry-edit="${e(item.id)}">Open / Edit</button>${item.status === "new" && !item.archivedAt ? `<button class="outline small" data-enquiry-contacted="${e(item.id)}">Mark handled</button>` : ""}<button class="outline small" data-enquiry-archive="${e(item.id)}">${item.archivedAt ? "Restore" : "Archive"}</button>${["owner", "admin"].includes(state!.user.role) ? `<button class="danger small" data-enquiry-remove="${e(item.id)}">Delete permanently</button>` : ""}</div></article>`).join("") || empty(showArchived ? "No archived enquiries" : "No active enquiries", "Service requests appear here when visitors contact you.")}`;
+  root.innerHTML = `<p class="hint">These are enquiries, not confirmed bookings. Archive keeps a request for later; permanent deletion removes it.</p><div class="actions"><button id="enquiry-archive-filter" class="outline small">${showArchived ? "Show active enquiries" : "Show archived enquiries"} (${enquiries.filter((item) => showArchived ? !item.archivedAt : !!item.archivedAt).length})</button></div>${enquiries.filter((item) => !!item.archivedAt === showArchived).map((item) => `<article class="panel service-enquiry"><div class="section-heading"><div><span class="eyebrow">${e(item.archivedAt ? "Archived" : item.status === "new" ? "New enquiry" : "Handled")}</span><h3>${e(item.service)}</h3></div><small>${e(new Date(item.createdAt).toLocaleString("en-GB"))}</small></div><p><strong>${e(item.name)}</strong> · <a href="tel:${e(item.phone.replace(/[^\d+]/g, ""))}">${e(item.phone)}</a></p>${item.date || item.location ? `<p>${item.date ? e(day(item.date)) : "Date to confirm"} · ${e(item.location || "Location to confirm")}</p>` : ""}${item.notes ? `<p>${e(item.notes)}</p>` : ""}${serviceOptionsSummary(item.service,item.serviceRequirements)}<div class="actions"><button class="outline small" data-enquiry-edit="${e(item.id)}">Open / Edit</button>${item.status === "new" && !item.archivedAt ? `<button class="outline small" data-enquiry-contacted="${e(item.id)}">Mark handled</button>` : ""}<button class="outline small" data-enquiry-archive="${e(item.id)}">${item.archivedAt ? "Restore" : "Archive"}</button>${["owner", "admin"].includes(state!.user.role) ? `<button class="danger small" data-enquiry-remove="${e(item.id)}">Delete permanently</button>` : ""}</div></article>`).join("") || empty(showArchived ? "No archived enquiries" : "No active enquiries", "Service requests appear here when visitors contact you.")}`;
   on(root, "#enquiry-archive-filter", "click", () => renderEnquiries(root, !showArchived));
   on(root, "[data-enquiry-contacted]", "click", async (event) => {
     const key = (event.currentTarget as HTMLElement).dataset.enquiryContacted!;
@@ -2727,7 +2748,7 @@ function renderEnquiries(root: Element, showArchived = false) {
       { key: "location", label: "Location", value: item.location },
       { key: "notes", label: "Enquiry details", type: "textarea", value: item.notes, wide: true },
     ];
-    openDialog("Edit service enquiry", formBody(fields, '<p class="privacy">Editing this request does not create a booking or send a message.</p>', "Save enquiry"));
+    openDialog("Edit service enquiry", formBody(fields, '<p class="privacy">Editing this request does not create a booking or send a message.</p><div data-enquiry-options>'+requirementForm([item.service],item.serviceRequirements)+'</div>', "Save enquiry"));
     submit(modal.querySelector("form")!, async (data) => {
       await api(`/manage/enquiries/${key}`, "PUT", { ...formValues(data, fields), revision: item.revision ?? 0 });
       modal.close();

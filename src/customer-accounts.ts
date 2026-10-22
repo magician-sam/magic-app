@@ -75,6 +75,7 @@ export function customerAccounts(
         rememberMe: z.boolean().default(false),
         agreement: agreementAcceptance.optional(),
         supplierTypes:supplierSelections.optional(),
+        supplierBio:z.string().trim().max(4000).default(''),
         username: z
           .string()
           .trim()
@@ -84,6 +85,7 @@ export function customerAccounts(
         referralCode: z.string().max(64).default(""),
       })
       .parse(req.body);
+    if(supplierSignup&&input.supplierTypes?.includes('artist'))requireThat(input.supplierBio.length>=20,'Tell us about your artist work in at least 20 characters.');
     const referrerId = await resolveReferral(store, b.id, input.referralCode);
     requireThat(
       referrerId !== null,
@@ -95,7 +97,7 @@ export function customerAccounts(
     const customerId = id();
     await store.transaction(async () => {
       await acceptRegistrationAgreement(store,b.id,accountId,supplierSignup?'supplier':'customer',input.agreement,supplierSignup);
-      if(supplierSignup)await createSupplierApplication(store,b.id,accountId,{name:input.name,phone:input.phone,email:input.email??''},input.supplierTypes);
+      if(supplierSignup)await createSupplierApplication(store,b.id,accountId,{name:input.name,phone:input.phone,email:input.email??'',bio:input.supplierBio},input.supplierTypes);
       requireThat(
         !(await store.db
           .prepare(

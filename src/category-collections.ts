@@ -5,7 +5,7 @@ export const marketplaceCollections:Readonly<Record<string,{title:string;match:R
   '#browse-food':{title:'Food & cakes',match:/^(?!.*(?:food station|party machine|popcorn|cotton candy|hot dog|cr[eê]pe|slush|soft serve|rolled ice cream)).*(?:food|beverage|cake)/i},
   '#browse-science':{title:'Science & workshops',match:/Science|Workshop/i},
   '#browse-inflatables':{title:'Inflatables & Attractions',match:/inflatabl|climbing tower|obstacle course/i},
-  '#browse-treats':{title:'Popcorn, Candy & More',match:treats},
-  '#browse-party-machines':{title:'Popcorn, Candy & More',match:treats},
-  '#browse-food-stations':{title:'Popcorn, Candy & More',match:treats},
+  '#browse-treats':{title:'Popcorn & more',match:treats},
+  '#browse-party-machines':{title:'Popcorn & more',match:treats},
+  '#browse-food-stations':{title:'Popcorn & more',match:treats},
 };

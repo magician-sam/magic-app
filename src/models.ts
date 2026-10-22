@@ -238,6 +238,7 @@ export interface Referral {
   note: string;
 }
 export interface ServiceEnquiry {
+  serviceRequirements?: import('./service-requirements.js').ServiceRequirements;
   revision?: number;
   archivedAt?: string;
   updatedAt?: string;

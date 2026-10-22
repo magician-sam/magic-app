@@ -4,7 +4,7 @@ import { financeRoutes, publicFinancePrices } from './finance-routes.js';
 import { FinanceValidationError } from './finance-math.js';
 import { playtown } from './playtown.js';
 import { guestServiceNames } from "./guest-services.js";
-import {serviceRequirementsMatch} from './service-requirements-schema.js';
+import {serviceRequirementsSchema,serviceRequirementsMatch} from './service-requirements-schema.js';
 import {inspirationPhotoSchema,type InspirationPhoto} from './event-inspiration.js';
 import { catalogueRoutes } from "./catalogue-routes.js";
 import { whatsappHistory } from "./whatsapp-history.js";
@@ -450,7 +450,9 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       date: z.union([date, z.literal("")]).default(""),
       location: short.max(240).default(""),
       notes: z.string().trim().max(1500).default(""),
+      serviceRequirements:serviceRequirementsSchema.optional(),
     }).parse(req.body);
+    requireThat(serviceRequirementsMatch(input.serviceRequirements,[input.service]),"Choose options for the requested service only.");
     const enquiry: ServiceEnquiry = {
       ...input,
       id: id(),
@@ -1223,10 +1225,13 @@ export function createApp(store: Store, origin = "http://localhost:3000", resetM
       service: short.min(2).max(100), name: short.min(2).max(120),
       phone: customerSchema.shape.phone, date: z.union([date, z.literal("")]),
       location: short.max(240), notes: z.string().trim().max(1500),
+      serviceRequirements:serviceRequirementsSchema.optional(),
       revision: z.number().int().min(0),
     }).parse(req.body);
     requireThat(input.revision === (old.revision ?? 0), "This enquiry changed. Refresh before saving.", 409);
-    res.json(await writeRecord(req, "enquiries", { ...old, ...input, revision: input.revision + 1, updatedAt: new Date().toISOString() }, "edited"));
+    const requirements=input.serviceRequirements??(input.service===old.service?old.serviceRequirements:undefined);
+    requireThat(serviceRequirementsMatch(requirements,[input.service]),"Choose options for the requested service only.");
+    res.json(await writeRecord(req, "enquiries", { ...old, ...input,serviceRequirements:requirements, revision: input.revision + 1, updatedAt: new Date().toISOString() }, "edited"));
   });
   writes.post("/api/manage/enquiries/:id/archive", async (request, res) => {
     const req = request as Authed;

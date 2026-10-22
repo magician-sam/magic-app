@@ -7,21 +7,23 @@ test('supplier signup, private services/photos, identity review and availability
  const origin='https://supplier.test',server=createApp(store,origin).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base='http://127.0.0.1:'+server.address().port;
  const request=async(path,method='GET',body,cookie='')=>{const r=await fetch(base+'/api'+path,{method,headers:{origin,'content-type':'application/json',cookie},body:body===undefined?undefined:JSON.stringify(body)});return{status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};};
  const login=async email=>(await request('/login','POST',{email,password})).cookie;
- const applicant={name:'Fictional artist and venue',phone:'+12025550123',email:'supplier@example.test',password,username:'test-supplier',offersConsent:false,supplierTypes:['artist','venue']};
+ const applicant={name:'Fictional artist and venue',phone:'+12025550123',email:'supplier@example.test',password,username:'test-supplier',offersConsent:false,supplierTypes:['artist','venue'],supplierBio:'Fictional stage artist with family-friendly juggling and circus experience.'};
  try{
   const owner=await login('owner@example.test'),foreign=await login('other@example.test'),manager=await login('manager@example.test');
   const current='/supplier/supplier-test';assert.equal((await request(current+'/register','POST',applicant)).status,503);
   assert.equal(Number((await store.db.prepare('SELECT count(*) AS n FROM customer_accounts').get()).n),0);
   const details={audience:'supplier',operator:'Synthetic Supplier Operator',address:'Fictional test address',contact:'test@example.test',texts:Object.fromEntries(['en','fr','ar'].map(lang=>[lang,{summary:'Synthetic registration summary '+lang+' for testing only.',terms:'Fictional local supplier terms only. '.repeat(5),privacy:'Fictional local privacy notice only. '.repeat(5)}]))};
   await request('/manage/registration-agreements/supplier','PUT',{revision:0,details},owner);const version=(await request('/manage/registration-agreements/supplier/publish','POST',{revision:1,reviewConfirmed:true},owner)).data.id;
+  const missingBio=await request(current+'/register','POST',{...applicant,username:'missing_bio',supplierBio:'',agreement:{version,language:'en',accepted:true}});assert.equal(missingBio.status,400);
   const register=async(username,types=['artist','venue'])=>request(current+'/register','POST',{...applicant,username,supplierTypes:types,agreement:{version,language:'en',accepted:true}});
   const first=await register('test-supplier');assert.equal(first.status,201);const second=await register('other-supplier',['food']);assert.equal(second.status,201);
   const cookie=first.cookie,secondCookie=second.cookie;let profile=(await request(current+'/me','GET',undefined,cookie)).data.profile;const supplierId=profile.id;
-  assert.equal(profile.identityStatus,'pending');assert.equal(profile.source,'self');assert.equal((await request(current+'/me')).status,401);
+  assert.equal(profile.bio,applicant.supplierBio);assert.equal(profile.identityStatus,'pending');assert.equal(profile.source,'self');assert.equal((await request(current+'/me')).status,401);
   assert.equal((await request('/supplier/supplier-other/me','GET',undefined,cookie)).status,401);
   assert.equal((await request('/manage/supplier-applications','GET',undefined,manager)).status,403);assert.equal((await request('/manage/supplier-applications','GET',undefined,foreign)).data.applications.length,0);
-  const ownDetails={name:profile.name,contactName:'Fictional contact',phone:profile.phone,email:profile.email,area:'Synthetic city',address:'',bio:'Fictional biography',types:profile.types,services:[{id:randomUUID(),type:'artist',name:'Synthetic show',description:'Fictional show',priceMode:'suggested',suggestedFee:150,currency:'USD',tax:'unknown',duration:45,notes:'Test travel'}]};
+  const ownDetails={name:profile.name,contactName:'Fictional contact',phone:profile.phone,email:profile.email,area:'Synthetic city',address:'',bio:'Fictional artist biography with circus experience',types:profile.types,services:[{id:randomUUID(),type:'artist',name:'Synthetic show',description:'Fictional show',priceMode:'suggested',suggestedFee:150,currency:'USD',tax:'unknown',duration:45,notes:'Test travel'}]};
   assert.equal((await request(current+'/profile','PUT',{revision:1,details:{...ownDetails,identityStatus:'approved'}},cookie)).status,400);
+  assert.equal((await request(current+'/profile','PUT',{revision:1,details:{...ownDetails,bio:''}},cookie)).status,400);
   const raced=await Promise.all([request(current+'/profile','PUT',{revision:1,details:ownDetails},cookie),request(current+'/profile','PUT',{revision:1,details:ownDetails},cookie)]);assert.deepEqual(raced.map(r=>r.status).sort(),[200,409]);profile=(await request(current+'/me','GET',undefined,cookie)).data.profile;assert.equal(profile.services[0].suggestedFee,150);
   const image={mime:'image/jpeg',data:(await readFile(new URL('../public/portfolio/sam-magic-live-1.jpg',import.meta.url))).toString('base64')};
   const uploaded=await request(current+'/photos','POST',{revision:profile.revision,photo:image,caption:'App-owned synthetic test',permissionNote:'Owned app asset, local test only'},cookie);assert.equal(uploaded.status,201);profile=uploaded.data;
