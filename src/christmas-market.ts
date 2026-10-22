@@ -1,5 +1,7 @@
 import {h, setCopy} from './customer-i18n.js';
 import {defaultSeasonalTheme,effectiveTheme,isThemeKey,themePresets,type SeasonalTheme} from './seasonal-themes.js';
+import {christmasCompanions} from './christmas-companions.js';
+import {festivePosition} from './festive-position.js';
 
 let lifecycle: AbortController | undefined;
 const dismissalKey = 'magic-app:christmas-companions:2026';
@@ -9,28 +11,6 @@ export function christmasMarketActive(now = new Date()) {
   return effectiveTheme(defaultSeasonalTheme(),now)==='christmas';
 }
 
-// Original small vector characters. No remote image, animation library or tracking.
-const companions = `<svg viewBox="0 0 190 95" aria-hidden="true" focusable="false">
-  <ellipse cx="55" cy="88" rx="33" ry="3" fill="#092d2330"/><ellipse cx="145" cy="88" rx="30" ry="3" fill="#092d2330"/>
-  <g class="cm-santa">
-    <path d="M32 52Q14 38 16 66Q18 80 34 75" fill="#ad864a"/><path d="m24 44 5 8" stroke="#e9cd8b" stroke-width="3"/>
-    <g class="cm-leg cm-leg-a"><path d="M45 69v14h-9" fill="none" stroke="#a92236" stroke-width="10" stroke-linecap="round"/><path d="M45 84H34" stroke="#223932" stroke-width="7" stroke-linecap="round"/></g>
-    <g class="cm-leg cm-leg-b"><path d="M61 69v14h8" fill="none" stroke="#b9273e" stroke-width="10" stroke-linecap="round"/><path d="M61 84h12" stroke="#223932" stroke-width="7" stroke-linecap="round"/></g>
-    <path d="M36 49Q53 39 67 50l4 22Q52 81 32 71Z" fill="#d43e4e"/><path d="M33 70q20 7 38 0" fill="none" stroke="#fff4df" stroke-width="6"/><path d="M33 62h37" stroke="#273d34" stroke-width="6"/><rect x="48" y="58" width="10" height="8" rx="1" fill="#e6ba5f"/><rect x="51" y="60" width="4" height="4" fill="#273d34"/>
-    <g class="cm-wave"><path d="m66 50 10 5 6-12" fill="none" stroke="#cb3447" stroke-width="9" stroke-linecap="round"/><path d="m80 45 3-7" stroke="#fff4df" stroke-width="10" stroke-linecap="round"/><ellipse cx="84" cy="36" rx="6" ry="7" fill="#dbb071"/></g>
-    <circle cx="53" cy="33" r="16" fill="#f4c6a2"/><path d="M37 33Q33 57 53 58Q73 55 69 33l-8 10-8-2-9 2Z" fill="#fff5e4"/><ellipse cx="55" cy="37" rx="5" ry="4" fill="#eaaa89"/><circle cx="47" cy="30" r="1.6" fill="#263d34"/><circle cx="60" cy="30" r="1.6" fill="#263d34"/><path d="M50 48q4 4 8-1" fill="none" stroke="#a84e4e" stroke-width="1.6" stroke-linecap="round"/>
-    <path d="M37 22Q40 0 59 9l13 11-14-2Z" fill="#cf3548"/><path d="M38 23q15-5 29 1" stroke="#fff5e4" stroke-width="7" stroke-linecap="round"/><circle cx="73" cy="20" r="6" fill="#fff5e4"/>
-  </g>
-  <g class="cm-reindeer">
-    <g class="cm-leg cm-leg-b"><path d="m130 63-3 20h-7M151 63l7 20h7" fill="none" stroke="#926041" stroke-width="5" stroke-linecap="round"/></g>
-    <ellipse cx="140" cy="58" rx="24" ry="14" fill="#b98252"/><path d="m119 55-9-7 4 14" fill="#fff0cf"/>
-    <g class="cm-leg cm-leg-a"><path d="m131 64 7 19h7M155 63l-5 20h7" fill="none" stroke="#c7905b" stroke-width="5" stroke-linecap="round"/></g>
-    <path d="m153 51 4-23 14 2 1 27" fill="#c7905b"/><path d="m158 29-9-8q-7 10 6 15M170 27l9-8q7 10-4 16" fill="#bd8551" stroke="#91613d" stroke-width="1.5"/>
-    <g fill="none" stroke="#72523c" stroke-width="3" stroke-linecap="round"><path d="M160 27 155 8l-7-4M156 15l-8-1M169 26l2-20 6-4M172 13l8-3"/></g>
-    <ellipse cx="166" cy="37" rx="13" ry="14" fill="#c7905b"/><ellipse cx="175" cy="43" rx="11" ry="7" fill="#f2d6af"/><circle cx="183" cy="40" r="4" fill="#d43e4e"/><circle cx="167" cy="34" r="2" fill="#263d34"/><circle cx="166.5" cy="33.5" r=".6" fill="#fff"/><path d="m171 47 5 1" stroke="#80543d" stroke-width="1.2" stroke-linecap="round"/>
-    <path d="m155 50 16 2" stroke="#b4273b" stroke-width="5"/><circle cx="160" cy="55" r="4" fill="#efd08b"/><path d="m160 53 0 4" stroke="#99733d"/>
-  </g>
-</svg>`;
 
 export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme = defaultSeasonalTheme()) {
   lifecycle?.abort(); lifecycle = new AbortController();
@@ -74,42 +54,61 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
   if (badge) badge.innerHTML = '<span>%</span>';
   const controls = document.createElement('div'); controls.className = 'cm-companion-controls';
   controls.innerHTML = h('<button type="button" class="cm-play">Santa & his little helper <span aria-hidden="true">↗</span></button><button type="button" class="cm-dismiss" aria-label="Hide Santa and reindeer">×</button>');
-  const road = document.createElement('div'); road.className = 'cm-parade';
-  road.setAttribute('aria-hidden','true'); road.innerHTML = `<div class="cm-travellers">${companions}</div>`;
-  hero.append(controls, road);
+  const home = document.createElement('div');home.className='cm-character-home';home.hidden=true;
+  const stage=document.createElement('div');stage.className='cm-floating-companions';stage.hidden=true;
+  stage.innerHTML=`<div class="cm-magic-aura" aria-hidden="true"></div><div class="cm-flight-art">${christmasCompanions}</div>`+h('<button type="button" class="cm-float-dismiss" aria-label="Hide Santa and reindeer">×</button>');
+  hero.append(controls,home);document.body.append(stage);
   const playButton = controls.querySelector<HTMLButtonElement>('.cm-play')!;
   const closeButton = controls.querySelector<HTMLButtonElement>('.cm-dismiss')!;
-  const travellers = road.querySelector<HTMLElement>('.cm-travellers')!;
+  const art=stage.querySelector<HTMLElement>('.cm-flight-art')!,santa=stage.querySelector<SVGElement>('.cm-santa-figure')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const phone = matchMedia('(max-width: 600px)');
-  const animationAllowed=(isThemeKey(preview)?params.get('theme-motion')!=='false':settings.animations)&&typeof travellers.animate==='function';
-  let dismissed = false, animation: Animation | undefined, timer: ReturnType<typeof setTimeout> | undefined;
+  const animationAllowed=(isThemeKey(preview)?params.get('theme-motion')!=='false':settings.animations)&&typeof art.animate==='function';
+  let dismissed=false,timer:ReturnType<typeof setTimeout>|undefined,phaseTimer:ReturnType<typeof setTimeout>|undefined,endTimer:ReturnType<typeof setTimeout>|undefined,animations:Animation[]=[],previous:{x:number;y:number}|undefined;
   try { dismissed = sessionStorage.getItem(dismissalKey) === 'hidden'; } catch { /* Optional device preference. */ }
-  const stop = () => { clearTimeout(timer); animation?.cancel(); animation=undefined; road.classList.remove('is-playing','is-waving'); };
-  const blocked = () => document.hidden || !root.isConnected || !!document.querySelector('dialog[open]') || document.body.classList.contains('category-focused') || document.body.classList.contains('site-menu-open') || !!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
+  const stop=()=>{clearTimeout(timer);clearTimeout(phaseTimer);clearTimeout(endTimer);endTimer=undefined;timer=undefined;phaseTimer=undefined;const active=animations;animations=[];for(const animation of active){animation.onfinish=null;animation.cancel();}stage.hidden=true;stage.dataset.phase='hidden';stage.classList.remove('is-playing','is-home');home.hidden=true;if(stage.parentElement!==document.body)document.body.append(stage);};
+  const blocked=()=>document.hidden||!root.isConnected||!!document.querySelector('dialog[open]')||document.body.classList.contains('site-menu-open')||!!document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
+  function position(){
+    const width=document.documentElement.clientWidth,height=window.innerHeight,size=phone.matches?{width:112,height:100}:{width:180,height:154};
+    const visible=(n:HTMLElement)=>!stage.contains(n)&&!!n.getClientRects().length;
+    const inView=(r:DOMRect)=>r.width>0&&r.height>0&&r.bottom>0&&r.top<height&&r.right>0&&r.left<width;
+    const protectedAreas=[...document.querySelectorAll<HTMLElement>('.site-header,.marketplace-phone-nav,.customer-phone-nav,.floating-whatsapp,.phone-event-bar,.event-selection-tray,#notice,label,input,select,textarea,button,a:not(.mp-category)')].filter(visible).filter(n=>!n.matches('button,a')||!n.querySelector('img')).map(n=>n.getBoundingClientRect()).filter(inView);
+    const readingAreas=[...document.querySelectorAll<HTMLElement>('h1,h2,h3,p,.mp-category strong,.mp-category-icon,.mp-category-arrow')].filter(visible).map(n=>{const r=n.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,weight:n.matches('.mp-category-icon,.mp-category-arrow')?1:10};}).filter(r=>r.width&&r.height&&r.bottom>0&&r.top<height);
+    const result=festivePosition(width,height,size.width,size.height,protectedAreas,previous,Math.random,readingAreas);
+    if(result){stage.style.setProperty('--cm-x',result.x+'px');stage.style.setProperty('--cm-y',result.y+'px');previous=result;}
+    return result;
+  }
   function play(manual = false) {
     stop();
     if (dismissed || reduced.matches || !animationAllowed || blocked()) { if(!manual) schedule(); return; }
-    const distance = Math.max(road.clientWidth, 240), reverse = Math.random() > .5;
-    road.classList.add('is-playing'); road.classList.toggle('is-reversed', reverse);
-    animation = travellers.animate([
-      {transform:'translateX(-190px)',offset:0},
-      {transform:`translateX(${distance*.48-85}px)`,offset:.38},
-      {transform:`translateX(${distance*.48-85}px)`,offset:.62},
-      {transform:`translateX(${distance+10}px)`,offset:1},
-    ], {duration:phone.matches?14000:17000,easing:'linear',fill:'both'});
-    timer = setTimeout(() => {
-      road.classList.add('is-waving');
-      timer = setTimeout(() => road.classList.remove('is-waving'), (phone.matches?14000:17000)*.24);
-    }, (phone.matches?14000:17000)*.38);
-    animation.onfinish = () => { stop(); if(!phone.matches) schedule(); };
+    if(!position()){
+      if(!manual){schedule();return;}
+      // A crowded phone gets a dedicated preview space instead of covered controls.
+      home.hidden=false;home.append(stage);stage.classList.add('is-home');
+    }
+    stage.hidden=false;stage.classList.add('is-playing');stage.dataset.phase='enter';
+    phaseTimer=setTimeout(()=>{stage.dataset.phase='visible';},2200);
+    const appearance=art.animate([
+      {opacity:0,transform:'translateY(20px) scale(.3) rotate(-12deg)',filter:'blur(6px)',offset:0},
+      {opacity:1,transform:'translateY(-3px) scale(1.05) rotate(3deg)',filter:'blur(0)',offset:.1},
+      {opacity:1,transform:'translateY(0) scale(1) rotate(0)',offset:.15},
+      {opacity:1,transform:'translateY(-5px) scale(1) rotate(0)',offset:.7},
+      {opacity:1,transform:'translateY(0) scale(1) rotate(0)',offset:.82},
+      {opacity:0,transform:'translateY(-28px) scale(.2) rotate(18deg)',filter:'blur(5px)',offset:1},
+    ],{duration:7600,easing:'ease-in-out'});
+    animations=[appearance,santa.animate([
+      {transform:'perspective(450px) rotateY(0deg) translateY(0)'},
+      {transform:'perspective(450px) rotateY(180deg) translateY(-8px)',offset:.5},
+      {transform:'perspective(450px) rotateY(360deg) translateY(0)'},
+    ],{delay:1700,duration:1500,easing:'ease-in-out'}),stage.querySelector('.cm-reindeer-figure')!.animate([{transform:'translateY(0)'},{transform:'translateY(-8px)'},{transform:'translateY(0)'}],{delay:2800,duration:650,iterations:2,easing:'ease-in-out'})];
+    endTimer=setTimeout(()=>{stop();schedule();},7600);
   }
-  function schedule(initial = false) {
+  function schedule(initial=false,quiet=false) {
     if (dismissed || reduced.matches || !animationAllowed) return;
-    timer = setTimeout(() => play(), initial ? 2800 + Math.random()*2500 : 80000 + Math.random()*40000);
+    clearTimeout(timer);timer=setTimeout(()=>play(),initial?1600+Math.random()*1800:quiet?6000+Math.random()*3000:phone.matches?45000+Math.random()*30000:25000+Math.random()*20000);
   }
   function paintPreference() {
-    stop(); road.hidden = dismissed || reduced.matches || !animationAllowed;
+    stop();
     closeButton.hidden = dismissed || reduced.matches || !animationAllowed;
     setCopy(playButton, reduced.matches || !animationAllowed ? 'A little Christmas magic' : dismissed ? 'Show Santa & reindeer' : 'Santa & his little helper');
     playButton.disabled = reduced.matches || !animationAllowed;
@@ -118,12 +117,18 @@ export function mountChristmasMarket(root: HTMLElement, settings:SeasonalTheme =
   }
   playButton.addEventListener('click', () => { dismissed=false;try{sessionStorage.removeItem(dismissalKey);}catch{/* Optional. */}paintPreference();play(true); }, {signal});
   closeButton.addEventListener('click', () => { dismissed=true;try{sessionStorage.setItem(dismissalKey,'hidden');}catch{/* Optional. */}paintPreference();playButton.focus({preventScroll:true}); }, {signal});
+  stage.querySelector('.cm-float-dismiss')!.addEventListener('click',()=>closeButton.click(),{signal});
   reduced.addEventListener('change', paintPreference, {signal});
-  document.addEventListener('visibilitychange', () => { stop(); if(!document.hidden && !phone.matches) schedule(); }, {signal});
+  document.addEventListener('visibilitychange', () => { stop(); if(!document.hidden) schedule(false,true); }, {signal});
   document.addEventListener('focusin', () => { if(blocked()) stop(); }, {signal});
-  window.addEventListener('hashchange', () => { stop(); if(!phone.matches) schedule(); }, {signal});
-  const observer = new MutationObserver(() => { if(blocked()) stop(); });
+  document.addEventListener('focusout',()=>{if(stage.hidden)schedule(false,true);},{signal});
+  window.addEventListener('hashchange', () => { stop();schedule(false,true); }, {signal});
+  window.addEventListener('scroll',()=>{stop();schedule(false,true);},{signal,passive:true});
+  window.addEventListener('resize',()=>{stop();schedule(false,true);},{signal,passive:true});
+  const observer = new MutationObserver(() => { if(blocked())stop();else if(stage.hidden&&timer===undefined)schedule(false,true); });
   const modal = document.querySelector('#modal'); if(modal) observer.observe(modal,{attributes:true,attributeFilter:['open']});
-  signal.addEventListener('abort', () => { stop();observer.disconnect(); }, {once:true});
+  observer.observe(document.body,{attributes:true,attributeFilter:['class']});
+  signal.addEventListener('abort', () => { stop();observer.disconnect();stage.remove(); }, {once:true});
   paintPreference();
 }
+

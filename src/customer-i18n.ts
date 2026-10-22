@@ -4,6 +4,8 @@ export type { CustomerLanguage };
 export const languageStorageKey = 'magic-app:customer-language:v1';
 let language: CustomerLanguage = 'en';
 let enabled = false;
+let languageBar:HTMLElement|undefined;
+function languageBadge(){const badge=languageBar?.querySelector('[data-language-badge]');if(badge)badge.textContent=language==='ar'?'ع':language.toUpperCase();}
 export function customerLanguage() { return language; }
 export function customerLocale() { return localeForCustomer(language); }
 export function formatCustomerDate(value: string) {
@@ -65,13 +67,17 @@ export function installCustomerLanguageSelector() {
   const localizeTitle=()=> { document.title=sourceTitle.split(' · ').map(t).join(' · '); };
   localizeTitle();document.addEventListener('customerlanguagechange',localizeTitle);
   const bar = document.createElement('nav'); bar.className = 'customer-language-bar'; bar.setAttribute('aria-label','English / Français / العربية');
-  const label = document.createElement('label'); label.htmlFor = 'customer-language'; label.textContent = '🌐';
+  const label = document.createElement('label'); label.htmlFor = 'customer-language';label.setAttribute('aria-hidden','true');label.innerHTML='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>';
   const select = document.createElement('select'); select.id = 'customer-language'; select.setAttribute('aria-label','English / Français / العربية');
   for (const [value, name] of [['en','English'],['fr','Français'],['ar','العربية']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = name; select.append(option);
   }
-  select.value = language; bar.append(label, select); document.body.prepend(bar);
+  const badge=document.createElement('span');badge.dataset.languageBadge='';badge.setAttribute('aria-hidden','true');
+  const chevron=document.createElement('span');chevron.className='language-chevron';chevron.setAttribute('aria-hidden','true');chevron.textContent='⌄';
+  select.value = language; bar.append(label,badge,chevron,select);languageBar=bar;languageBadge();document.body.prepend(bar);
   select.addEventListener('change', () => changeLanguage(select.value));
+  const place=()=>{const header=document.querySelector('#app .site-header');if(header){if(bar.parentElement!==header)header.append(bar);bar.classList.add('header-language');const menu=header.querySelector<HTMLElement>('#mobile-menu-toggle');if(menu){menu.dataset.customerAriaLabel='Explore';menu.setAttribute('aria-label',t('Explore'));}}else{if(bar.parentElement!==document.body)document.body.prepend(bar);bar.classList.remove('header-language');}};
+  const app=document.getElementById('app');if(app)new MutationObserver(place).observe(app,{childList:true});place();
 }
 
 export function setCopy(node: Element, value: string) { node.setAttribute('data-customer-text',value); node.textContent=t(value); }
@@ -91,6 +97,7 @@ export function customerError(value: string): string {
 
 export function changeLanguage(value: string) {
   setCustomerLanguage(value);
+  languageBadge();
   try { localStorage.setItem(languageStorageKey,language); } catch { /* Optional storage. */ }
   document.documentElement.lang=language;document.documentElement.dir=language==='ar'?'rtl':'ltr';
   document.querySelectorAll<HTMLSelectElement>('[data-customer-language], #customer-language').forEach(select => { select.value=language; });

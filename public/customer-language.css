@@ -1,7 +1,12 @@
 
 /* Shared customer languages. Administration never receives this selector. */
-.customer-language-bar{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;padding:.45rem max(1rem,calc((100vw - 1240px)/2));background:#f6f2ff;color:#30214a;position:relative;z-index:21}
-.customer-language-bar select{width:auto;max-width:100%;padding:.35rem 2rem .35rem .7rem;border-radius:999px;border:1px solid #c8badc;background:#fff;font:inherit;font-size:.88rem}
+.customer-language-bar{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;background:#ffffffbd;color:#3b3650;position:absolute;inset-inline-end:16px;top:16px;z-index:21;border:1px solid #dcdce4;border-radius:12px;min-height:44px;min-width:82px;font:600 12px/1 var(--font-body,"Segoe UI",sans-serif);flex:0 0 auto;box-shadow:0 2px 5px #20312e06}
+.customer-language-bar.header-language{position:relative;inset:auto;margin-inline-start:4px;z-index:auto}
+.customer-language-bar label{margin:0;display:flex;align-items:center;pointer-events:none}.customer-language-bar [data-language-badge]{min-width:19px;pointer-events:none}.customer-language-bar .language-chevron{font-size:15px;line-height:1;pointer-events:none;transform:translateY(-2px)}
+.customer-language-bar select{position:absolute;inset:0;opacity:0;width:100%;height:100%;min-height:44px;margin:0;padding:0;font:400 16px/1.4 var(--font-body,"Segoe UI",sans-serif);cursor:inherit;border:0}
+.customer-language-bar:focus-within{outline:3px solid #8062a8;outline-offset:3px}.christmas-market .customer-language-bar{color:#244c3b;border-color:#d6ddce;background:#fffdf5}
+@media(max-width:760px){.customer-surface.compact-marketplace .site-header .customer-language-bar{min-width:50px;width:50px;min-height:44px;gap:3px;padding:0 5px;margin-inline-start:0;border-radius:11px}.customer-surface.compact-marketplace .site-header .customer-language-bar label svg{width:14px;height:14px}.customer-surface.compact-marketplace .site-header .customer-language-bar .language-chevron{display:none}.customer-surface.compact-marketplace .site-header .customer-language-bar [data-language-badge]{min-width:17px;font-size:11px}.customer-surface.compact-marketplace .site-header .mobile-menu-toggle{width:38px;flex:0 0 38px;justify-content:center;padding:6px}.customer-surface.compact-marketplace .mobile-menu-toggle>span:not(.mobile-menu-toggle-icon){display:none}}
+@media(max-width:389px){.customer-surface.compact-marketplace .site-header .brand{flex:1 1 30px;min-width:30px;max-width:50px;gap:0}.customer-surface.compact-marketplace .site-header .brand>span:last-child{display:none}}
 .customer-copy{display:contents}
 html[dir=rtl] .customer-surface{font-family:Tahoma,Arial,sans-serif;letter-spacing:normal;font-family:Tahoma,Arial,sans-serif}
 html[dir=rtl] .customer-surface :is(h1,h2,h3,button,input,select,textarea){letter-spacing:normal;font-family:Tahoma,Arial,sans-serif}
