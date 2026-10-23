@@ -26,6 +26,7 @@ type Options = {
 };
 let controller: AbortController | undefined;
 let returnY = 0;
+const escapeArtist = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const decodeKey = (value: string) => {
   try {
     return decodeURIComponent(value);
@@ -174,7 +175,7 @@ export function mountCompactMarketplace({
       artists
         .map(
           (p) =>
-            h`<button type="button" class="artist-card" data-artist-profile="${p.id}">${p.photo ? h`<img src="${p.photo}" alt="" loading="lazy">` : h('<span class="artist-placeholder" aria-hidden="true">✦</span>')}<span><strong>${p.name}</strong><small>${copy(p.speciality)}</small></span><b aria-hidden="true">↗</b></button>`,
+            h`<button type="button" class="artist-card" data-artist-profile="${escapeArtist(p.id)}">${p.photo ? h`<img src="${escapeArtist(p.photo)}" alt="" loading="lazy">` : h('<span class="artist-placeholder" aria-hidden="true">✦</span>')}<span><strong>${escapeArtist(p.name)}</strong><small>${copy(p.speciality)}</small></span><b aria-hidden="true">↗</b></button>`,
         )
         .join("") +
       h("</div>");

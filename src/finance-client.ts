@@ -27,6 +27,8 @@ import {
 } from "./finance-workflow.js";
 import { financeReviewTables, reviewCsv } from "./finance-review.js";
 
+import {readBackstageRoute, writeBackstageRoute} from './backstage-route.js';
+
 type Api = <T = Record<string, unknown>>(
   path: string,
   method?: string,
@@ -107,6 +109,12 @@ const titles: Record<FinanceType, string> = {
 };
 const postingTypes = ["document", "payroll", "stock", "journal", "payment"];
 const financeNavigationDocuments = new WeakSet<Document>();
+export function disposeFinanceDialogs() {
+  document.querySelectorAll<HTMLDialogElement>('dialog.finance-dialog').forEach(dialog => {
+    dialog.close();
+    dialog.remove();
+  });
+}
 function enableFinanceNavigation(document: Document) {
   if (financeNavigationDocuments.has(document)) return;
   financeNavigationDocuments.add(document);
@@ -171,6 +179,10 @@ export function mountFinanceDesk(
     employeeFilter = "";
     userId = state.user.id;
   }
+  const route = readBackstageRoute(location.hash);
+  if (!initialServiceId && route.view === 'money') section = route.finance ?? 'home';
+  const canConfigure = ['owner', 'admin'].includes(state.user.role);
+  const canEditType = (type: FinanceType) => canConfigure || !['tax', 'company', 'close'].includes(type);
   const panel = document.createElement("section");
   panel.dataset.accounting = "desk";
   panel.className = "finance-desk";
@@ -178,6 +190,25 @@ export function mountFinanceDesk(
   let view: View;
   let dialog: HTMLDialogElement | undefined;
   let documentFilter = "active";
+  function createDialog() {
+    dialog?.close();
+    dialog?.remove();
+    const opened = document.createElement('dialog');
+    opened.className = 'finance-dialog';
+    opened.addEventListener('close', () => {
+      opened.remove();
+      if (dialog === opened) {
+        dialog = undefined;
+        if (initialServiceId) root.remove();
+      }
+    }, {once: true});
+    document.body.append(opened);
+    dialog = opened;
+    return opened;
+  }
+  function rememberSection() {
+    if (!initialServiceId) writeBackstageRoute({...readBackstageRoute(location.hash), view: 'money', report: 'desk', finance: section});
+  }
   const money = (n: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -868,22 +899,10 @@ export function mountFinanceDesk(
     duplicate = false,
     defaults: Record<string, unknown> = {},
   ) {
-    dialog?.remove();
-    dialog = document.createElement("dialog");
-    dialog.className = "finance-dialog";
-    dialog.setAttribute("aria-labelledby", "finance-dialog-title");
-    if (initialServiceId) {
-      const opened = dialog;
-      opened.addEventListener(
-        "close",
-        () => {
-          opened.remove();
-          root.remove();
-        },
-        { once: true },
-      );
-    }
-    document.body.append(dialog);
+    if (!canEditType(type)) return;
+    dialog = createDialog();
+    const dialogTitleId = 'finance-dialog-' + crypto.randomUUID();
+    dialog.setAttribute('aria-labelledby', dialogTitleId);
     const original = record?.data as unknown as
       Record<string, unknown> | undefined;
     if (!record && type === "payroll") {
@@ -959,8 +978,13 @@ export function mountFinanceDesk(
                 ]),
         )
       : undefined;
-    dialog.innerHTML = `<div class="dialog-heading"><h2 id="finance-dialog-title">${record && !duplicate ? "Edit" : "Add"} ${e(employeePayment ? (String(values.kind) === "advance" ? "Salary advance" : "Salary payment") : titles[type])}</h2><button type="button" class="close" aria-label="Close accounting editor">×</button></div><form><p class="form-error finance-error" role="alert"></p><div class="finance-form-grid">${config.map((f) => field(f, values[f.key] ?? ((f.kind === "money" || f.kind === "number" || f.kind === "percent") && !f.nullable ? 0 : ""))).join("")}</div>${lines?.html ?? ""}${type === "payroll" ? '<section class="employee-hours-source"><button type="button" class="outline small" data-load-employee-hours>Load approved attendance hours</button><p>Hours and rate are saved on this payslip. Review allowances, overtime and deductions separately.</p><small data-employee-hour-source></small></section>' : ""}<div class="finance-preview" role="status"></div><p class="muted">${postingTypes.includes(type) ? "Save a draft, review it, then post. Posting records accounting entries; it never sends money." : "Changes are saved privately. Selling prices need a separate Publish action."}</p><button type="submit">Save ${postingTypes.includes(type) ? "draft" : "changes"}</button></form>`;
+    dialog.innerHTML = `<div class="dialog-heading"><h2 id="${dialogTitleId}" data-finance-dialog-heading>${record && !duplicate ? "Edit" : "Add"} ${e(employeePayment ? (String(values.kind) === "advance" ? "Salary advance" : "Salary payment") : titles[type])}</h2><button type="button" class="close" aria-label="Close accounting editor">×</button></div><form><p class="form-error finance-error" role="alert"></p><div class="finance-form-grid">${config.map((f) => field(f, values[f.key] ?? ((f.kind === "money" || f.kind === "number" || f.kind === "percent") && !f.nullable ? 0 : ""))).join("")}</div>${lines?.html ?? ""}${type === "payroll" ? '<section class="employee-hours-source"><button type="button" class="outline small" data-load-employee-hours>Load approved attendance hours</button><p>Hours and rate are saved on this payslip. Review allowances, overtime and deductions separately.</p><small data-employee-hour-source></small></section>' : ""}<div class="finance-preview" role="status"></div><p class="muted">${postingTypes.includes(type) ? "Save a draft, review it, then post. Posting records accounting entries; it never sends money." : "Changes are saved privately. Selling prices need a separate Publish action."}</p><button type="submit">Save ${postingTypes.includes(type) ? "draft" : "changes"}</button></form>`;
     const form = dialog.querySelector("form")!;
+    let payBasis = String(values.payBasis ?? 'monthly');
+    const selectedEmployee = view.records.find(r => r.id === (defaults.employeeId ?? original?.employeeId)) ?? active('employee')[0];
+    let monthlyPay = payBasis === 'monthly'
+      ? (form.elements.namedItem('basic') as HTMLInputElement | null)?.value ?? '0'
+      : String(selectedEmployee?.data.type === 'employee' ? selectedEmployee.data.salary / 100 : 0);
     if (type === "account" && section === "cash" && !record)
       (form.elements.namedItem("cash") as HTMLInputElement).checked = true;
     if (
@@ -988,7 +1012,7 @@ export function mountFinanceDesk(
             "</option>",
         )
         .join("");
-      dialog.querySelector("#finance-dialog-title")!.textContent =
+      dialog.querySelector("[data-finance-dialog-heading]")!.textContent =
         "Add " +
         (section === "purchases"
           ? "Supplier bill"
@@ -1109,9 +1133,14 @@ export function mountFinanceDesk(
           ["paidHours", "hourlyRate", "payBasis"].includes(name)
         ) {
           const data = read() as DataOf<"payroll">;
+          const basic = form.elements.namedItem('basic') as HTMLInputElement;
+          if (data.payBasis !== payBasis) {
+            if (payBasis === 'monthly') monthlyPay = basic.value;
+            if (data.payBasis === 'monthly') basic.value = monthlyPay;
+            payBasis = data.payBasis;
+          }
           if (data.payBasis === "hourly")
-            (form.elements.namedItem("basic") as HTMLInputElement).value =
-              String(hourlyBasic(data.paidHours, data.hourlyRate) / 100);
+            basic.value = String(hourlyBasic(data.paidHours, data.hourlyRate) / 100);
         }
       } catch {
         /* Preview reports incomplete input below. */
@@ -1192,6 +1221,8 @@ export function mountFinanceDesk(
             ),
           );
         }
+        payBasis = (form.elements.namedItem('payBasis') as HTMLSelectElement).value;
+        monthlyPay = String(employee?.data.type === 'employee' ? employee.data.salary / 100 : 0);
         preview();
       };
       form
@@ -1303,22 +1334,8 @@ export function mountFinanceDesk(
   function detail(id: string) {
     const r = view.records.find((r) => r.id === id);
     if (!r) return;
-    dialog?.remove();
-    dialog = document.createElement("dialog");
-    dialog.className = "finance-dialog";
-    if (initialServiceId) {
-      const opened = dialog;
-      opened.addEventListener(
-        "close",
-        () => {
-          opened.remove();
-          root.remove();
-        },
-        { once: true },
-      );
-    }
-    document.body.append(dialog);
-    const canEdit = r.status === "draft" && !r.publishedAt;
+    dialog = createDialog();
+    const canEdit = r.status === "draft" && !r.publishedAt && canEditType(r.data.type);
     const recordFields = fields(r.data.type);
     const displayValue = (key: string, value: unknown): string => {
       const f = recordFields.find((field) => field.key === key);
@@ -1357,7 +1374,7 @@ export function mountFinanceDesk(
       )
       .join(
         "",
-      )}</dl>${r.data.type === "document" ? `<div class="table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>${r.data.lines.map((l, i) => `<tr><td>${e(l.description)}</td><td>${l.quantity}</td><td>${money(l.unitPrice)}</td><td>${money(r.totals?.lines[i]?.total ?? 0)}</td></tr>`).join("")}</tbody></table></div>` : ""}<div class="actions finance-record-actions">${canEdit ? '<button type="button" data-f-edit>Edit</button>' : ""}<button type="button" class="outline" data-f-copy>Duplicate as new draft</button>${canEdit && postingTypes.includes(r.data.type) && !r.archived ? '<button type="button" data-f-post>Review & post</button>' : ""}${canEdit && r.data.type === "price" && !r.archived ? '<button type="button" data-f-publish>Publish customer price</button>' : ""}${canEdit ? `<button type="button" class="outline" data-f-archive>${r.archived ? "Restore" : "Archive"}</button>` : ""}${r.status === "posted" && r.data.type === "document" && r.data.kind === "invoice" && r.data.revenueTreatment === "deferred" && !r.recognizedDate ? '<button type="button" class="outline" data-f-recognize>Recognize earned revenue</button>' : ""}${r.status === "posted" && r.data.type !== "stock" ? '<button type="button" class="danger outline" data-f-reverse>Correct by reversal</button>' : ""}${["document", "payroll", "payment"].includes(r.data.type) ? `<a class="button outline" target="_blank" rel="noopener" href="/api/manage/finance/${e(r.id)}/print">Print / save PDF ↗</a>` : ""}</div><section class="finance-receipts"><h3>Private receipts & documents</h3>${view.attachments
+      )}</dl>${r.data.type === "document" ? `<div class="table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>${r.data.lines.map((l, i) => `<tr><td>${e(l.description)}</td><td>${l.quantity}</td><td>${money(l.unitPrice)}</td><td>${money(r.totals?.lines[i]?.total ?? 0)}</td></tr>`).join("")}</tbody></table></div>` : ""}<div class="actions finance-record-actions">${canEdit ? '<button type="button" data-f-edit>Edit</button>' : ""}${canEditType(r.data.type) ? '<button type="button" class="outline" data-f-copy>Duplicate as new draft</button>' : ""}${canEdit && postingTypes.includes(r.data.type) && !r.archived ? '<button type="button" data-f-post>Review & post</button>' : ""}${canEdit && r.data.type === "price" && !r.archived ? '<button type="button" data-f-publish>Publish customer price</button>' : ""}${canEdit ? `<button type="button" class="outline" data-f-archive>${r.archived ? "Restore" : "Archive"}</button>` : ""}${r.status === "posted" && r.data.type === "document" && r.data.kind === "invoice" && r.data.revenueTreatment === "deferred" && !r.recognizedDate ? '<button type="button" class="outline" data-f-recognize>Recognize earned revenue</button>' : ""}${r.status === "posted" && r.data.type !== "stock" ? '<button type="button" class="danger outline" data-f-reverse>Correct by reversal</button>' : ""}${["document", "payroll", "payment"].includes(r.data.type) ? `<a class="button outline" target="_blank" rel="noopener" href="/api/manage/finance/${e(r.id)}/print">Print / save PDF ↗</a>` : ""}</div><section class="finance-receipts"><h3>Private receipts & documents</h3>${view.attachments
       .filter((a) => a.recordId === r.id)
       .map(
         (a) =>
@@ -1373,8 +1390,8 @@ export function mountFinanceDesk(
       .querySelector("[data-f-edit]")
       ?.addEventListener("click", () => edit(r.data.type, r));
     dialog
-      .querySelector("[data-f-copy]")!
-      .addEventListener("click", () => edit(r.data.type, r, true));
+      .querySelector("[data-f-copy]")
+      ?.addEventListener("click", () => edit(r.data.type, r, true));
     for (const action of ["post", "publish", "archive"])
       dialog.querySelector(`[data-f-${action}]`)?.addEventListener(
         "click",
@@ -1494,7 +1511,7 @@ export function mountFinanceDesk(
     const documents = types.some((type) =>
       ["document", "payroll"].includes(type),
     );
-    return `<section class="panel finance-record-list" data-list-filter="${documents ? e(documentFilter) : "active"}"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${types.map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(section === "employees" && type === "payment" ? "Salary advance" : type === "document" && section === "purchases" ? "Supplier bill" : type === "document" && section === "sales" ? "Customer invoice / credit" : titles[type])}</button>`).join("")}</div></div><div class="finance-list-tools"><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}"><div class="finance-list-filters" role="group" aria-label="Filter ${e(title)}">${[
+    return `<section class="panel finance-record-list" data-list-filter="${documents ? e(documentFilter) : "active"}"><div class="section-heading"><h3>${e(title)}</h3><div class="actions">${!canConfigure && types.some(type => !canEditType(type)) ? '<span class="muted">Owner-managed settings · read only</span>' : ""}${types.filter(canEditType).map((type) => `<button type="button" class="small" data-finance-add="${type}">＋ ${e(section === "employees" && type === "payment" ? "Salary advance" : type === "document" && section === "purchases" ? "Supplier bill" : type === "document" && section === "sales" ? "Customer invoice / credit" : titles[type])}</button>`).join("")}</div></div><div class="finance-list-tools"><input type="search" class="search" data-finance-filter aria-label="Search ${e(title)}" placeholder="Search ${e(title.toLowerCase())}"><div class="finance-list-filters" role="group" aria-label="Filter ${e(title)}">${[
       ["active", "Active"],
       ...(documents
         ? [
@@ -1581,10 +1598,10 @@ export function mountFinanceDesk(
                         !postingTypes.includes(r.data.type)
                       ? "Saved"
                       : r.status;
-              return `<tr data-finance-row data-record-status="${e(r.status)}" data-record-archived="${r.archived}" data-record-open="${!!paymentState && paymentState.balance > 0}" data-record-overdue="${!!paymentState?.overdue}" data-record-settled="${!!paymentState && paymentState.balance === 0}"><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="finance-state ${paymentState?.overdue ? "is-overdue" : paymentState?.balance ? "is-open" : ""}">${e(status)}</span></td><td>${e(value)}</td>${documents ? `<td>${e(due || "—")}</td><td>${paymentState ? money(paymentState.balance) : "—"}</td>` : ""}<td><button type="button" class="small outline" data-finance-open="${e(r.id)}">Open / edit</button>${section === "employees" && r.data.type === "payroll" && r.status === "posted" && documentBalance(r, view.records).balance > 0 ? '<button type="button" class="small" data-employee-pay="' + e(r.id) + '">Record salary payment</button>' : ""}</td></tr>`;
+              return `<tr data-finance-row data-record-status="${e(r.status)}" data-record-archived="${r.archived}" data-record-open="${!!paymentState && paymentState.balance > 0}" data-record-overdue="${!!paymentState?.overdue}" data-record-settled="${!!paymentState && paymentState.balance === 0}"><td><strong>${e(r.number ?? r.data.name)}</strong><small>${e(r.number ? r.data.name : titles[r.data.type])}</small></td><td><span class="finance-state ${paymentState?.overdue ? "is-overdue" : paymentState?.balance ? "is-open" : ""}">${e(status)}</span></td><td>${e(value)}</td>${documents ? `<td>${e(due || "—")}</td><td>${paymentState ? money(paymentState.balance) : "—"}</td>` : ""}<td><button type="button" class="small outline" data-finance-open="${e(r.id)}">${canEditType(r.data.type) ? "Open / edit" : "View record"}</button>${section === "employees" && r.data.type === "payroll" && r.status === "posted" && documentBalance(r, view.records).balance > 0 ? '<button type="button" class="small" data-employee-pay="' + e(r.id) + '">Record salary payment</button>' : ""}</td></tr>`;
             }),
           )
-        : `<div class="finance-empty">${e(title)} will appear here. Add your first record above.</div>`
+        : `<div class="finance-empty">${e(title)} will appear here. ${types.some(canEditType) ? "Add your first record above." : "Ask the owner to configure these settings."}</div>`
     }<p class="finance-filter-empty" hidden>No records match. Change the filter or clear your search.</p></section>`;
   }
   function eventCosts() {
@@ -2009,12 +2026,14 @@ export function mountFinanceDesk(
       .querySelector<HTMLSelectElement>(".finance-mobile-sections")
       ?.addEventListener("change", (event) => {
         section = (event.currentTarget as HTMLSelectElement).value;
+        rememberSection();
         documentFilter = "active";
         draw();
       });
     panel.querySelectorAll<HTMLElement>("[data-finance-section]").forEach((b) =>
       b.addEventListener("click", () => {
         section = b.dataset.financeSection!;
+        rememberSection();
         if(b.dataset.employeeView)employeeTab=b.dataset.employeeView;
         documentFilter = b.dataset.financePreset || "active";
         draw();

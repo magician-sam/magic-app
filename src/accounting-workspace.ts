@@ -1,3 +1,4 @@
+import {readBackstageRoute, writeBackstageRoute} from './backstage-route.js';
 import { accountingBalances } from './accounting.js';
 import type { Dashboard } from './models.js';
 import type { reportPeriod } from './reports.js';
@@ -7,6 +8,8 @@ let selectedUser = '';
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function mountAccounting(root: Element, state: Dashboard, report: ReturnType<typeof reportPeriod>, format: (value:number)=>string, open: (id:string)=>void) {
   if (selectedUser !== state.user.id) { selected = 'desk'; selectedUser = state.user.id; }
+  const route = readBackstageRoute(location.hash);
+  if (route.view === 'money') selected = route.report ?? 'desk';
   const balances=accountingBalances(report.events,state.money,state.actPlans);
   const event=(id:string,name:string)=>`<button class="link" data-accounting-event="${escape(id)}">${escape(name)}</button>`;
   const table=(heads:string[],rows:string[])=>`<div class="table-wrap"><table><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>${rows.length?'':'<p class="muted">No records in this selection.</p>'}</div>`;
@@ -30,11 +33,11 @@ export function mountAccounting(root: Element, state: Dashboard, report: ReturnT
   const panels=[...root.querySelectorAll<HTMLElement>('[data-accounting]')];
   const choices=[['desk','Finance desk'],['overview','Event balances'],['customers','Customer balances'],['artists','Artist pay'],['transactions','Event cash history'],['costs','Cost categories'],['margins','Event margins'],['insights','Marketing insights']];
   const available=choices.filter(([key])=>panels.some(panel=>panel.dataset.accounting===key));
-  const select=(key:string)=>{selected=key;reports.open=key!=='desk';const period=root.querySelector<HTMLElement>('[data-report-period]');if(period)period.hidden=key==='desk';panels.forEach(panel=>panel.hidden=panel.dataset.accounting!==key);tabs.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.section===key)));};
+  const select=(key:string,remember=true)=>{selected=key;if(remember)writeBackstageRoute({...readBackstageRoute(location.hash),view:'money',report:key});reports.open=key!=='desk';const period=root.querySelector<HTMLElement>('[data-report-period]');if(period)period.hidden=key==='desk';panels.forEach(panel=>panel.hidden=panel.dataset.accounting!==key);tabs.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.section===key)));};
   for(const [key,label]of available){const button=document.createElement('button');button.type='button';button.dataset.section=key;button.textContent=label;button.addEventListener('click',()=>select(key));if(key==='desk')tabs.append(button);else reports.querySelector('div')!.append(button);}
   tabs.append(reports);
   root.querySelector('[data-report-period]')?.after(tabs);
   root.querySelectorAll<HTMLButtonElement>('[data-accounting-go]').forEach(button=>button.addEventListener('click',()=>select(button.dataset.accountingGo!)));
   root.querySelectorAll<HTMLButtonElement>('[data-accounting-event]').forEach(button=>button.addEventListener('click',()=>open(button.dataset.accountingEvent!)));
-  select(available.some(([key])=>key===selected)?selected:'overview');
+  select(available.some(([key])=>key===selected)?selected:'overview',false);
 }

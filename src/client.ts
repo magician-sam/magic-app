@@ -4,7 +4,8 @@ import {inflatableItem,inflatablePhoto,inflatableSearchTerms,inflatableCatalogue
 import {inflatableCard,inflatableSizeBlock} from './inflatables-client.js';
 import { catalogueNameCopy, catalogueDescriptionCopy } from "./catalogue-copy.js";
 import { mountAccounting } from './accounting-workspace.js';
-import { mountFinanceDesk, openCatalogueSellingPrice } from './finance-client.js';
+import { mountFinanceDesk, openCatalogueSellingPrice, disposeFinanceDialogs } from './finance-client.js';
+import {readBackstageRoute, writeBackstageRoute} from './backstage-route.js';
 import { mountBackstageWorkspace } from './backstage-workspace.js';
 import {mountSupplierOffice} from './supplier-office-client.js';
 import {mountRegistrationAgreements} from './registration-agreements-client.js';
@@ -102,7 +103,21 @@ const empty = (title: string, description: string) =>
 let catalog: Catalog;
 let state: Dashboard | undefined;
 let occasionToOpen='';
-let currentView = location.hash === '#occasions' ? 'occasions' : location.hash === '#themes' ? 'themes' : location.hash === '#supplier-applications' ? 'supplier-applications' : location.hash === '#registration-agreements' ? 'registration-agreements' : location.hash === '#supplier-desks' ? 'supplier-desks' : location.hash === "#whatsapp" ? "whatsapp" : "today";
+let currentView = readBackstageRoute(location.hash).view;
+window.addEventListener('hashchange', () => {
+  if (location.pathname !== '/manage' || !state) return;
+  currentView = readBackstageRoute(location.hash).view;
+  renderDashboard();
+});
+document.querySelector('a[href="#main"]')?.addEventListener('click', event => {
+  if (location.pathname !== '/manage' || !state) return;
+  const main = document.querySelector<HTMLElement>('#main');
+  if (!main) return;
+  event.preventDefault();
+  main.tabIndex = -1;
+  main.focus();
+  main.scrollIntoView();
+});
 let calendarMonth = "",
   calendarDay = "",
   calendarStatus = "all",
@@ -2526,6 +2541,7 @@ async function customerFamily() {
 }
 
 async function login() {
+  disposeFinanceDialogs();
   app.innerHTML = `<main id="main" class="login"><section class="panel">${brand()}<h1>Hello, backstage.</h1><p class="muted">A little less admin. A lot more showtime.</p>${formBody(
     [
       { key: "email", label: "Email", type: "email", required: true },
@@ -2632,10 +2648,13 @@ function wireStudio() {
 }
 function renderDashboard() {
   if (!state) return;
+  disposeFinanceDialogs();
   if (currentView === "whatsapp" && !["owner", "admin"].includes(state.user.role)) currentView = "today";
   if (['occasions','themes','supplier-desks','supplier-applications','registration-agreements'].includes(currentView) && !['owner','admin'].includes(state.user.role)) currentView = 'today';
   const views = staffViews(state.user);
   if (views && !views.includes(currentView)) currentView = "today";
+  const previousRoute = readBackstageRoute(location.hash);
+  writeBackstageRoute(previousRoute.view === currentView ? previousRoute : {view: currentView}, previousRoute.view !== currentView && currentView === 'today');
   const title = navItems.find((n) => n[0] === currentView)?.[2] ?? "Today";
   app.innerHTML = `<div class="dashboard"><aside class="sidebar">${brand()}<nav aria-label="Dashboard">${navItems
     .filter(
