@@ -30,11 +30,12 @@
     "nodemailer": "^10.0.11",
     "promise-limit": "file:vendor/task-queue",
     "web-push": "^3.6.7",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "overrides": {
     "is-node-process": "$is-node-process",
-    "promise-limit": "$promise-limit"
+    "promise-limit": "$promise-limit",
+    "zod": "$zod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
